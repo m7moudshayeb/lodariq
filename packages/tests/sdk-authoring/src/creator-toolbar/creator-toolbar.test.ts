@@ -43,13 +43,12 @@ describe('creator toolbar', () => {
 
     expect(actionButtons().map((action) => action.dataset['lodariqLauncherActionId'])).toEqual([
       'edit-current-experience',
-      'preview-as-user',
     ]);
 
     removeCreatorToolbar();
     installCreatorToolbar({
       onCreateExperience: vi.fn(),
-      listExperiencesForPage: vi.fn().mockReturnValue([]),
+      listExperiences: vi.fn().mockReturnValue([]),
       onOpenExperience: vi.fn(),
     });
 
@@ -59,14 +58,12 @@ describe('creator toolbar', () => {
         capability: 'list',
         icon: 'list',
         id: 'experiences-on-page',
-        label: 'Experiences on this page',
+        label: 'View experiences',
       },
-      { capability: 'preview', icon: 'eye', id: 'preview-as-user', label: 'Preview as user' },
     ]);
     expect(actionButtons().map((action) => action.dataset['lodariqLauncherActionId'])).toEqual([
       'new-experience',
       'experiences-on-page',
-      'preview-as-user',
     ]);
     expect(
       actionButtons().map((action) => ({
@@ -80,13 +77,12 @@ describe('creator toolbar', () => {
       { iconHidden: 'true', label: 'New experience', text: '', tooltip: 'New experience' },
       {
         iconHidden: 'true',
-        label: 'Experiences on this page',
+        label: 'View experiences',
         text: '',
-        tooltip: 'Experiences on this page',
+        tooltip: 'View experiences',
       },
-      { iconHidden: 'true', label: 'Preview as user', text: '', tooltip: 'Preview as user' },
     ]);
-    expect(document.querySelectorAll('[role="tooltip"]')).toHaveLength(3);
+    expect(document.querySelectorAll('[role="tooltip"]')).toHaveLength(2);
     expect(
       document.querySelector('[data-lodariq-launcher-action-id="edit-current-experience"]'),
     ).toBeNull();
@@ -106,7 +102,7 @@ describe('creator toolbar', () => {
     expect(button?.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('pins on center activation and creates a Tour from a compact chooser', async () => {
+  it('pins on center activation and names a Tour before creating it', async () => {
     const onCreateExperience = vi.fn().mockResolvedValue(undefined);
     window.Lodariq = fakeApi({ enabled: true });
 
@@ -120,19 +116,69 @@ describe('creator toolbar', () => {
     expect(button.getAttribute('aria-expanded')).toBe('true');
 
     launcherAction('new-experience').click();
-    const surface = launcherSurface();
-    expect(surface.hidden).toBe(false);
-    expect(surface.dataset['lodariqLauncherSurfaceKind']).toBe('new-experience');
-    expect(surface.textContent).toContain('New experience');
-    expect(surface.textContent).toContain('Tour');
-    expect(surface.textContent).toContain('Guide people through a short sequence on this page.');
+    const menu = await experienceMenu();
+    expect(menu.hidden).toBe(false);
+    expect(launcherAction('new-experience').getAttribute('aria-expanded')).toBe('true');
+    expect(menu.textContent).toContain('New experience');
+    expect(menu.textContent).toContain('Tour');
+    expect(menu.textContent).toContain('Guide people through a short sequence on this page.');
 
-    surface.querySelector<HTMLButtonElement>('[data-lodariq-experience-type="tour"]')?.click();
-    await vi.waitFor(() => expect(onCreateExperience).toHaveBeenCalledWith('tour'));
-    await vi.waitFor(() => expect(surface.hidden).toBe(true));
+    menu.querySelector<HTMLButtonElement>('[data-lodariq-experience-type="tour"]')?.click();
+
+    // The type is chosen; the name comes before the document exists.
+    const dialog = await vi.waitFor(experienceDialog);
+    const input = dialog.querySelector('input');
+    expect(input?.value).toBe('Untitled Tour');
+    if (input) input.value = 'Checkout tour';
+    dialog.querySelector<HTMLButtonElement>('[data-lodariq-experience-dialog-confirm]')?.click();
+
+    await vi.waitFor(() =>
+      expect(onCreateExperience).toHaveBeenCalledWith('tour', { title: 'Checkout tour' }),
+    );
+    await vi.waitFor(() => expect(menu.hidden).toBe(true));
     expect(launcher.dataset['lodariqPinned']).toBe('false');
     expect(launcher.dataset['lodariqPaletteDismissed']).toBe('true');
     expect(button.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('keeps the type list open when the name is cancelled, so the choice is not lost', async () => {
+    const onCreateExperience = vi.fn().mockResolvedValue(undefined);
+    window.Lodariq = fakeApi({ enabled: true });
+
+    const button = installCreatorToolbar({ onCreateExperience });
+    if (!button) throw new Error('creator launcher missing');
+    button.click();
+    launcherAction('new-experience').click();
+
+    const menu = await experienceMenu();
+    menu.querySelector<HTMLButtonElement>('[data-lodariq-experience-type="tour"]')?.click();
+    const dialog = await vi.waitFor(experienceDialog);
+    dialog.querySelector<HTMLButtonElement>('button')?.click();
+
+    await vi.waitFor(() => expect(experienceDialogOrNull()).toBeNull());
+    expect(onCreateExperience).not.toHaveBeenCalled();
+    expect(menu.hidden).toBe(false);
+  });
+
+  it('refuses an empty name rather than creating an untitled document', async () => {
+    const onCreateExperience = vi.fn().mockResolvedValue(undefined);
+    window.Lodariq = fakeApi({ enabled: true });
+
+    const button = installCreatorToolbar({ onCreateExperience });
+    if (!button) throw new Error('creator launcher missing');
+    button.click();
+    launcherAction('new-experience').click();
+    (await experienceMenu())
+      .querySelector<HTMLButtonElement>('[data-lodariq-experience-type="tour"]')
+      ?.click();
+
+    const dialog = await vi.waitFor(experienceDialog);
+    const input = dialog.querySelector('input');
+    if (input) input.value = '   ';
+    dialog.querySelector<HTMLButtonElement>('[data-lodariq-experience-dialog-confirm]')?.click();
+
+    expect(onCreateExperience).not.toHaveBeenCalled();
+    expect(dialog.textContent).toContain('Give this experience a name.');
   });
 
   it('reveals on hover without converting hover into persistent pinned state', () => {
@@ -152,48 +198,287 @@ describe('creator toolbar', () => {
   });
 
   it('lists an experience and dismisses the launcher after opening it', async () => {
-    const listExperiencesForPage = vi.fn().mockResolvedValue([
-      { id: 'doc_welcome', title: 'Welcome tour', type: 'tour' as const },
-      { id: 'doc_activation', title: 'Activation tour', type: 'tour' as const },
-    ]);
+    const listExperiences = vi.fn(({ scope }: { scope: string }) =>
+      scope === 'page'
+        ? [
+            { id: 'doc_welcome', title: 'Welcome tour', type: 'tour' as const },
+            { id: 'doc_activation', title: 'Activation tour', type: 'tour' as const },
+          ]
+        : [],
+    );
     const onOpenExperience = vi.fn().mockResolvedValue(undefined);
     window.Lodariq = fakeApi({ enabled: true });
 
-    const button = installCreatorToolbar({ listExperiencesForPage, onOpenExperience });
+    const button = installCreatorToolbar({ listExperiences, onOpenExperience });
     if (!button) throw new Error('creator launcher missing');
     button.click();
     launcherAction('experiences-on-page').click();
 
-    const surface = launcherSurface();
-    expect(surface.textContent).toContain('Loading experiences…');
-    await vi.waitFor(() => expect(surface.textContent).toContain('Activation tour'));
-    surface
-      .querySelector<HTMLButtonElement>('[data-lodariq-experience-id="doc_activation"]')
-      ?.click();
+    // The loading frame is not asserted here: waiting for the menu's own chunk
+    // already outlasts it. The status sequence is covered in paging.test.ts.
+    const menu = await experienceMenu();
+    // Asked for a page, not for everything: the menu never holds the full list.
+    expect(listExperiences).toHaveBeenCalledWith({ limit: 10, scope: 'page' });
+    await vi.waitFor(() => expect(menu.textContent).toContain('Activation tour'));
+    menu.querySelector<HTMLButtonElement>('[data-lodariq-experience-id="doc_activation"]')?.click();
 
     await vi.waitFor(() => expect(onOpenExperience).toHaveBeenCalledWith('doc_activation'));
-    await vi.waitFor(() => expect(surface.hidden).toBe(true));
+    await vi.waitFor(() => expect(menu.hidden).toBe(true));
     expect(creatorLauncher()?.dataset['lodariqPinned']).toBe('false');
     expect(creatorLauncher()?.dataset['lodariqPaletteDismissed']).toBe('true');
     expect(button.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('uses an optional preview callback and leaves the action dock pinned', async () => {
-    const playTour = vi.fn().mockResolvedValue(undefined);
-    const onPreview = vi.fn().mockResolvedValue(undefined);
-    window.Lodariq = fakeApi({ enabled: true, playTour });
+  it('pages a cursor host ten at a time and searches through the host, not the menu', async () => {
+    const all = Array.from({ length: 24 }, (_, index) => ({
+      id: `doc_${index}`,
+      title: `Tour ${index}`,
+      type: 'tour' as const,
+    }));
+    const listExperiences = vi.fn(
+      ({
+        cursor,
+        limit,
+        query,
+        scope,
+      }: {
+        cursor?: string;
+        limit: number;
+        query?: string;
+        scope: string;
+      }) => {
+        if (scope !== 'page') return { items: [], total: 0 };
+        const matching = query
+          ? all.filter((item) => item.title.toLowerCase().includes(query.toLowerCase()))
+          : all;
+        const start = Number(cursor ?? '0');
+        const end = start + limit;
+        return {
+          items: matching.slice(start, end),
+          total: matching.length,
+          ...(end < matching.length ? { nextCursor: String(end) } : {}),
+        };
+      },
+    );
+    window.Lodariq = fakeApi({ enabled: true });
 
-    const button = installCreatorToolbar({ onPreview });
-    button?.click();
-    launcherAction('preview-as-user').click();
+    const button = installCreatorToolbar({
+      listExperiences,
+      onOpenExperience: vi.fn(),
+    });
+    if (!button) throw new Error('creator launcher missing');
+    button.click();
+    launcherAction('experiences-on-page').click();
 
-    await vi.waitFor(() => expect(onPreview).toHaveBeenCalledTimes(1));
-    expect(playTour).not.toHaveBeenCalled();
-    expect(creatorLauncher()?.dataset['lodariqPinned']).toBe('true');
-    expect(button?.getAttribute('aria-expanded')).toBe('true');
+    const menu = await experienceMenu();
+    // Ten at a time, each page asked for with the cursor the last one returned.
+    // jsdom lays nothing out, so the scroll container measures as unfilled and
+    // the list keeps topping itself up — which is the behaviour being checked;
+    // in a laid-out browser the same guard stops after the first page.
+    await vi.waitFor(() => expect(experienceRows(menu)).toHaveLength(24));
+    // Each scope carries its own cursor: "All tours" is asked once, and the
+    // offsets that follow all belong to the list that is actually open.
+    expect(listExperiences.mock.calls.map(([query]) => query)).toEqual([
+      { limit: 10, scope: 'page' },
+      { limit: 10, scope: 'all' },
+      { cursor: '10', limit: 10, scope: 'page' },
+      { cursor: '20', limit: 10, scope: 'page' },
+    ]);
+
+    const search = menu.querySelector('input');
+    if (!search) throw new Error('search field missing');
+    search.value = 'Tour 21';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+
+    await vi.waitFor(() =>
+      expect(listExperiences).toHaveBeenCalledWith({ limit: 10, query: 'Tour 21', scope: 'page' }),
+    );
+    // Both scopes, from one field: a creator searching by name does not know
+    // which of the two lists the tour is in, which is the reason to search.
+    expect(listExperiences).toHaveBeenCalledWith({ limit: 10, query: 'Tour 21', scope: 'all' });
+    await vi.waitFor(() => expect(experienceRows(menu)).toHaveLength(1));
   });
 
-  it('closes pinned surfaces with Escape or an outside pointer action', () => {
+  it('stacks the page above the whole workspace, with the second collapsed and counted', async () => {
+    const here = {
+      id: 'doc_here',
+      title: 'Welcome tour',
+      type: 'tour' as const,
+      routeKey: '/inbox',
+    };
+    const listExperiences = vi.fn(({ scope }: { scope: string }) =>
+      scope === 'page'
+        ? { items: [here], total: 1 }
+        : {
+            items: [
+              here,
+              {
+                id: 'doc_billing',
+                title: 'Invoice tour',
+                type: 'tour' as const,
+                routeKey: '/billing',
+              },
+              {
+                id: 'doc_reports',
+                title: 'Reports tour',
+                type: 'tour' as const,
+                routeKey: '/reports#monthly',
+              },
+            ],
+            total: 7,
+          },
+    );
+    window.Lodariq = fakeApi({ enabled: true });
+
+    const button = installCreatorToolbar({ listExperiences, onOpenExperience: vi.fn() });
+    if (!button) throw new Error('creator launcher missing');
+    button.click();
+    launcherAction('experiences-on-page').click();
+
+    const menu = await experienceMenu();
+    await vi.waitFor(() => expect(scopeHeads(menu)).toHaveLength(2));
+    const [onPage, elsewhere] = scopeHeads(menu);
+    if (!onPage || !elsewhere) throw new Error('scope headers missing');
+
+    expect(scopeHeads(menu).map((head) => head.dataset['experienceScopeHead'])).toEqual([
+      'page',
+      'all',
+    ]);
+    expect(onPage.textContent).toContain('On this page');
+    expect(elsewhere.textContent).toContain('All tours');
+    expect(onPage.getAttribute('aria-expanded')).toBe('true');
+    expect(elsewhere.getAttribute('aria-expanded')).toBe('false');
+
+    // The count is what makes a collapsed section worth leaving collapsed: it
+    // is the host's total, not the page of rows the menu happens to hold.
+    await vi.waitFor(() => expect(scopeCount(elsewhere)).toBe('7'));
+    expect(scopeCount(onPage)).toBe('1');
+
+    const elsewhereList = scopeList(menu, elsewhere);
+    expect(elsewhereList.hidden).toBe(true);
+    expect(elsewhere.getAttribute('aria-controls')).toBe(elsewhereList.id);
+    // Loaded while collapsed, and only the one page the count came from.
+    expect(listExperiences.mock.calls.filter(([query]) => query.scope === 'all')).toHaveLength(1);
+
+    // The same tour in both lists, on purpose: the first is a shortcut to what
+    // is under the creator's cursor, not a slice taken out of the second.
+    expect(
+      scopeList(menu, onPage).querySelector('[data-lodariq-experience-id="doc_here"]'),
+    ).not.toBeNull();
+    expect(elsewhereList.querySelector('[data-lodariq-experience-id="doc_here"]')).not.toBeNull();
+
+    // Every row of the second list says which page it belongs to, including the
+    // repeated one. No row in the first does — they are all on this page.
+    expect(scopeList(menu, onPage).querySelector('small')).toBeNull();
+    expect(
+      [...elsewhereList.querySelectorAll('small')].map((node) => [
+        node.textContent,
+        node.getAttribute('dir'),
+      ]),
+    ).toEqual([
+      ['/inbox', 'ltr'],
+      ['/billing', 'ltr'],
+      ['/reports#monthly', 'ltr'],
+    ]);
+    expect(
+      elsewhereList
+        .querySelector('[data-lodariq-experience-id="doc_billing"]')
+        ?.getAttribute('aria-label'),
+    ).toBe('Open Invoice tour on /billing');
+
+    elsewhere.click();
+    expect(elsewhere.getAttribute('aria-expanded')).toBe('true');
+    expect(elsewhereList.hidden).toBe(false);
+  });
+
+  it('invites a first experience when this page has none, and says so differently for the workspace', async () => {
+    window.Lodariq = fakeApi({ enabled: true });
+
+    const button = installCreatorToolbar({
+      onCreateExperience: vi.fn(),
+      listExperiences: vi.fn().mockReturnValue([]),
+      onOpenExperience: vi.fn(),
+    });
+    if (!button) throw new Error('creator launcher missing');
+    button.click();
+    launcherAction('experiences-on-page').click();
+
+    const menu = await experienceMenu();
+    await vi.waitFor(() => expect(scopeHeads(menu)).toHaveLength(2));
+    const [onPage, elsewhere] = scopeHeads(menu);
+    if (!onPage || !elsewhere) throw new Error('scope headers missing');
+
+    await vi.waitFor(() =>
+      expect(scopeList(menu, onPage).textContent).toContain('No experiences on this page yet.'),
+    );
+    // A different sentence, and no second offer: the row above has already made
+    // it, and an empty workspace is a fact rather than a state to get out of.
+    expect(scopeList(menu, elsewhere).textContent).toContain(
+      'No experiences in this workspace yet.',
+    );
+    expect(scopeList(menu, elsewhere).querySelector('button')).toBeNull();
+
+    // The empty page is where every creator starts, so it offers the way out.
+    const invite = scopeList(menu, onPage).querySelector('button');
+    expect(invite?.textContent).toBe('New experience');
+    invite?.click();
+    await vi.waitFor(() =>
+      expect(menu.querySelectorAll('[data-lodariq-experience-type]').length).toBe(5),
+    );
+  });
+
+  it('offers no preview from the launcher, which has nothing selected to preview', () => {
+    window.Lodariq = fakeApi({ enabled: true });
+
+    const button = installCreatorToolbar({
+      onCreateExperience: vi.fn(),
+      listExperiences: vi.fn(),
+      onOpenExperience: vi.fn(),
+    });
+    button?.click();
+
+    expect(
+      document.querySelector('[data-lodariq-launcher-action-id="preview-as-user"]'),
+    ).toBeNull();
+    expect(actionButtons().map((action) => action.dataset['lodariqLauncherActionId'])).toEqual([
+      'new-experience',
+      'experiences-on-page',
+    ]);
+  });
+
+  it('backs out of the submenu with Escape before it dismisses the launcher', async () => {
+    window.Lodariq = fakeApi({ enabled: true });
+    const button = installCreatorToolbar({ onCreateExperience: vi.fn() });
+    const launcher = creatorLauncher();
+    if (!button || !launcher) throw new Error('creator launcher missing');
+
+    button.click();
+    const action = launcherAction('new-experience');
+    action.click();
+    const menu = await experienceMenu();
+    expect(menu.hidden).toBe(false);
+
+    menu
+      .querySelector<HTMLButtonElement>('[data-lodariq-experience-type="tour"]')
+      ?.dispatchEvent(
+        new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Escape' }),
+      );
+
+    // One level, not both: the palette that opened the submenu is still there.
+    expect(menu.hidden).toBe(true);
+    expect(action.getAttribute('aria-expanded')).toBe('false');
+    expect(action).toBe(document.activeElement);
+    expect(launcher.dataset['lodariqPinned']).toBe('true');
+
+    launcher.dispatchEvent(
+      new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Escape' }),
+    );
+    expect(launcher.dataset['lodariqPinned']).toBe('false');
+    expect(launcher.dataset['lodariqPaletteDismissed']).toBe('true');
+    expect(button).toBe(document.activeElement);
+  });
+
+  it('closes pinned surfaces with an outside pointer action', async () => {
     window.Lodariq = fakeApi({ enabled: true });
     const button = installCreatorToolbar({ onCreateExperience: vi.fn() });
     const launcher = creatorLauncher();
@@ -201,23 +486,18 @@ describe('creator toolbar', () => {
 
     button.click();
     launcherAction('new-experience').click();
-    const surface = launcherSurface();
-    surface
-      .querySelector<HTMLButtonElement>('[data-lodariq-experience-type="tour"]')
-      ?.dispatchEvent(
-        new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Escape' }),
-      );
+    const menu = await experienceMenu();
+    expect(menu.hidden).toBe(false);
 
-    expect(surface.hidden).toBe(true);
-    expect(launcher.dataset['lodariqPinned']).toBe('false');
-    expect(launcher.dataset['lodariqPaletteDismissed']).toBe('true');
-    expect(button).toBe(document.activeElement);
+    // A click inside the submenu is not a click away from the launcher, even
+    // though the submenu is mounted outside it.
+    menu.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(menu.hidden).toBe(false);
+    expect(launcher.dataset['lodariqPinned']).toBe('true');
 
-    button.click();
-    launcherAction('new-experience').click();
     document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
 
-    expect(surface.hidden).toBe(true);
+    expect(menu.hidden).toBe(true);
     expect(launcher.dataset['lodariqPinned']).toBe('false');
     expect(button.getAttribute('aria-expanded')).toBe('false');
 
@@ -225,6 +505,20 @@ describe('creator toolbar', () => {
     expect(launcher.dataset['lodariqPaletteDismissed']).toBeUndefined();
     document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     expect(launcher.dataset['lodariqPaletteDismissed']).toBe('true');
+  });
+
+  it('opens the submenu on hover, because both rows name a category', async () => {
+    window.Lodariq = fakeApi({ enabled: true });
+    const button = installCreatorToolbar({ onCreateExperience: vi.fn() });
+    if (!button) throw new Error('creator launcher missing');
+
+    const action = launcherAction('new-experience');
+    const wrapper = action.closest<HTMLElement>('[data-lodariq-launcher-action-wrap="true"]');
+    wrapper?.dispatchEvent(new MouseEvent('mouseenter'));
+
+    expect((await experienceMenu()).hidden).toBe(false);
+    expect(action.getAttribute('aria-haspopup')).toBe('true');
+    expect(creatorLauncher()?.dataset['lodariqPinned']).toBe('true');
   });
 
   it('places actions after the launcher in keyboard order', () => {
@@ -244,7 +538,7 @@ describe('creator toolbar', () => {
 
     const button = installCreatorToolbar({
       onCreateExperience: vi.fn(),
-      listExperiencesForPage: vi.fn().mockReturnValue([]),
+      listExperiences: vi.fn().mockReturnValue([]),
       onOpenExperience: vi.fn(),
     });
     const firstAction = launcherAction('new-experience');
@@ -326,7 +620,7 @@ describe('creator toolbar', () => {
     expect(panelToggle).toHaveBeenCalledTimes(1);
     expect(launcher.dataset['lodariqPinned']).toBe('true');
     expect(button.getAttribute('aria-expanded')).toBe('true');
-    expect(launcherAction('preview-as-user')).toBeInstanceOf(HTMLButtonElement);
+    expect(launcherAction('edit-current-experience')).toBeInstanceOf(HTMLButtonElement);
     window.removeEventListener('lodariq-authoring-panel-toggle', panelToggle);
   });
 
@@ -363,15 +657,15 @@ describe('creator toolbar', () => {
     expect(container.querySelector('[data-lodariq-creator-toolbar="true"]')).toBeNull();
   });
 
-  it('dispatches an error event when preview fails', async () => {
+  it('dispatches an error event when a launcher action fails', async () => {
     const error = new Error('expired session');
-    const onPreview = vi.fn().mockRejectedValue(error);
-    window.Lodariq = fakeApi({ enabled: true });
+    const openAuthoring = vi.fn().mockRejectedValue(error);
+    window.Lodariq = fakeApi({ enabled: true, openAuthoring });
     const listener = vi.fn();
     window.addEventListener('lodariq:authoring-error', listener);
 
-    installCreatorToolbar({ onPreview });
-    launcherAction('preview-as-user').click();
+    installCreatorToolbar();
+    launcherAction('edit-current-experience').click();
     await vi.waitFor(() =>
       expect(listener).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -387,10 +681,44 @@ function creatorLauncher(): HTMLElement | null {
   return document.querySelector<HTMLElement>('[data-lodariq-creator-launcher="true"]');
 }
 
-function launcherSurface(): HTMLElement {
-  const surface = document.querySelector<HTMLElement>('[data-lodariq-launcher-surface="true"]');
-  if (!surface) throw new Error('creator launcher surface missing');
-  return surface;
+/**
+ * The menu is imported on demand, so it does not exist in the tick a hover or a
+ * click happens in. Every read of it waits for the chunk.
+ */
+async function experienceMenu(): Promise<HTMLElement> {
+  return vi.waitFor(() => {
+    const menu = document.querySelector<HTMLElement>('[data-lodariq-experience-menu="true"]');
+    if (!menu) throw new Error('experience menu missing');
+    return menu;
+  });
+}
+
+function experienceRows(menu: HTMLElement): HTMLButtonElement[] {
+  return [...menu.querySelectorAll<HTMLButtonElement>('[data-lodariq-experience-id]')];
+}
+
+function scopeHeads(menu: HTMLElement): HTMLButtonElement[] {
+  return [...menu.querySelectorAll<HTMLButtonElement>('[data-experience-scope-head]')];
+}
+
+function scopeCount(head: HTMLElement): string {
+  return head.querySelector('.lodariq-experience-menu-scope-count')?.textContent ?? '';
+}
+
+function scopeList(menu: HTMLElement, head: HTMLElement): HTMLElement {
+  const list = menu.querySelector<HTMLElement>(`#${head.getAttribute('aria-controls') ?? ''}`);
+  if (!list) throw new Error('scope list missing');
+  return list;
+}
+
+function experienceDialogOrNull(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('[data-lodariq-experience-dialog-scrim="true"]');
+}
+
+function experienceDialog(): HTMLElement {
+  const dialog = experienceDialogOrNull();
+  if (!dialog) throw new Error('experience dialog missing');
+  return dialog;
 }
 
 function launcherAction(actionId: string): HTMLButtonElement {

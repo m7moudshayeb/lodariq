@@ -2,17 +2,9 @@
 import { act, createElement, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  $getRoot,
-  $getSelection,
-  $isRangeSelection,
-  getNearestEditorFromDOMNode,
-} from 'lexical';
+import { $getRoot, $getSelection, $isRangeSelection, getNearestEditorFromDOMNode } from 'lexical';
 import type { LodariqBlock } from '@lodariq/schema';
-import {
-  RICH_CONTENT_PERSIST_DEBOUNCE_MS,
-  RichContentEditor,
-} from '@lodariq/sdk-authoring/editor';
+import { RICH_CONTENT_PERSIST_DEBOUNCE_MS, RichContentEditor } from '@lodariq/sdk-authoring/editor';
 
 const INITIAL: LodariqBlock[] = [
   { id: 'p1', type: 'paragraph', content: 'Hello', props: {}, children: [] },
@@ -78,15 +70,13 @@ describe('rich content persist debounce', () => {
     const inspectorHost = document.createElement('div');
     document.body.append(inspectorHost);
     await act(async () => {
-      root.render(
-        createElement(InspectorPersistHarness, { inspectorHost, onPersist }),
-      );
+      root.render(createElement(InspectorPersistHarness, { inspectorHost, onPersist }));
     });
 
     await act(async () => {
       document.querySelector<HTMLButtonElement>('.rich-content-button-preview')?.click();
     });
-    const label = document.querySelector<HTMLInputElement>('[aria-label="Button label"]');
+    const label = document.querySelector<HTMLInputElement>('[aria-label="Label"]');
     if (!label) throw new Error('Button label field is missing');
     await act(async () => {
       label.focus();
@@ -100,10 +90,8 @@ describe('rich content persist debounce', () => {
       await vi.advanceTimersByTimeAsync(RICH_CONTENT_PERSIST_DEBOUNCE_MS + 50);
     });
     expect(onPersist).not.toHaveBeenCalled();
-    expect(document.activeElement).toBe(
-      document.querySelector('[aria-label="Button label"]'),
-    );
-    expect(document.querySelector<HTMLInputElement>('[aria-label="Button label"]')?.value).toBe(
+    expect(document.activeElement).toBe(document.querySelector('[aria-label="Label"]'));
+    expect(document.querySelector<HTMLInputElement>('[aria-label="Label"]')?.value).toBe(
       'Continue now',
     );
 
@@ -117,6 +105,44 @@ describe('rich content persist debounce', () => {
       ),
     ).toBe(true);
     inspectorHost.remove();
+  });
+
+  it('persists a gutter-inserted divider as a divider block', async () => {
+    const onPersist = vi.fn();
+    await act(async () => {
+      root.render(createElement(PersistHarness, { onPersist }));
+    });
+
+    // §4.2a rule 6: the gutter is a hover affordance, so the handles only exist
+    // once a pointer is over a block. Clicking straight through found nothing.
+    await act(async () => {
+      // jsdom has no PointerEvent; the handler only reads target and clientX/Y.
+      document.dispatchEvent(
+        new MouseEvent('pointermove', { bubbles: true, clientX: 0, clientY: 0 }),
+      );
+    });
+    const insert = document.querySelector<HTMLButtonElement>('[aria-label="Add content"]');
+    if (!insert) throw new Error('Block gutter did not offer an insert handle');
+    await act(async () => {
+      insert.click();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    const divider = insertMenuItem('Divider');
+    await act(async () => {
+      divider.click();
+    });
+    expect(document.querySelector('.rich-content-divider')).not.toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RICH_CONTENT_PERSIST_DEBOUNCE_MS + 50);
+    });
+    expect(
+      (onPersist.mock.calls[onPersist.mock.calls.length - 1]?.[0] as LodariqBlock[]).some(
+        (block) => block.type === 'divider',
+      ),
+    ).toBe(true);
   });
 });
 
@@ -165,4 +191,13 @@ function typeInCanvas(text: string): void {
     const selection = $getSelection();
     if ($isRangeSelection(selection)) selection.insertText(text);
   });
+}
+
+/** Insert-menu rows are named by their visible text, not an `aria-label`. */
+function insertMenuItem(label: string): HTMLButtonElement {
+  const item = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(
+    (candidate) => candidate.textContent?.trim() === label,
+  );
+  if (!item) throw new Error(`Insert menu did not offer "${label}"`);
+  return item;
 }

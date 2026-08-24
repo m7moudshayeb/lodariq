@@ -2,8 +2,9 @@ import { ControllerLifecycleFeature } from './controller-lifecycle';
 import { authoringText } from '../../i18n';
 import { type LodariqBlock } from '@lodariq/schema';
 import type { ClipboardEvent, DragEvent, KeyboardEvent } from 'react';
+import type { BlockDragLayout } from './controller-drag';
 import { type BlockInsertPosition, type EditableBlockType } from '../document-ops';
-import { blocksFromSafePasteData } from '../../editor';
+import { blocksFromSafePasteData } from '../../editor/paste';
 import type { EditableButtonVariant, EditableActionType, SlashCommand } from './types';
 import { EDITABLE_BUTTON_VARIANT_OPTIONS } from './types';
 import {
@@ -26,7 +27,10 @@ export abstract class ControllerNativeEventsFeature extends ControllerLifecycleF
   protected abstract activateActionButton(button: HTMLButtonElement, action: string): void;
   protected abstract appendPastedBlocks(blocksToAdd: LodariqBlock[]): void;
   abstract appendStep(title?: string): string;
-  protected abstract autoScrollDuringDrag(event: Event | DragEvent<HTMLElement>): void;
+  protected abstract autoScrollDuringDrag(
+    event: Event | DragEvent<HTMLElement>,
+    layout?: BlockDragLayout,
+  ): void;
   protected abstract clearDragState(): void;
   protected abstract commitActionUrl(blockId: string, value: string): void;
   protected abstract commitContent(blockId: string, value: string): void;

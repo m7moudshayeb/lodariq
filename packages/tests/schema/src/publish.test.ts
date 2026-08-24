@@ -7,6 +7,7 @@ import {
   type LodariqBlock,
   type LodariqDocument,
   type PublishReadinessIssueCode,
+  type ResolverDiagnostic,
 } from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import { createTargetIdentityV2 } from '../../fixtures/target-identity-v2';
@@ -181,16 +182,23 @@ describe('tour publish readiness', () => {
     const unverified = validateTourPublishReadiness(document, {
       requireVerifiedTargets: true,
     });
+    // Every target needs a diagnostic, or the ones without contribute their own
+    // `target_unverified` and the distinction under test is invisible.
     const drifted = validateTourPublishReadiness(document, {
       requireVerifiedTargets: true,
-      targetDiagnostics: {
-        target_new_project: {
-          state: 'needs_review',
-          confidence: 68,
-          candidateCount: 1,
-          reasonCode: 'evidence_drift',
-        },
-      },
+      targetDiagnostics: new Map<string, ResolverDiagnostic>(
+        document.targets.map((target): [string, ResolverDiagnostic] => [
+          target.id,
+          target.id === 'target_new_project'
+            ? {
+                state: 'needs_review',
+                confidence: 68,
+                candidateCount: 1,
+                reasonCode: 'evidence_drift',
+              }
+            : { state: 'found', confidence: 96, candidateCount: 1, reasonCode: 'resolved' },
+        ]),
+      ),
     });
 
     expect(unverified.map((issue) => issue.code)).toContain('target_unverified');
@@ -205,6 +213,64 @@ describe('tour publish readiness', () => {
     target.identity.captureEvidence.quality = 'weak';
     target.identity.captureEvidence.uniqueCandidateCount = 2;
     target.identity.captureEvidence.runnerUpMargin = 0;
+
+    expect(issueCodes(document)).toContain('target_needs_review');
+  });
+
+  it('releases an ambiguous placement once the author has said which one they meant', () => {
+    const document = cloneFixture();
+    const target = document.targets[0]!;
+    target.identity = createTargetIdentityV2(target.id);
+    // The fixture header case: several controls the evidence cannot separate,
+    // but nothing else wrong with the capture.
+    target.identity.captureEvidence.quality = 'weak';
+    target.identity.captureEvidence.ambiguityIsSoleWeakness = true;
+    target.identity.captureEvidence.uniqueCandidateCount = 3;
+    target.identity.captureEvidence.runnerUpMargin = 0;
+
+    expect(issueCodes(document)).toContain('target_needs_review');
+
+    target.selection = { kind: 'ordinal', position: 2, order: 'reading-order' };
+    expect(issueCodes(document)).not.toContain('target_needs_review');
+  });
+
+  it('keeps blocking when the answer is "just the one I clicked"', () => {
+    const document = cloneFixture();
+    const target = document.targets[0]!;
+    target.identity = createTargetIdentityV2(target.id);
+    target.identity.captureEvidence.quality = 'weak';
+    target.identity.captureEvidence.ambiguityIsSoleWeakness = true;
+    target.identity.captureEvidence.uniqueCandidateCount = 3;
+    target.identity.captureEvidence.runnerUpMargin = 0;
+    // `only` declines to give the resolver a rule, so the tie is still a tie.
+    target.selection = { kind: 'only' };
+
+    expect(issueCodes(document)).toContain('target_needs_review');
+  });
+
+  it('keeps blocking when the capture is weak for a reason no answer can fix', () => {
+    const document = cloneFixture();
+    const target = document.targets[0]!;
+    target.identity = createTargetIdentityV2(target.id);
+    // Thin or non-actionable evidence: ambiguity was not the whole problem, so
+    // the flag is absent and no selection policy may wave it through.
+    target.identity.captureEvidence.quality = 'weak';
+    target.identity.captureEvidence.uniqueCandidateCount = 3;
+    target.identity.captureEvidence.runnerUpMargin = 0;
+    target.selection = { kind: 'first' };
+
+    expect(issueCodes(document)).toContain('target_needs_review');
+  });
+
+  it('keeps blocking capture written before ambiguity could be answered for', () => {
+    const document = cloneFixture();
+    const target = document.targets[0]!;
+    target.identity = createTargetIdentityV2(target.id);
+    target.identity.captureEvidence.quality = 'weak';
+    target.identity.captureEvidence.uniqueCandidateCount = 2;
+    target.identity.captureEvidence.runnerUpMargin = 0;
+    delete target.identity.captureEvidence.ambiguityIsSoleWeakness;
+    target.selection = { kind: 'first' };
 
     expect(issueCodes(document)).toContain('target_needs_review');
   });
@@ -258,6 +324,39 @@ describe('tour publish readiness', () => {
         ]),
       }).map((issue) => issue.code),
     ).not.toContain('media_asset_invalid');
+  });
+
+  it('requires generated narration and validates its audio asset kind', () => {
+    const document = cloneFixture();
+    const step = document.blocks[0];
+    if (!step || step.type !== 'tourStep') throw new Error('fixture step missing');
+    step.props.narration = { script: 'Create a project, then continue.' };
+
+    expect(issueCodes(document)).toContain('narration_audio_missing');
+
+    step.props.narration.audio = {
+      assetId: 'asset-narration',
+      contentHash: `sha256-${'1'.repeat(64)}`,
+      sourceHash: `sha256-${'2'.repeat(64)}`,
+      contentType: 'audio/wav',
+      durationMs: 1_000,
+      cues: [{ text: 'Create a project.', startMs: 0, durationMs: 1_000 }],
+    };
+    expect(collectTourMediaAssetIds(document)).toContain('asset-narration');
+    expect(
+      validateTourPublishReadiness(document, {
+        requireValidMediaAssets: true,
+        validMediaAssets: new Map([['asset-narration', 'image' as const]]),
+      }),
+    ).toContainEqual(
+      expect.objectContaining({ code: 'narration_audio_invalid', blockId: step.id }),
+    );
+    expect(
+      validateTourPublishReadiness(document, {
+        requireValidMediaAssets: true,
+        validMediaAssets: new Map([['asset-narration', 'audio' as const]]),
+      }).map((issue) => issue.code),
+    ).not.toContain('narration_audio_invalid');
   });
 
   it('keeps an uploaded video in the draft while captions remain a publish requirement', () => {

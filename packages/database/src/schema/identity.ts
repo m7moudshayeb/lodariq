@@ -174,10 +174,22 @@ export const oidcAuthorizationAttempts = pgTable(
     uniqueIndex('oidc_authorization_attempts_state_idx').on(table.stateHash),
     index('oidc_authorization_attempts_user_idx').on(table.userId),
     index('oidc_authorization_attempts_expiry_idx').on(table.expiresAt),
-    check('oidc_authorization_attempts_id_check', sql`${table.id} ~ '^oidcattempt_[A-Za-z0-9_-]{20,}$'`),
-    check('oidc_authorization_attempts_provider_check', sql`${table.providerId} ~ '^[a-z][a-z0-9_-]{1,63}$'`),
-    check('oidc_authorization_attempts_action_check', sql`${table.action} in ('sign_in', 'sign_up', 'link')`),
-    check('oidc_authorization_attempts_duration_check', sql`${table.durationPolicy} in ('standard', 'remembered')`),
+    check(
+      'oidc_authorization_attempts_id_check',
+      sql`${table.id} ~ '^oidcattempt_[A-Za-z0-9_-]{20,}$'`,
+    ),
+    check(
+      'oidc_authorization_attempts_provider_check',
+      sql`${table.providerId} ~ '^[a-z][a-z0-9_-]{1,63}$'`,
+    ),
+    check(
+      'oidc_authorization_attempts_action_check',
+      sql`${table.action} in ('sign_in', 'sign_up', 'link')`,
+    ),
+    check(
+      'oidc_authorization_attempts_duration_check',
+      sql`${table.durationPolicy} in ('standard', 'remembered')`,
+    ),
     check(
       'oidc_authorization_attempts_action_data_check',
       sql`(
@@ -1051,6 +1063,10 @@ export const tenantAuditEvents = pgTable(
     invitationId: text('invitation_id'),
     previousRole: text('previous_role'),
     nextRole: text('next_role'),
+    // 0036 owns the composite scope FK because its column-specific
+    // `on delete set null (environment_id)` is not expressible in Drizzle 0.45.
+    environmentId: text('environment_id'),
+    resourceId: text('resource_id'),
     occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
   },
   (table) => [

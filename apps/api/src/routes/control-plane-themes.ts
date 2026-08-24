@@ -8,7 +8,11 @@ import {
   type ProductStyleProposal,
 } from '@lodariq/schema';
 import type { FastifyInstance } from 'fastify';
-import { authenticate, requireReleaseCapability, requireRole } from './control-plane-access';
+import {
+  authenticate,
+  requireEnvironmentReleaseCapability,
+  requireRole,
+} from './control-plane-access';
 import {
   ApiErrorResponse,
   CreateDashboardStyleSourceBody,
@@ -120,9 +124,18 @@ export function registerControlPlaneThemeRoutes(
     async (request, reply) => {
       const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
-      if (!requireReleaseCapability(auth, 'sample-product-style', reply)) return;
       const { themeId } = request.params as { themeId: string };
       const body = request.body as { environmentId: string; proposal: ProductStyleProposal };
+      if (
+        !(await requireEnvironmentReleaseCapability(
+          options.repository,
+          auth,
+          body.environmentId,
+          'sample-product-style',
+          reply,
+        ))
+      )
+        return;
       const environment = (await options.repository.listEnvironments(auth.workspaceId)).find(
         (candidate) => candidate.id === body.environmentId,
       );

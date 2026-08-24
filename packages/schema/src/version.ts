@@ -17,7 +17,7 @@ export type SchemaVersion = typeof SCHEMA_VERSION;
 
 /** Delivery artifact contract emitted by the localized compiler. */
 /** Compiler implementation pinned into artifacts and authoring sessions. */
-export const COMPILER_VERSION = '0.5.0' as const;
+export const COMPILER_VERSION = '0.6.0' as const;
 
 /** Safe semantic Brand Theme contract versions (PRD §7.10). */
 export const BRAND_THEME_SCHEMA_VERSION = '1' as const;

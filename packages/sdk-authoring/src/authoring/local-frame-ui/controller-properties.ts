@@ -1,5 +1,6 @@
 import { ControllerReliabilityFeature } from './controller-reliability';
 import { authoringText } from '../../i18n';
+import type { StepEmphasisPatch } from './types';
 import {
   DEFAULT_EXPERIENCE_APPEARANCE,
   CONTRAST_RATIO_TARGETS,
@@ -17,6 +18,7 @@ import {
   type TextStyleProps,
   type TooltipLayoutProps,
   type TooltipStyleProps,
+  type JourneyHandoff,
   type StepChoreography,
   type BlockActionProps,
   type TourCompletionBehavior,
@@ -25,8 +27,14 @@ import {
   type ResponsiveStepPresentation,
   type SpotlightPresentation,
   type MediaPresentation,
+  type LocalizedMediaVariant,
   type StructuredCompositionPresentation,
   STRUCTURED_COMPOSITION_BLOCK_TYPE_VALUES,
+  type ExperienceSurfaceForm,
+  type AnchorAlign,
+  type StepEmphasis,
+  type StepTransitionCondition,
+  type ExperienceBehavior,
 } from '@lodariq/schema';
 import {
   setBlockLayout as setBlockLayoutInTree,
@@ -41,12 +49,18 @@ import {
   updateBlockProps,
   type EditableBlockType,
   type TooltipPlacement,
+  setBlockEmphasis,
+  setBlockShowWhen,
 } from '../document-ops';
 import type { EditableButtonVariant, EditableActionType } from './types';
 import { blockTypeLabel, findBlockById, isEditableContentBlock } from './utils';
 import { slashCommandDefaultContent } from './controller-model';
 import { localizedAuthoringDocument, setAuthoringLocalizedTitle } from '../document-localization';
-import { blockSupportsAuthoringCapability } from '../experience-authoring-capabilities';
+import {
+  blockSupportsAuthoringCapability,
+  registeredExperienceDefinition,
+} from '../experience-authoring-capabilities';
+import { dropRegion, type DropPoint } from '../experiences/gestures';
 
 const STRUCTURED_COMPOSITION_BLOCK_TYPES = new Set<string>(
   STRUCTURED_COMPOSITION_BLOCK_TYPE_VALUES,
@@ -277,18 +291,99 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
     });
   }
 
-  setTooltipPlacement(blockId: string, placement: TooltipPlacement): void {
+  setTooltipPlacement(
+    blockId: string,
+    placement: TooltipPlacement,
+    anchor: { align?: AnchorAlign; offsetPx?: number } = {},
+  ): void {
     const block = findBlockById(this.documentState.blocks, blockId);
-    if (block?.type !== 'tooltip' || block.props.placement === placement) return;
+    if (block?.type !== 'tooltip') return;
+    const unchanged =
+      block.props.placement === placement &&
+      (anchor.align === undefined || block.props.anchorAlign === anchor.align) &&
+      (anchor.offsetPx === undefined || block.props.anchorOffsetPx === anchor.offsetPx);
+    if (unchanged) return;
     this.commitCoordinatedMutation({
       blockId,
       coalescingKey: `popup:${blockId}`,
-      operations: [{ op: 'setPlacement', placement }],
+      operations: [
+        {
+          op: 'setPlacement',
+          placement,
+          ...(anchor.align ? { align: anchor.align } : {}),
+          ...(anchor.offsetPx === undefined ? {} : { offsetPx: anchor.offsetPx }),
+        },
+      ],
       reduce: (document) => ({
         ...document,
-        blocks: setBlockPlacement(document.blocks, blockId, placement),
+        blocks: setBlockPlacement(document.blocks, blockId, placement, anchor),
       }),
-      status: `Tooltip moved ${placement}`,
+      status:
+        anchor.offsetPx === undefined
+          ? `Tooltip moved ${placement}`
+          : `Tooltip gap ${anchor.offsetPx}px`,
+    });
+  }
+
+  /**
+   * The visibility rule for a step or one of its blocks. Passing nothing clears
+   * it, which is how a creator says "show this to everyone" again.
+   */
+  setBlockShowWhen(blockId: string, showWhen?: StepTransitionCondition): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (!block) return;
+    if (JSON.stringify(block.props.showWhen ?? null) === JSON.stringify(showWhen ?? null)) return;
+    this.commitCoordinatedMutation({
+      blockId,
+      coalescingKey: `showWhen:${blockId}`,
+      operations: [showWhen ? { op: 'setShowWhen', showWhen } : { op: 'setShowWhen' }],
+      reduce: (document) => ({
+        ...document,
+        blocks: setBlockShowWhen(document.blocks, blockId, showWhen),
+      }),
+      status: showWhen
+        ? authoringText('Visibility rule updated')
+        : authoringText('Visibility rule removed'),
+    });
+  }
+
+  /**
+   * One emphasis key at a time, merged against the live document.
+   *
+   * Every §4.3 ring control used to spread the emphasis it was rendered with, so
+   * two edits in the same render lost the first: setting Line then Glow shipped
+   * only Glow. The base has to be read at write time.
+   */
+  patchStepEmphasis(blockId: string, patch: StepEmphasisPatch): void {
+    const current = findBlockById(this.documentState.blocks, blockId)?.props.emphasis;
+    const next: StepEmphasis = { ...current };
+    for (const key of ['backdrop', 'targetOutline', 'viewportFocus'] as const) {
+      if (!(key in patch)) continue;
+      const value = patch[key];
+      if (value === undefined) delete next[key];
+      // Merged, not replaced: the caller sends only the property it changed.
+      else Object.assign(next, { [key]: { ...current?.[key], ...value } });
+      // Turning a section on sends the whole object, so the merge cannot leave a
+      // required field unset — only a patch on something already there gets here.
+    }
+    this.setStepEmphasis(blockId, next);
+  }
+
+  /** Backdrop, target outline and viewport focus for one step. */
+  setStepEmphasis(blockId: string, emphasis?: StepEmphasis): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (!block) return;
+    const next = emphasis && Object.values(emphasis).some(Boolean) ? emphasis : undefined;
+    if (JSON.stringify(block.props.emphasis ?? null) === JSON.stringify(next ?? null)) return;
+    this.commitCoordinatedMutation({
+      blockId,
+      coalescingKey: `emphasis:${blockId}`,
+      operations: [next ? { op: 'setEmphasis', emphasis: next } : { op: 'setEmphasis' }],
+      reduce: (document) => ({
+        ...document,
+        blocks: setBlockEmphasis(document.blocks, blockId, next),
+      }),
+      status: authoringText('Emphasis updated'),
     });
   }
 
@@ -391,6 +486,61 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
     });
   }
 
+  /**
+   * The §5 gesture: dropping the card decides the form. Announcements become a
+   * banner at the top edge, a slide-in at the other edges, a modal in the middle;
+   * checklists become a drawer at any edge and float in the middle. A type that
+   * does not answer the gesture ignores the drop.
+   */
+  setSurfaceFormFromDrop(point: DropPoint): void {
+    const definition = registeredExperienceDefinition(this.documentState.type);
+    if (!definition?.formFromRegion) return;
+    const form = definition.formFromRegion(dropRegion(point));
+    if (this.documentState.surfaceForm === form) return;
+    this.recordChange();
+    this.documentState = this.normalizeDocument({ ...this.documentState, surfaceForm: form });
+    this.afterDocumentMutation();
+    this.services.saveDocument(this.documentState);
+    this.setStatus(SURFACE_FORM_STATUS[form]);
+    this.emit();
+  }
+
+  setExperienceSurfaceForm(form: ExperienceSurfaceForm): void {
+    const definition = registeredExperienceDefinition(this.documentState.type);
+    if (!definition?.formFromRegion) return;
+    const allowed =
+      this.documentState.type === 'announcement'
+        ? form === 'modal' || form === 'banner' || form === 'slideIn'
+        : this.documentState.type === 'checklist' && (form === 'drawer' || form === 'floating');
+    if (!allowed || this.documentState.surfaceForm === form) return;
+    const nextDocument = this.normalizeDocument({ ...this.documentState, surfaceForm: form });
+    this.commitCoordinatedMutation({
+      blockId: this.documentState.id,
+      coalescingKey: `surface-form:${this.documentState.id}`,
+      operations: [{ op: 'replaceDocument', document: nextDocument }],
+      reduce: () => nextDocument,
+      scope: 'behavior',
+      status: SURFACE_FORM_STATUS[form],
+    });
+  }
+
+  setExperienceBehavior(experience: ExperienceBehavior): void {
+    if (experience.type !== this.documentState.type) return;
+    if (JSON.stringify(this.documentState.experience) === JSON.stringify(experience)) return;
+    const nextDocument = this.normalizeDocument({
+      ...this.documentState,
+      experience: structuredClone(experience),
+    });
+    this.commitCoordinatedMutation({
+      blockId: this.documentState.id,
+      coalescingKey: `experience-behavior:${this.documentState.id}`,
+      operations: [{ op: 'replaceDocument', document: nextDocument }],
+      reduce: () => nextDocument,
+      scope: 'behavior',
+      status: authoringText('Experience behavior updated'),
+    });
+  }
+
   setTourCompletionBehavior(completion: TourCompletionBehavior | undefined): void {
     if (!this.deliveryCapabilities.has('flow.v1')) return;
     const nextDocument = completion
@@ -478,6 +628,29 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
     this.setBlockEntrySequence(stepId, entrySequence);
   }
 
+  /** Where the journey continues when this step hands off (§4.3 `Continues in`). */
+  setStepHandoff(blockId: string, handoff: JourneyHandoff | undefined): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (!block) return;
+    if (JSON.stringify(block.props.handoff ?? null) === JSON.stringify(handoff ?? null)) return;
+    const props = { ...block.props, handoff };
+    const nextDocument = {
+      ...this.documentState,
+      blocks: updateBlockProps(this.documentState.blocks, blockId, props),
+    };
+    this.commitCoordinatedMutation({
+      blockId,
+      coalescingKey: `handoff:${blockId}`,
+      operations: [{ op: 'replaceDocument', document: nextDocument }],
+      reduce: (document) => ({
+        ...document,
+        blocks: updateBlockProps(document.blocks, blockId, props),
+      }),
+      scope: 'behavior',
+      status: authoringText('Handoff updated'),
+    });
+  }
+
   setMediaPresentation(blockId: string, media: MediaPresentation | undefined): void {
     if (!this.deliveryCapabilities.has('media-assets.v1')) return;
     const block = findBlockById(this.documentState.blocks, blockId);
@@ -497,6 +670,25 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
       }),
       scope: 'content',
       status: authoringText('Media settings updated'),
+    });
+  }
+
+  setMediaLocaleVariant(
+    blockId: string,
+    variant: LocalizedMediaVariant,
+    fallbackLocale?: string,
+  ): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    const media = block?.props.media;
+    if (!media || !variant.assetId || !variant.accessibilityName.trim()) return;
+    const localeVariants = [
+      ...(media.localeVariants ?? []).filter((candidate) => candidate.locale !== variant.locale),
+      structuredClone(variant),
+    ];
+    this.setMediaPresentation(blockId, {
+      ...structuredClone(media),
+      localeVariants,
+      ...(fallbackLocale ? { fallbackLocale } : {}),
     });
   }
 
@@ -521,3 +713,13 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
     });
   }
 }
+
+/** One line per form, so the gesture always says what it just decided. */
+const SURFACE_FORM_STATUS: Record<ExperienceSurfaceForm, string> = {
+  modal: authoringText('Shows as a centred modal'),
+  banner: authoringText('Shows as a banner across the top'),
+  slideIn: authoringText('Slides in from the edge'),
+  drawer: authoringText('Shows as a drawer at the edge'),
+  floating: authoringText('Floats over the page'),
+  inline: authoringText('Shows inline'),
+};

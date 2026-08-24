@@ -7,6 +7,7 @@
   "scripts": {
     "test": "vitest run --maxWorkers=1",
     "test:watch": "vitest",
+    "test:targeting": "vitest run targeting-accuracy",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },

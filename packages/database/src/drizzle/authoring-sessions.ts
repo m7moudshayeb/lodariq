@@ -12,6 +12,7 @@ import {
   isSha256Hash,
 } from '../repository';
 import { assertWorkspaceScope } from '../rls';
+import { getAuthoringDocumentSessionCapabilities } from '../domains/authoring-policy';
 import { authoringSessions, documents, environments, themes, themeVersions } from '../schema';
 import { runWithAuthoringSessionLookupScope } from '../scoped-transaction';
 import { assertArtifactMatchesDocument, toAuthoringSessionRecord, toIsoString } from './helpers';
@@ -37,7 +38,9 @@ export class DrizzleRepositoryAuthoringSessions extends DrizzleRepositoryTokens 
         .limit(1)
         .for('share');
 
-      if (!environment) {
+      // The select already excludes production; restate it so the capability
+      // derivation below is total rather than cast.
+      if (!environment || environment.kind === 'production') {
         throw new Error('environment not found in workspace');
       }
       if (!(await this.hasAuthoringMembership(tx, input.workspaceId, input.actorUserId))) {
@@ -96,6 +99,8 @@ export class DrizzleRepositoryAuthoringSessions extends DrizzleRepositoryTokens 
           iframeSrc: input.iframeSrc,
           createdByUserId: input.actorUserId,
           expiresAt: new Date(input.expiresAt),
+          // Never leave this unset: an absent list grants nothing.
+          capabilities: getAuthoringDocumentSessionCapabilities(environment.kind),
           ...compatibility,
         })
         .returning();

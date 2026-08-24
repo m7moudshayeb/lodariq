@@ -45,6 +45,9 @@ export class InMemoryRepositoryContentHelpers extends InMemoryRepositoryUtility 
   ): PersistedAnalyticsEventRecord[] {
     const from = input.query.from ? Date.parse(input.query.from) : null;
     const to = input.query.to ? Date.parse(input.query.to) : null;
+    const retentionDays = this.resolveWorkspaceEntitlements(input.workspaceId).entitlements
+      .analyticsRetentionDays;
+    const retentionCutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1_000;
     return this.analyticsEvents.filter((event) => {
       if (event.workspaceId !== input.workspaceId) return false;
       if (event.environmentId !== input.query.environmentId) return false;
@@ -52,8 +55,15 @@ export class InMemoryRepositoryContentHelpers extends InMemoryRepositoryUtility 
       if (input.query.publicationId && event.publicationId !== input.query.publicationId)
         return false;
       if (input.query.contentHash && event.contentHash !== input.query.contentHash) return false;
+      if (
+        input.query.audienceSegmentId &&
+        event.audienceSegment?.id !== input.query.audienceSegmentId
+      ) {
+        return false;
+      }
       if (input.query.locale && analyticsContentLocale(event) !== input.query.locale) return false;
       const timestamp = Date.parse(event.timestamp);
+      if (timestamp < retentionCutoff) return false;
       if (from !== null && timestamp < from) return false;
       if (to !== null && timestamp > to) return false;
       return true;

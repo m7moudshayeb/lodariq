@@ -1,6 +1,7 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { type AnalyticsEventAggregate } from '@lodariq/schema';
 import { assertWorkspaceScope } from '../rls';
+import { getAuthoringDocumentSessionCapabilities } from '../domains/authoring-policy';
 import { type CreateVisualCheckRunInput, type VisualCheckRunRecord } from '../domains/themes';
 import {
   type AcknowledgeDocumentThemeInput,
@@ -29,6 +30,7 @@ import {
   type ResolvedEnvironmentToken,
 } from '../domains/analytics';
 import { assertArtifactMatchesDocument, isSha256Hash } from '../domains/authoring-policy';
+import { assertCommercialFeature } from '../domains/commercial-entitlements';
 import { assertVisualCheckReport } from '../domains/theme-policy';
 import { clone, compareVisualCheckRuns } from '../domains/in-memory-helpers';
 import { InMemoryRepositoryAuthoringActivation } from './authoring-activation';
@@ -129,6 +131,9 @@ export class InMemoryRepositoryAnalytics extends InMemoryRepositoryAuthoringActi
       createdAt: new Date().toISOString(),
       expiresAt: input.expiresAt,
       revokedAt: null,
+      // Never leave this unset: an absent list grants nothing, so a session
+      // created without one would be inert rather than permissive.
+      capabilities: getAuthoringDocumentSessionCapabilities(environment.kind),
       ...compatibility,
     };
     this.authoringSessions.set(this.key(session.workspaceId, session.id), session);
@@ -364,10 +369,43 @@ export class InMemoryRepositoryAnalytics extends InMemoryRepositoryAuthoringActi
         ...clone(event),
         id: `aevt_${randomUUID()}`,
         ingestedAt,
+        ...(input.adaptiveVisitorKeyHash
+          ? { adaptiveVisitorKeyHash: input.adaptiveVisitorKeyHash }
+          : {}),
       } satisfies PersistedAnalyticsEventRecord;
     });
 
     this.analyticsEvents.push(...records);
+    for (const event of input.events) {
+      if (event.name !== 'experience_shown' || !event.engagementKey) continue;
+      const period = calendarMonthPeriod(event.timestamp);
+      const dedupeKeyHash = engagementDedupeHash(
+        input.workspaceId,
+        input.environmentId,
+        event.engagementKey,
+      );
+      const key = this.key(
+        input.workspaceId,
+        input.environmentId,
+        'engaged-users',
+        period.start.toISOString(),
+        dedupeKeyHash,
+      );
+      if (this.workspaceUsageLedger.has(key)) continue;
+      this.workspaceUsageLedger.set(key, {
+        id: `usage_${randomUUID()}`,
+        workspaceId: input.workspaceId,
+        environmentId: input.environmentId,
+        scopeKey: input.environmentId,
+        metric: 'engaged-users',
+        periodStart: period.start.toISOString(),
+        periodEnd: period.end.toISOString(),
+        quantity: 1,
+        dedupeKeyHash,
+        occurredAt: new Date(event.timestamp).toISOString(),
+        createdAt: ingestedAt,
+      });
+    }
     return records.length;
   }
 
@@ -375,19 +413,31 @@ export class InMemoryRepositoryAnalytics extends InMemoryRepositoryAuthoringActi
     input: QueryAnalyticsEventsInput,
   ): Promise<PersistedAnalyticsEventRecord[]> {
     assertAnalyticsEnvironmentQuery(input.query);
+    const entitlements = this.resolveWorkspaceEntitlements(input.workspaceId).entitlements;
+    const includeAudienceSegments = entitlements.features.includes('audience-segment-results');
+    if (input.query.audienceSegmentId) {
+      assertCommercialFeature(entitlements, 'audience-segment-results');
+    }
     return this.matchingAnalyticsEvents(input)
       .sort(compareAnalyticsEventsNewestFirst)
       .slice(0, input.query.limit ?? DEFAULT_ANALYTICS_EVENT_QUERY_LIMIT)
-      .map((event) => clone(event));
+      .map(({ adaptiveVisitorKeyHash: _internalHash, audienceSegment, ...event }) =>
+        clone(includeAudienceSegments && audienceSegment ? { ...event, audienceSegment } : event),
+      );
   }
 
   async aggregateAnalyticsEvents(
     input: QueryAnalyticsEventsInput,
   ): Promise<AnalyticsEventAggregate[]> {
     assertAnalyticsEnvironmentQuery(input.query);
+    const entitlements = this.resolveWorkspaceEntitlements(input.workspaceId).entitlements;
+    const includeAudienceSegments = entitlements.features.includes('audience-segment-results');
+    if (input.query.audienceSegmentId) {
+      assertCommercialFeature(entitlements, 'audience-segment-results');
+    }
     const aggregates = new Map<string, AnalyticsEventAggregate>();
     for (const event of this.matchingAnalyticsEvents(input)) {
-      const key = analyticsAggregateKey(event);
+      const key = analyticsAggregateKey(event, includeAudienceSegments);
       const timestamp = new Date(event.timestamp).toISOString();
       const current = aggregates.get(key);
       if (current) {
@@ -404,6 +454,16 @@ export class InMemoryRepositoryAnalytics extends InMemoryRepositoryAuthoringActi
         publicationId: event.publicationId,
         contentHash: event.contentHash,
         pointerGeneration: event.pointerGeneration,
+        ...(event.experimentId
+          ? {
+              experimentId: event.experimentId,
+              armId: event.armId!,
+              experimentAllocationRevision: event.experimentAllocationRevision!,
+            }
+          : {}),
+        ...(includeAudienceSegments && event.audienceSegment
+          ? { audienceSegment: structuredClone(event.audienceSegment) }
+          : {}),
         ...(contentLocale ? { locale: contentLocale } : {}),
         count: 1,
         firstTimestamp: timestamp,
@@ -425,4 +485,22 @@ export class InMemoryRepositoryAnalytics extends InMemoryRepositoryAuthoringActi
       .slice(0, input.query.limit ?? DEFAULT_ANALYTICS_EVENT_QUERY_LIMIT)
       .map((aggregate) => clone(aggregate));
   }
+}
+
+function calendarMonthPeriod(at: string): { start: Date; end: Date } {
+  const date = new Date(at);
+  return {
+    start: new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1)),
+    end: new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1)),
+  };
+}
+
+function engagementDedupeHash(
+  workspaceId: string,
+  environmentId: string,
+  engagementKey: string,
+): string {
+  return `sha256-${createHash('sha256')
+    .update(`${workspaceId}\0${environmentId}\0${engagementKey}`)
+    .digest('hex')}`;
 }

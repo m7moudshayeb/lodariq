@@ -5,12 +5,15 @@ import {
   EnvironmentPolicyMutationForbiddenError,
   IdempotencyConflictError,
   ReleaseOperationInProgressError,
+  AccessibilityReleaseBlockedError,
   type AuthoringSessionRecord,
   type PersistedCompiledArtifact,
   type VisualCheckRunRecord,
 } from '@lodariq/database';
+import { assertAccessibilityReleaseGate } from '../../../accessibility-governance';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { createObservabilityEvent } from '../../../observability';
+import { enqueueReleaseWebhookEvent } from '../../../governance-events';
 import { emitObservability } from '../../control-plane-access';
 import type { ControlPlaneRouteOptions } from '../../control-plane-context';
 import {
@@ -186,6 +189,22 @@ export async function handleAuthoringStagingPublication(
       });
     }
     artifact = reviewed.artifact;
+    try {
+      await assertAccessibilityReleaseGate(
+        options.repository,
+        session.workspaceId,
+        artifact.documentVersionId,
+      );
+    } catch (error) {
+      if (error instanceof AccessibilityReleaseBlockedError) {
+        return reply.code(409).send({
+          error: error.code,
+          message: error.message,
+          findings: error.findings,
+        });
+      }
+      throw error;
+    }
     if (!authoringSessionArtifactMatches(session, artifact.compiled)) {
       return sendAuthoringSessionCompatibilityChanged(reply);
     }
@@ -221,6 +240,17 @@ export async function handleAuthoringStagingPublication(
       session.workspaceId,
       compiledMediaAssetIds(artifact.compiled),
     );
+    await enqueueReleaseWebhookEvent(options.repository, {
+      workspaceId: session.workspaceId,
+      environmentId: session.environmentId,
+      documentId: session.documentId,
+      operationId: result.operation.id,
+      action: 'activated',
+      occurredAt: result.operation.completedAt ?? result.publication.publishedAt,
+      generation: result.deployment.generation,
+      publicationId: result.publication.id,
+      contentHash: result.publication.contentHash,
+    });
     emitObservability(
       options.observability,
       createObservabilityEvent({

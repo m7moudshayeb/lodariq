@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { TargetControls } from '../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/components/target-controls';
 import type { LocalAuthoringFrameController } from '../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/controller';
 import type { LocalAuthoringFrameSnapshot } from '../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/types';
+import { INITIAL_AI_ASSIST_STATE } from '../../../../../packages/sdk-authoring/src/authoring/ai/assist-machine';
 import { createAuthoringBrandDriftViewModel } from '../../../../../packages/sdk-authoring/src/authoring/brand-drift-model';
 
 vi.mock('../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/design-system', () => {
@@ -219,11 +220,14 @@ function render(
     ]),
     advancedTargetIds: new Set(['target_1']),
     focusRequest: null,
+    cardCommandRequest: null,
+    targetInspectRequest: null,
     selectedBlockId: null,
     advancedEditorStepId: null,
     selectedStepIds: new Set(),
     stepStyleClipboardAvailable: false,
     stepStyleRecipes: [],
+    stepStyleRecipeByStep: new Map(),
     draftCheckpoints: [],
     mediaAssets: [],
     targetHealth: new Map(),
@@ -235,8 +239,11 @@ function render(
       expectedGeneration: null,
       findings: [],
     },
+    themeStale: false,
     panelWorkflow: {
       mode: 'edit',
+      operationsTab: 'flow',
+      operationsView: { focusKey: null, scrollTop: 0 },
       returnMode: 'edit',
       focusToken: 0,
       returnFocus: null,
@@ -254,6 +261,8 @@ function render(
         canApprove: false,
       },
       brandProposal: null,
+      assist: INITIAL_AI_ASSIST_STATE,
+      assistAvailable: false,
       brandDrift: {
         operation: 'idle',
         error: null,

@@ -1,6 +1,5 @@
 /** Approved contextual action workbench. */
 export const AUTHORING_AGREED_ACTION_WORKBENCH_CSS = `
-  /* Action creation is the compact bottom workbench from the approved design. */
   .storyboard-canvas .rich-step-editor:has(.storyboard-property-tray[data-workspace='action']) {
     grid-template-rows: auto minmax(104px, 1fr) auto;
   }
@@ -51,6 +50,17 @@ export const AUTHORING_AGREED_ACTION_WORKBENCH_CSS = `
     min-width: 0;
     align-items: stretch;
     border-bottom: 1px solid var(--lq-color-border-soft);
+  }
+
+  .storyboard-property-tray[data-tool-mode='content'] > .content-inspector-chrome > .popup-inspector-title {
+    display: grid;
+    min-height: 44px;
+    flex: 1 1 auto;
+    align-items: center;
+    margin: 0;
+    padding: 0 20px;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
   }
 
   .storyboard-property-tray[data-tool-mode='content']

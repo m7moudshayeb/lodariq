@@ -163,7 +163,7 @@ export const AUTHORING_STORYBOARD_SHELL_CSS = `
       min-height: 48px;
       flex-direction: column;
       gap: 4px;
-      font-size: 10px;
+      font-size: var(--lq-font-xs);
       line-height: 1.1;
       padding: 4px;
       text-align: center;
@@ -200,7 +200,6 @@ export const AUTHORING_STORYBOARD_SHELL_CSS = `
 
   }
 
-  /* Storyboard Studio: selected Editorial Air authoring composition. */
   html:has(.shell-panel),
   body:has(.shell-panel),
   .shell-panel,
@@ -376,6 +375,14 @@ export const AUTHORING_STORYBOARD_SHELL_CSS = `
     background: var(--lq-color-primary-soft);
   }
 
+  .tour-storyboard-step.drop-before {
+    box-shadow: inset 3px 0 0 var(--lq-color-primary);
+  }
+
+  .tour-storyboard-step.drop-after {
+    box-shadow: inset -3px 0 0 var(--lq-color-primary);
+  }
+
   .tour-storyboard-step.repair:not(.active) {
     border-color: var(--lq-color-danger-border);
   }
@@ -453,7 +460,7 @@ export const AUTHORING_STORYBOARD_SHELL_CSS = `
     border-radius: var(--lq-radius-sm);
     background: #ffffff;
     color: var(--lq-color-muted);
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     padding: var(--lq-space-2) var(--lq-space-3);
   }
 
@@ -471,7 +478,7 @@ export const AUTHORING_STORYBOARD_SHELL_CSS = `
     border-radius: var(--lq-radius-xs);
     background: var(--lq-color-primary);
     color: #ffffff;
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-bold);
     padding: var(--lq-space-1) var(--lq-space-2);
     text-overflow: ellipsis;

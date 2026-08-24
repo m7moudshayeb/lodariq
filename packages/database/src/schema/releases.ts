@@ -106,6 +106,7 @@ export const publications = pgTable(
     ),
     index('publications_document_idx').on(table.documentId),
     index('publications_artifact_idx').on(table.compiledArtifactId),
+    index('publications_workspace_published_idx').on(table.workspaceId, table.publishedAt.desc()),
   ],
 );
 
@@ -147,6 +148,10 @@ export const publicationVerifications = pgTable(
       table.workspaceId,
       table.publicationId,
       table.createdAt,
+    ),
+    index('publication_verifications_workspace_created_idx').on(
+      table.workspaceId,
+      table.createdAt.desc(),
     ),
     check('publication_verifications_result_check', sql`${table.result} in ('passed', 'failed')`),
     check(
@@ -378,6 +383,7 @@ export const releaseOperations = pgTable(
       table.documentId,
       table.createdAt,
     ),
+    index('release_operations_workspace_created_idx').on(table.workspaceId, table.createdAt.desc()),
   ],
 );
 
@@ -417,6 +423,7 @@ export const releaseApprovals = pgTable(
       table.releaseOperationId,
       table.createdAt,
     ),
+    index('release_approvals_workspace_created_idx').on(table.workspaceId, table.createdAt.desc()),
     check('release_approvals_decision_check', sql`${table.decision} in ('approved', 'rejected')`),
     check(
       'release_approvals_reason_check',
@@ -485,6 +492,10 @@ export const documentDeployments = pgTable(
       table.workspaceId,
       table.environmentId,
       table.state,
+    ),
+    index('document_deployments_workspace_updated_idx').on(
+      table.workspaceId,
+      table.updatedAt.desc(),
     ),
     index('document_deployments_workspace_document_idx').on(table.workspaceId, table.documentId),
     uniqueIndex('document_deployments_active_publication_idx')

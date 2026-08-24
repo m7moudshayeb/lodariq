@@ -8,10 +8,12 @@ import {
   type SafeNavigationDestination,
 } from '@lodariq/schema/url';
 import {
+  TOUR_COMPOSITION_PADDING_VARIABLES,
   TOUR_POPUP_STYLE_VARIABLES,
   resolveTourActionRecipe,
   resolveTourCompositionRecipe,
   resolveTourPopupStyleRecipe,
+  tourCompositionPaddingVariables,
   tourPopupStyleVariables,
 } from './tour-recipes';
 
@@ -23,7 +25,7 @@ interface BodyNodeRenderContext {
   onAction: (action: RuntimeAction | undefined) => void;
   resolveMediaAsset?: (
     assetId: string,
-    kind: 'image' | 'video' | 'captions',
+    kind: 'image' | 'video' | 'captions' | 'audio',
   ) => string | null | Promise<string | null>;
 }
 
@@ -191,17 +193,21 @@ function unavailableMedia(
   return unavailable;
 }
 
-function isPendingMediaUrl(value: string | null | Promise<string | null>): value is Promise<string | null> {
+function isPendingMediaUrl(
+  value: string | null | Promise<string | null>,
+): value is Promise<string | null> {
   return typeof value === 'object' && value !== null && 'then' in value;
 }
 
-function syncMediaHref(value: string | null | Promise<string | null> | undefined): string | undefined {
+function syncMediaHref(
+  value: string | null | Promise<string | null> | undefined,
+): string | undefined {
   if (typeof value !== 'string') return undefined;
   return safeMediaAssetUrl(value) ?? undefined;
 }
 
 /** Resolver-backed media URLs, not author-controlled action links. */
-function safeMediaAssetUrl(url: string | null | undefined): string | null {
+export function safeMediaAssetUrl(url: string | null | undefined): string | null {
   const trimmed = url?.trim();
   if (!trimmed) return null;
   if (trimmed.startsWith('blob:')) {
@@ -222,8 +228,9 @@ function renderFormFieldNode(node: RuntimeBodyNode): HTMLElement {
   if (control === 'radio') {
     const fieldset = document.createElement('fieldset');
     setBodyNodeAttributes(fieldset, node);
-    applyFormFieldPresentation(fieldset, field);
+    applyFormFieldPresentation(fieldset, field, control);
     const legend = document.createElement('legend');
+    legend.dataset['lodariqFieldCaption'] = '';
     legend.textContent = labelText;
     fieldset.append(legend);
     const options = field?.options?.length
@@ -246,19 +253,25 @@ function renderFormFieldNode(node: RuntimeBodyNode): HTMLElement {
   }
   const label = document.createElement('label');
   setBodyNodeAttributes(label, node);
-  applyFormFieldPresentation(label, field);
+  applyFormFieldPresentation(label, field, control);
   const input = document.createElement('input');
   input.name = name;
   if (field?.required) input.required = true;
+  /*
+   * The caption is an element rather than a bare text node so the label can be
+   * sized, weighted and — when the creator hides it — taken off the screen
+   * without ever leaving the field unnamed.
+   */
+  const caption = document.createElement('span');
+  caption.dataset['lodariqFieldCaption'] = '';
+  caption.textContent = labelText;
   if (control === 'checkbox') {
     input.type = 'checkbox';
-    label.append(input, document.createTextNode(labelText));
+    label.append(input, caption);
     return label;
   }
   input.type = 'text';
   if (field?.placeholder) input.placeholder = field.placeholder;
-  const caption = document.createElement('span');
-  caption.textContent = labelText;
   label.append(caption, input);
   return label;
 }
@@ -266,10 +279,17 @@ function renderFormFieldNode(node: RuntimeBodyNode): HTMLElement {
 function applyFormFieldPresentation(
   element: HTMLElement,
   field: RuntimeBodyNode['props']['formField'],
+  control: 'checkbox' | 'text' | 'radio',
 ): void {
+  element.dataset['lodariqFieldControl'] = control;
   if (!field) return;
   if (field.size) element.dataset['lodariqFieldSize'] = field.size;
   if (field.radius) element.dataset['lodariqFieldRadius'] = field.radius;
+  if (field.labelPlacement) element.dataset['lodariqFieldLabel'] = field.labelPlacement;
+  if (field.labelSize) element.dataset['lodariqFieldLabelSize'] = field.labelSize;
+  if (field.labelWeight) element.dataset['lodariqFieldLabelWeight'] = field.labelWeight;
+  if (field.controlWidth) element.dataset['lodariqFieldControlWidth'] = field.controlWidth;
+  if (field.gapPx !== undefined) element.style.setProperty('--lq-field-gap', `${field.gapPx}px`);
   if (field.fillColor) element.style.setProperty('--lq-field-fill', field.fillColor);
   if (field.textColor) element.style.setProperty('--lq-field-text', field.textColor);
   if (field.labelColor) element.style.setProperty('--lq-field-label', field.labelColor);
@@ -478,6 +498,11 @@ export function applyStepComposition(card: HTMLElement, step: CompiledStep): voi
   card.dataset['lodariqActionAlign'] = recipe.actionAlign;
   card.dataset['lodariqCompositionGap'] = recipe.gap;
   card.dataset['lodariqCompositionPadding'] = recipe.padding;
+  // Cleared first: a re-render that drops an override has to drop the variable.
+  for (const variable of TOUR_COMPOSITION_PADDING_VARIABLES) card.style.removeProperty(variable);
+  for (const [variable, value] of Object.entries(tourCompositionPaddingVariables(recipe))) {
+    card.style.setProperty(variable, value);
+  }
   card.dataset['lodariqPopupRadius'] = recipe.radius;
   card.dataset['lodariqPointerArrow'] = recipe.showArrow ? 'show' : 'hide';
   card.dataset['lodariqPopupBorderWeight'] = popupStyle.borderWeight;
@@ -492,9 +517,11 @@ export function appendStepBody(
   card: HTMLElement,
   step: CompiledStep,
   createBodyElement: (node: RuntimeBodyNode) => HTMLElement,
+  shouldRender: (node: RuntimeBodyNode) => boolean,
 ): void {
   let actionGroup: HTMLElement | null = null;
   for (const node of step.body) {
+    if (!shouldRender(node)) continue;
     const isAction = node.type === 'button' || node.type === 'link';
     if (!isAction) {
       actionGroup = null;

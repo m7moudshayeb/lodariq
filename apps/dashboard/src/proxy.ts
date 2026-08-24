@@ -10,11 +10,17 @@ const PUBLIC_PAGE_PREFIXES = [
   '/reset-password',
   '/authoring/activate',
 ] as const;
+const VERSIONED_API_PREFIX = '/v1/';
+const INTERNAL_API_PREFIX = '/api/';
+const INTERNAL_AUTHORING_ACTIVATION_PATH = '/authoring/activate/request';
 
 export function proxy(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
+  if (pathname.startsWith(INTERNAL_API_PREFIX) || pathname === INTERNAL_AUTHORING_ACTIVATION_PATH) {
+    return new NextResponse(null, { status: 404 });
+  }
   if (
-    pathname.startsWith('/api/') ||
+    pathname.startsWith(VERSIONED_API_PREFIX) ||
     PUBLIC_PAGE_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
     isDevelopmentHeaderAuthMode() ||
     hasSessionCookie(request)

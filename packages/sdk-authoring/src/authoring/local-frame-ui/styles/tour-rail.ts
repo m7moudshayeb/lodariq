@@ -97,8 +97,8 @@ export const AUTHORING_TOUR_RAIL_CSS = `
 
   .tour-sequence-kicker.document-context {
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0.08em;
     line-height: 1.2;
     text-transform: uppercase;
@@ -107,8 +107,8 @@ export const AUTHORING_TOUR_RAIL_CSS = `
   .tour-sequence-header .document-title-input {
     width: 100%;
     border-radius: 8px;
-    font-size: 18px;
-    font-weight: 700;
+    font-size: var(--lq-font-xl);
+    font-weight: var(--lq-weight-bold);
     line-height: 1.3;
     padding: 4px 4px;
     transform: translateX(-4px);
@@ -118,8 +118,8 @@ export const AUTHORING_TOUR_RAIL_CSS = `
     flex: 0 0 auto;
     margin-top: 16px;
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 600;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
     white-space: nowrap;
   }
 
@@ -138,6 +138,14 @@ export const AUTHORING_TOUR_RAIL_CSS = `
     border: 1px solid transparent;
     border-radius: 8px;
     background: transparent;
+  }
+
+  .tour-step-row.drop-before {
+    box-shadow: inset 0 3px 0 var(--lq-color-primary);
+  }
+
+  .tour-step-row.drop-after {
+    box-shadow: inset 0 -3px 0 var(--lq-color-primary);
   }
 
   .tour-step-row-main {
@@ -252,8 +260,8 @@ export const AUTHORING_TOUR_RAIL_CSS = `
     border-radius: 999px;
     background: var(--lq-color-panel);
     color: var(--lq-color-ink-soft);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
   }
 
   .tour-step-row.active .tour-step-number {
@@ -277,13 +285,13 @@ export const AUTHORING_TOUR_RAIL_CSS = `
 
   .tour-step-copy strong {
     color: var(--lq-color-ink);
-    font-size: 12px;
-    font-weight: 600;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
   }
 
   .tour-step-placement {
     color: var(--lq-color-muted);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
   }
 
   .tour-step-health {
@@ -292,7 +300,7 @@ export const AUTHORING_TOUR_RAIL_CSS = `
     gap: 4px;
     color: var(--lq-color-muted);
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     white-space: nowrap;
   }
 
@@ -316,8 +324,8 @@ export const AUTHORING_TOUR_RAIL_CSS = `
     background: transparent;
     color: var(--lq-color-primary);
     cursor: pointer;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     padding: 8px 8px;
   }
 
@@ -372,7 +380,7 @@ export const AUTHORING_TOUR_RAIL_CSS = `
   .tour-active-target small {
     color: var(--lq-color-muted);
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
@@ -380,7 +388,7 @@ export const AUTHORING_TOUR_RAIL_CSS = `
   .tour-active-target strong {
     overflow: hidden;
     color: var(--lq-color-ink);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -398,8 +406,8 @@ export const AUTHORING_TOUR_RAIL_CSS = `
     background: var(--lq-color-panel);
     color: var(--lq-color-ink-soft);
     cursor: pointer;
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     padding: 8px 8px;
   }
 
@@ -571,6 +579,6 @@ export const AUTHORING_TOUR_RAIL_CSS = `
 
   .tour-flow-finding {
     color: var(--lq-color-danger-text);
-    font-size: var(--lq-font-size-xs);
+    font-size: var(--lq-font-xs);
   }
 `;

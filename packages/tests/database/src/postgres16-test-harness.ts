@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { COMMERCIAL_PLAN_VERSION } from '@lodariq/schema';
 
 const ADMIN_DATABASE_URL = process.env.LODARIQ_TEST_POSTGRES_ADMIN_URL?.trim() ?? '';
 
@@ -89,11 +90,19 @@ export function runtimeRoleGrantsSql(runtimeDatabaseUrl: string): string {
     grant execute on function public.lodariq_current_workspace_role(text) to ${role};
     grant execute on function public.lodariq_workspace_is_empty(text) to ${role};
     grant execute on function public.lodariq_user_is_workspace_member(text, text) to ${role};
+    grant execute on function public.lodariq_count_creator_seats(text) to ${role};
     grant execute on function public.lodariq_accept_workspace_invitation(text, text, text, timestamptz) to ${role};
     grant execute on function public.lodariq_schedule_account_deletion(text, timestamptz, timestamptz) to ${role};
     revoke update, delete on compiled_artifacts, publications,
       product_style_applications, style_sources, auth_security_events,
-      tenant_audit_events, account_security_events from ${role};
+      tenant_audit_events, account_security_events,
+      effective_entitlement_snapshots, workspace_usage_ledger,
+      ai_credit_ledger, delivery_transition_history,
+      analytics_export_audit_events from ${role};
+    revoke update, delete on webhook_events,
+      data_residency_migration_history, data_residency_migration_evidence,
+      analytics_warehouse_sync_runs, accessibility_sweeps,
+      accessibility_finding_events from ${role};
     revoke update, delete on release_operations from ${role};
     grant update (
       status,
@@ -110,6 +119,27 @@ export function runtimeRoleGrantsSql(runtimeDatabaseUrl: string): string {
 
 export function sqlLiteral(value: string): string {
   return `'${value.replace(/'/gu, "''")}'`;
+}
+
+export function businessWorkspaceSubscriptionSql(workspaceId: string, at: string): string {
+  const instant = new Date(at);
+  if (!Number.isFinite(instant.getTime())) throw new Error('subscription fixture time is invalid');
+  const periodStart = new Date(
+    Date.UTC(instant.getUTCFullYear(), instant.getUTCMonth(), 1),
+  ).toISOString();
+  const periodEnd = new Date(
+    Date.UTC(instant.getUTCFullYear(), instant.getUTCMonth() + 1, 1),
+  ).toISOString();
+  return `
+    insert into workspace_subscriptions
+      (workspace_id, plan_id, plan_version, status, entitlement_overrides_json,
+       current_period_start, current_period_end, revision, created_at, updated_at)
+    values
+      (${sqlLiteral(workspaceId)}, 'business', ${sqlLiteral(COMMERCIAL_PLAN_VERSION)},
+       'active', '{}'::jsonb, ${sqlLiteral(periodStart)}::timestamptz,
+       ${sqlLiteral(periodEnd)}::timestamptz, 1,
+       ${sqlLiteral(at)}::timestamptz, ${sqlLiteral(at)}::timestamptz);
+  `;
 }
 
 function runPsql(databaseUrl: string, statement: string): string {

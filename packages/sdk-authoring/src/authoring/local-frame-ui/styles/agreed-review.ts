@@ -1,6 +1,5 @@
 /** Approved review and recovery workspace. */
 export const AUTHORING_AGREED_REVIEW_CSS = `
-  /* Review and recovery is a proper workspace, not an empty disclosure. */
   .panel-review-workspace {
     grid-template-rows: 56px minmax(0, 1fr);
   }
@@ -57,7 +56,7 @@ export const AUTHORING_AGREED_REVIEW_CSS = `
     background: #ffffff;
     color: var(--lq-color-ink);
     cursor: pointer;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     padding-inline: 10px;
   }
 
@@ -73,7 +72,7 @@ export const AUTHORING_AGREED_REVIEW_CSS = `
   }
 
   .tour-review-header strong {
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .tour-review-save {
@@ -81,8 +80,8 @@ export const AUTHORING_AGREED_REVIEW_CSS = `
     align-items: center;
     gap: 6px;
     color: var(--lq-color-primary);
-    font-size: 9px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
   }
 
   .tour-review-list {
@@ -138,18 +137,18 @@ export const AUTHORING_AGREED_REVIEW_CSS = `
   }
 
   .tour-review-row-copy strong {
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
   }
 
   .tour-review-row-copy small,
   .tour-review-row-detail {
     color: var(--lq-color-muted);
-    font-size: 9px;
+    font-size: var(--lq-font-xs);
   }
 
   .tour-review-row-detail {
     color: var(--lq-color-primary);
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
   }
 
   .tour-review-detail {
@@ -235,11 +234,11 @@ export const AUTHORING_AGREED_REVIEW_CSS = `
   }
 
   .tour-review-note strong {
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
   }
 
   .tour-review-note small {
-    font-size: 9px;
+    font-size: var(--lq-font-xs);
   }
 
 `;

@@ -53,6 +53,17 @@ export const TENANT_AUDIT_EVENT_TYPES = [
   'ownership_transferred',
   'workspace_deletion_scheduled',
   'workspace_deletion_cancelled',
+  'capability_profile_created',
+  'capability_profile_updated',
+  'capability_profile_deleted',
+  'capability_profile_assigned',
+  'capability_profile_unassigned',
+  'webhook_endpoint_created',
+  'webhook_endpoint_disabled',
+  'webhook_endpoint_secret_rotated',
+  'webhook_delivery_replayed',
+  'residency_migration_requested',
+  'residency_migration_transitioned',
 ] as const;
 export type TenantAuditEventType = (typeof TENANT_AUDIT_EVENT_TYPES)[number];
 
@@ -184,6 +195,8 @@ export const TenantAuditEvent = Type.Object(
     invitationId: Type.Union([InvitationId, Type.Null()]),
     previousRole: Type.Union([Type.Ref(ControlPlaneRole), Type.Null()]),
     nextRole: Type.Union([Type.Ref(ControlPlaneRole), Type.Null()]),
+    environmentId: Type.Optional(Type.Union([WorkspaceId, Type.Null()])),
+    resourceId: Type.Optional(Type.Union([WorkspaceId, Type.Null()])),
     occurredAt: Timestamp,
   },
   { $id: 'TenantAuditEvent', additionalProperties: false },

@@ -6,8 +6,11 @@ import {
   BrandThemeDefinition,
   BrowserVerificationReport,
   EnvironmentReleasePolicy,
+  EnvironmentGovernanceCapabilitySet,
   ProductStyleProposal,
+  ReleaseRecoveryResult,
   ThemeBinding,
+  ExperimentAssignmentKey,
 } from '@lodariq/schema';
 
 export const DocumentParams = Type.Object(
@@ -75,6 +78,7 @@ export const UpdateWorkspaceEnvironmentPolicyBody = Type.Object(
     enabled: Type.Boolean(),
     pipelinePosition: Type.Union([Type.Literal(0), Type.Literal(1), Type.Literal(2)]),
     authoringEnabled: Type.Boolean(),
+    governanceCapabilities: Type.Optional(EnvironmentGovernanceCapabilitySet),
     promotionSourceEnvironmentId: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
     releasePolicy: EnvironmentReleasePolicy,
     expectedUpdatedAt: Type.String({ minLength: 1, maxLength: 64 }),
@@ -184,6 +188,11 @@ export const ApiErrorResponse = Type.Object(
   },
   { additionalProperties: false },
 );
+
+export const ReleaseRecoveryForbiddenResponse = Type.Union([
+  ReleaseRecoveryResult,
+  ApiErrorResponse,
+]);
 
 export const CreateAuthoringSessionBody = Type.Object(
   {
@@ -298,6 +307,7 @@ export const IngestEventsBody = Type.Object(
 
 export const SdkIngestEventsBody = Type.Object(
   {
+    assignmentKey: Type.Optional(Type.Ref(ExperimentAssignmentKey)),
     events: Type.Array(Type.Unknown(), {
       minItems: 1,
       maxItems: ANALYTICS_EVENT_LIMITS.batchSize,
@@ -309,6 +319,8 @@ export const SdkIngestEventsBody = Type.Object(
 export const SdkAuthoringDocumentBody = Type.Object(
   {
     document: Type.Unknown(),
+    // Optional in the schema so authentication still answers first; the handler
+    // requires it. An omitted precondition is a silent last-writer-wins save.
     expectedDocumentUpdatedAt: Type.Optional(Type.String({ format: 'date-time' })),
   },
   { additionalProperties: false },

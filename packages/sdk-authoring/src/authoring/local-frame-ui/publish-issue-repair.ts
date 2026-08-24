@@ -12,6 +12,7 @@ export interface PublishIssueRepairIntent {
 
 const PUBLISH_ISSUE_REPAIR_INTENTS = {
   unsupported_document_type: editorIntent(authoringText('Review document')),
+  invalid_experience_configuration: editorIntent(authoringText('Review document')),
   empty_tour: {
     action: 'add-step',
     actionLabel: authoringText('Add first step'),
@@ -37,6 +38,8 @@ const PUBLISH_ISSUE_REPAIR_INTENTS = {
   choreography_target_unverified: placementIntent(authoringText('Verify target')),
   incomplete_media: contentIntent(authoringText('Complete media')),
   media_asset_invalid: contentIntent(authoringText('Complete media')),
+  narration_audio_missing: contentIntent(authoringText('Generate narration')),
+  narration_audio_invalid: contentIntent(authoringText('Generate narration again')),
   missing_accessible_name: contentIntent(authoringText('Complete media')),
   unresolved_lifecycle_hint: placementIntent(authoringText('Review timing')),
   invalid_presentation_anchor: placementIntent(authoringText('Fix popup area')),

@@ -18,6 +18,10 @@ import {
 } from '../domains/documents';
 import { assertReleaseMutationGuardInput } from '../domains/authoring-policy';
 import { clone } from '../domains/in-memory-helpers';
+import {
+  assertCommercialFeature,
+  CommercialEntitlementError,
+} from '../domains/commercial-entitlements';
 import { InMemoryRepositoryDocuments } from './documents';
 
 export class InMemoryRepositoryPublication extends InMemoryRepositoryDocuments {
@@ -42,6 +46,8 @@ export class InMemoryRepositoryPublication extends InMemoryRepositoryDocuments {
     if (existingOperation) {
       return this.resolveExistingReleaseOperation(input, existingOperation);
     }
+    const entitlements = this.resolveWorkspaceEntitlements(input.workspaceId).entitlements;
+    assertCommercialFeature(entitlements, 'release-management');
     const environment = this.environments.get(this.key(input.workspaceId, input.environmentId));
     if (!environment) throw new Error('environment not found in workspace');
     const environmentPolicy = assertEnvironmentPolicyMutationAllowed(environment, {
@@ -56,6 +62,21 @@ export class InMemoryRepositoryPublication extends InMemoryRepositoryDocuments {
       !environmentPolicy.releasePolicy.publisherRoles.some((role) => role === membership.role)
     ) {
       throw new EnvironmentPolicyMutationForbiddenError('role_forbidden');
+    }
+
+    const liveLimit = entitlements.liveExperiences;
+    if (liveLimit !== null) {
+      const liveDocumentIds = new Set(
+        [...this.documentDeployments.values()]
+          .filter(
+            (deployment) =>
+              deployment.workspaceId === input.workspaceId && deployment.state === 'active',
+          )
+          .map((deployment) => deployment.documentId),
+      );
+      if (!liveDocumentIds.has(input.artifact.documentId) && liveDocumentIds.size + 1 > liveLimit) {
+        throw new CommercialEntitlementError('live-experiences', liveDocumentIds.size, liveLimit);
+      }
     }
 
     const createdAt = new Date().toISOString();

@@ -10,10 +10,7 @@ import {
   type IdentityProviderAdapter,
   type OidcConfiguration,
 } from '@lodariq/api';
-import {
-  createInMemoryControlPlaneRepository,
-  type AuthSessionRecord,
-} from '@lodariq/database';
+import { createInMemoryControlPlaneRepository, type AuthSessionRecord } from '@lodariq/database';
 
 const NOW = new Date();
 const STATE_SECRET = 'oidc-test-state-secret-contains-at-least-32-bytes';
@@ -39,11 +36,10 @@ describe('@lodariq/api OIDC authorization', () => {
       LODARIQ_OIDC_STATE_SECRET: STATE_SECRET,
       LODARIQ_GOOGLE_OIDC_CLIENT_ID: 'google-client',
       LODARIQ_GOOGLE_OIDC_CLIENT_SECRET: 'google-secret',
-      LODARIQ_GOOGLE_OIDC_REDIRECT_URI:
-        'https://app.lodariq.io/api/auth/oidc/google/callback',
+      LODARIQ_GOOGLE_OIDC_REDIRECT_URI: 'https://app.lodariq.io/v1/auth/oidc/google/callback',
     });
     expect(configuration?.providers.get('google')?.redirectUri).toBe(
-      'https://app.lodariq.io/api/auth/oidc/google/callback',
+      'https://app.lodariq.io/v1/auth/oidc/google/callback',
     );
     expect(() =>
       readOidcConfiguration({
@@ -79,10 +75,12 @@ describe('@lodariq/api OIDC authorization', () => {
       returnTo: '/',
       session: { activeWorkspaceId: expect.stringMatching(/^wk_/u) },
     });
-    expect(await repository.findAuthIdentityByProviderSubject(
-      'https://accounts.google.com',
-      'subject-signup',
-    )).toMatchObject({ kind: 'oidc', providerTenantId: 'google' });
+    expect(
+      await repository.findAuthIdentityByProviderSubject(
+        'https://accounts.google.com',
+        'subject-signup',
+      ),
+    ).toMatchObject({ kind: 'oidc', providerTenantId: 'google' });
 
     const replay = await app.inject({
       method: 'POST',
@@ -140,10 +138,12 @@ describe('@lodariq/api OIDC authorization', () => {
       payload: { state: authorizationState(collision), code: 'collision-code' },
     });
     expect(rejected.statusCode).toBe(401);
-    expect(await repository.findAuthIdentityByProviderSubject(
-      'https://accounts.google.com',
-      'subject-link',
-    )).toBeNull();
+    expect(
+      await repository.findAuthIdentityByProviderSubject(
+        'https://accounts.google.com',
+        'subject-link',
+      ),
+    ).toBeNull();
 
     const link = await app.inject({
       method: 'POST',
@@ -160,10 +160,12 @@ describe('@lodariq/api OIDC authorization', () => {
     });
     expect(linked.statusCode).toBe(200);
     expect(linked.json()).toEqual({ status: 'linked', returnTo: '/authoring/activate' });
-    expect(await repository.findAuthIdentityByProviderSubject(
-      'https://accounts.google.com',
-      'subject-link',
-    )).toMatchObject({ userId: 'usr_oidc_existing' });
+    expect(
+      await repository.findAuthIdentityByProviderSubject(
+        'https://accounts.google.com',
+        'subject-link',
+      ),
+    ).toMatchObject({ userId: 'usr_oidc_existing' });
     await app.close();
   });
 });
@@ -172,7 +174,7 @@ function configuration(identity: ReturnType<typeof verifiedIdentity>): OidcConfi
   const adapter: IdentityProviderAdapter = {
     providerId: 'google',
     label: 'Google',
-    redirectUri: 'https://app.lodariq.io/api/auth/oidc/google/callback',
+    redirectUri: 'https://app.lodariq.io/v1/auth/oidc/google/callback',
     begin(input) {
       const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
       url.searchParams.set('state', input.state);
@@ -277,7 +279,12 @@ function seedAccount(rawToken: string) {
       { id: 'wk_oidc_existing', name: 'Existing', createdAt: timestamp, updatedAt: timestamp },
     ],
     workspaceMemberships: [
-      { workspaceId: 'wk_oidc_existing', userId: 'usr_oidc_existing', role: 'owner', createdAt: timestamp },
+      {
+        workspaceId: 'wk_oidc_existing',
+        userId: 'usr_oidc_existing',
+        role: 'owner',
+        createdAt: timestamp,
+      },
     ],
   };
 }

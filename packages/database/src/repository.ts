@@ -1,4 +1,16 @@
 import { type LodariqDocument } from '@lodariq/schema';
+export * from './domains/experience-measurement';
+export * from './domains/experience-measurement-repository';
+export * from './domains/analytics-exports';
+export * from './domains/experience-sessions';
+export * from './domains/commercial-entitlements';
+export * from './domains/commercial-billing';
+export * from './domains/data-residency';
+export * from './domains/analytics-warehouse';
+export * from './domains/governance-change-history';
+export * from './domains/accessibility-governance';
+export * from './domains/delivery-orchestration';
+export * from './domains/governance';
 import { normalizeWorkspaceEnvironments, type WorkspaceEnvironment } from './domains/environments';
 import {
   type BrandDriftRunRecord,
@@ -50,12 +62,12 @@ import {
   type PersistedAnalyticsEventRecord,
 } from './domains/analytics';
 import type { ControlPlaneRepository } from './domains/control-plane-repository';
+import type { AuthoringRoadmapRecord } from './domains/authoring-roadmap';
 import {
   assertProductStyleApplicationIntegrity,
   compareStyleSourceOrdinal,
 } from './domains/product-style';
 import { clone } from './domains/in-memory-helpers';
-import { InMemoryRepositoryAnalytics } from './in-memory/analytics';
 import type {
   TenantAuditEventRecord,
   TenantWorkspaceRecord,
@@ -82,6 +94,33 @@ import type {
   EnterpriseValidationEvidenceRecord,
   EnterpriseVerifiedDomainRecord,
 } from './domains/enterprise-identity';
+import type {
+  AiCreditLedgerRecord,
+  WorkspaceEntitlementSnapshotRecord,
+  WorkspaceSubscriptionRecord,
+  WorkspaceUsageLedgerRecord,
+} from './domains/commercial-entitlements';
+import type {
+  BillingAccountRecord,
+  BillingInvoiceRecord,
+  BillingMeterBatchRecord,
+  BillingProviderEventRecord,
+} from './domains/commercial-billing';
+import type {
+  AnalyticsExportAuditEventRecord,
+  PersistedAnalyticsExportJob,
+} from './domains/analytics-exports';
+import type {
+  GovernanceCapabilityProfileAssignmentRecord,
+  GovernanceCapabilityProfileRecord,
+  WorkspaceGovernanceCapabilityProfileAssignmentRecord,
+  WebhookDeliveryRecord,
+  WebhookEndpointRecord,
+  WebhookEventRecord,
+  DataResidencyMigrationRecord,
+  WorkspaceDataPlacementRecord,
+} from './domains/governance';
+import { InMemoryRepositoryAccessibilityGovernance } from './in-memory/accessibility-governance';
 
 export * from './domains/environments';
 export * from './domains/themes';
@@ -100,6 +139,7 @@ export * from './domains/product-style';
 export * from './domains/theme-policy';
 export * from './domains/oidc';
 export * from './domains/enterprise-identity';
+export * from './domains/authoring-roadmap';
 
 export interface InMemoryControlPlaneSeed {
   users?: UserRecord[];
@@ -121,6 +161,14 @@ export interface InMemoryControlPlaneSeed {
       Partial<Pick<TenantWorkspaceRecord, 'deletedAt' | 'retentionExpiresAt'>>
   >;
   workspaceMemberships?: WorkspaceMembershipRecord[];
+  workspaceSubscriptions?: WorkspaceSubscriptionRecord[];
+  effectiveEntitlementSnapshots?: WorkspaceEntitlementSnapshotRecord[];
+  workspaceUsageLedger?: WorkspaceUsageLedgerRecord[];
+  aiCreditLedger?: AiCreditLedgerRecord[];
+  workspaceBillingAccounts?: BillingAccountRecord[];
+  billingProviderEvents?: BillingProviderEventRecord[];
+  billingInvoices?: BillingInvoiceRecord[];
+  billingMeterBatches?: BillingMeterBatchRecord[];
   workspaceInvitations?: WorkspaceInvitationRecord[];
   workspaceInvitationOutbox?: WorkspaceInvitationOutboxRecord[];
   tenantAuditEvents?: TenantAuditEventRecord[];
@@ -163,6 +211,17 @@ export interface InMemoryControlPlaneSeed {
   publicationVerifications?: PublicationVerificationRecord[];
   releaseApprovals?: ReleaseApprovalRecord[];
   analyticsEvents?: PersistedAnalyticsEventRecord[];
+  analyticsExportJobs?: PersistedAnalyticsExportJob[];
+  analyticsExportAuditEvents?: AnalyticsExportAuditEventRecord[];
+  governanceCapabilityProfiles?: GovernanceCapabilityProfileRecord[];
+  governanceCapabilityProfileAssignments?: GovernanceCapabilityProfileAssignmentRecord[];
+  workspaceGovernanceCapabilityProfileAssignments?: WorkspaceGovernanceCapabilityProfileAssignmentRecord[];
+  webhookEndpoints?: WebhookEndpointRecord[];
+  webhookEvents?: WebhookEventRecord[];
+  webhookDeliveries?: WebhookDeliveryRecord[];
+  workspaceDataPlacements?: WorkspaceDataPlacementRecord[];
+  dataResidencyMigrations?: DataResidencyMigrationRecord[];
+  authoringRoadmapRecords?: AuthoringRoadmapRecord[];
 }
 
 export function createInMemoryControlPlaneRepository(
@@ -172,13 +231,56 @@ export function createInMemoryControlPlaneRepository(
 }
 
 class InMemoryControlPlaneRepository
-  extends InMemoryRepositoryAnalytics
+  extends InMemoryRepositoryAccessibilityGovernance
   implements ControlPlaneRepository
 {
   constructor(seed: InMemoryControlPlaneSeed) {
     super();
     for (const environment of normalizeWorkspaceEnvironments(seed.environments ?? [])) {
       this.environments.set(this.key(environment.workspaceId, environment.id), clone(environment));
+    }
+    for (const profile of seed.governanceCapabilityProfiles ?? []) {
+      this.governanceCapabilityProfiles.set(
+        this.key(profile.workspaceId, profile.id),
+        clone(profile),
+      );
+    }
+    for (const assignment of seed.governanceCapabilityProfileAssignments ?? []) {
+      this.governanceCapabilityProfileAssignments.set(
+        this.key(assignment.workspaceId, assignment.environmentId, assignment.userId),
+        clone(assignment),
+      );
+    }
+    for (const assignment of seed.workspaceGovernanceCapabilityProfileAssignments ?? []) {
+      this.workspaceGovernanceCapabilityProfileAssignments.set(
+        this.key(assignment.workspaceId, assignment.userId),
+        clone(assignment),
+      );
+    }
+    for (const endpoint of seed.webhookEndpoints ?? []) {
+      this.webhookEndpoints.set(this.key(endpoint.workspaceId, endpoint.id), clone(endpoint));
+    }
+    for (const event of seed.webhookEvents ?? []) {
+      this.webhookEvents.set(this.key(event.workspaceId, event.id), clone(event));
+    }
+    for (const delivery of seed.webhookDeliveries ?? []) {
+      this.webhookDeliveries.set(this.key(delivery.workspaceId, delivery.id), {
+        ...clone(delivery),
+        leaseOwner: null,
+        leasedUntil: null,
+      });
+    }
+    for (const placement of seed.workspaceDataPlacements ?? []) {
+      this.workspaceDataPlacements.set(placement.workspaceId, clone(placement));
+    }
+    for (const migration of seed.dataResidencyMigrations ?? []) {
+      this.dataResidencyMigrations.set(
+        this.key(migration.workspaceId, migration.id),
+        clone(migration),
+      );
+    }
+    for (const record of seed.authoringRoadmapRecords ?? []) {
+      this.authoringRoadmapRecords.set(this.key(record.workspaceId, record.id), clone(record));
     }
     for (const installation of seed.publicSdkInstallations ?? []) {
       this.publicSdkInstallations.set(installation.installationId, clone(installation));
@@ -243,6 +345,44 @@ class InMemoryControlPlaneRepository
         deletedAt: workspace.deletedAt ?? null,
         retentionExpiresAt: workspace.retentionExpiresAt ?? null,
       });
+    }
+    for (const subscription of seed.workspaceSubscriptions ?? []) {
+      this.workspaceSubscriptions.set(subscription.workspaceId, clone(subscription));
+    }
+    for (const snapshot of seed.effectiveEntitlementSnapshots ?? []) {
+      const snapshots = this.effectiveEntitlementSnapshots.get(snapshot.workspaceId) ?? [];
+      snapshots.push(clone(snapshot));
+      this.effectiveEntitlementSnapshots.set(snapshot.workspaceId, snapshots);
+    }
+    for (const account of seed.workspaceBillingAccounts ?? []) {
+      this.workspaceBillingAccounts.set(account.workspaceId, clone(account));
+    }
+    for (const event of seed.billingProviderEvents ?? []) {
+      this.billingProviderEvents.set(this.key(event.provider, event.providerEventId), clone(event));
+    }
+    for (const invoice of seed.billingInvoices ?? []) {
+      this.billingInvoices.set(this.key(invoice.workspaceId, invoice.id), clone(invoice));
+    }
+    for (const batch of seed.billingMeterBatches ?? []) {
+      this.billingMeterBatches.set(batch.id, clone(batch));
+    }
+    for (const entry of seed.workspaceUsageLedger ?? []) {
+      this.workspaceUsageLedger.set(
+        this.key(
+          entry.workspaceId,
+          entry.scopeKey,
+          entry.metric,
+          entry.periodStart,
+          entry.dedupeKeyHash,
+        ),
+        clone(entry),
+      );
+    }
+    for (const entry of seed.aiCreditLedger ?? []) {
+      this.aiCreditLedger.set(this.key(entry.workspaceId, entry.operationId), clone(entry));
+    }
+    for (const workspace of this.workspaces.values()) {
+      this.resolveWorkspaceEntitlements(workspace.id, 'business');
     }
     for (const membership of seed.workspaceMemberships ?? []) {
       this.workspaceMemberships.set(
@@ -418,6 +558,12 @@ class InMemoryControlPlaneRepository
       const { id: _id, ingestedAt: _ingestedAt, ...authoritativeEvent } = event;
       assertAuthoritativeAnalyticsEvent(authoritativeEvent, event.workspaceId, event.environmentId);
       this.analyticsEvents.push(clone(event));
+    }
+    for (const job of seed.analyticsExportJobs ?? []) {
+      this.analyticsExportJobs.set(this.key(job.workspaceId, job.id), clone(job));
+    }
+    for (const event of seed.analyticsExportAuditEvents ?? []) {
+      this.analyticsExportAuditEvents.push(clone(event));
     }
     for (const version of seed.documentVersions ?? []) {
       this.appendDocumentVersion(version);

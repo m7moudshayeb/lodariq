@@ -17,11 +17,14 @@ import {
   type WorkspaceEnvironment,
 } from '@lodariq/database';
 import {
+  AUTHORING_SESSION_CAPABILITIES,
   BRAND_THEME_CONTRACT_VERSION,
   COMPILED_ARTIFACT_SCHEMA_VERSION,
+  COMMERCIAL_PLAN_VERSION,
   COMPILER_VERSION,
   DEFAULT_EXPERIENCE_APPEARANCE,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+  PUBLIC_MANIFEST_SCHEMA_VERSION,
   RENDERER_CONTRACT_VERSION,
   type NewCompiledDocument,
   type LodariqDocument,
@@ -202,7 +205,7 @@ describe('release recovery HTTP integration', () => {
     await fixture.app.close();
   });
 
-  it('denies destructive recovery to legacy direct sessions without explicit capabilities', async () => {
+  it('grants nothing to legacy direct sessions carrying no capability list', async () => {
     const tokens = createTokens();
     const seed = createSeed(tokens);
     const directSession = seed.authoringSessions?.find(
@@ -230,19 +233,17 @@ describe('release recovery HTTP integration', () => {
       payload: { environment: 'staging', origin: STAGING_ORIGIN },
     });
     expect(bootstrap.statusCode, bootstrap.body).toBe(200);
-    const release = bootstrap.json<{ authoring: { release: Record<string, unknown> } }>().authoring
-      .release;
-    expect(release).toHaveProperty('recoveryState');
-    expect(release).not.toHaveProperty('rollback');
-    expect(release).not.toHaveProperty('unpublish');
+    // An absent capability list is not a wildcard: the release envelope is
+    // withheld entirely rather than narrowed to the read-only subset.
+    const authoring = bootstrap.json<{ authoring?: { release?: unknown } }>().authoring;
+    expect(authoring?.release).toBeUndefined();
 
     const state = await app.inject({
       method: 'GET',
       url: directRecoveryPath(PRODUCTION_ID),
       headers,
     });
-    expect(state.statusCode, state.body).toBe(200);
-    expect(state.json()).toMatchObject({ permissions: { rollback: false, unpublish: false } });
+    expect(state.statusCode, state.body).toBe(403);
 
     const denied = await app.inject({
       method: 'POST',
@@ -266,6 +267,101 @@ describe('release recovery HTTP integration', () => {
       activePublicationId: CURRENT_PUBLICATION_ID,
     });
 
+    await app.close();
+  });
+
+  it('refuses a direct-SDK document save when the session lacks document:write', async () => {
+    const tokens = createTokens();
+    const seed = createSeed(tokens);
+    const directSession = seed.authoringSessions?.find(
+      (session) => session.id === 'authsess_api_direct',
+    );
+    if (!directSession) throw new Error('direct session fixture missing');
+    directSession.capabilities = getAuthoringDocumentSessionCapabilities('staging').filter(
+      (capability) => capability !== AUTHORING_SESSION_CAPABILITIES.WRITE_DOCUMENT,
+    );
+    const repository = createInMemoryControlPlaneRepository(seed);
+    const app = createApiApp({
+      repository,
+      defaultWorkspaceId: WORKSPACE_ID,
+      defaultUserId: OWNER_ID,
+      publicApiBaseUrl: 'https://api.lodariq.io',
+    });
+
+    const refused = await app.inject({
+      method: 'POST',
+      url: '/v1/sdk/authoring/document',
+      headers: {
+        authorization: `Bearer ${tokens.stagingEnvironment}`,
+        'x-lodariq-authoring-session': tokens.directSession,
+        origin: STAGING_ORIGIN,
+      },
+      payload: { document: {}, expectedDocumentUpdatedAt: CREATED_AT },
+    });
+    expect(refused.statusCode, refused.body).toBe(403);
+    expect(refused.json()).toMatchObject({ error: 'authoring_capability_forbidden' });
+
+    await app.close();
+  });
+
+  it('refuses a direct-SDK document save that omits the concurrency precondition', async () => {
+    const tokens = createTokens();
+    const repository = createInMemoryControlPlaneRepository(createSeed(tokens));
+    const app = createApiApp({
+      repository,
+      defaultWorkspaceId: WORKSPACE_ID,
+      defaultUserId: OWNER_ID,
+      publicApiBaseUrl: 'https://api.lodariq.io',
+    });
+
+    const headers = {
+      authorization: `Bearer ${tokens.stagingEnvironment}`,
+      'x-lodariq-authoring-session': tokens.directSession,
+      origin: STAGING_ORIGIN,
+    };
+    const loaded = await app.inject({
+      method: 'GET',
+      url: '/v1/sdk/authoring/document',
+      headers,
+    });
+    expect(loaded.statusCode, loaded.body).toBe(200);
+
+    const refused = await app.inject({
+      method: 'POST',
+      url: '/v1/sdk/authoring/document',
+      headers,
+      payload: { document: loaded.json<{ document: unknown }>().document },
+    });
+    expect(refused.statusCode, refused.body).toBe(428);
+    expect(refused.json()).toMatchObject({ error: 'precondition_required' });
+
+    await app.close();
+  });
+
+  it('returns a stable entitlement denial when release recovery is not included', async () => {
+    const tokens = createTokens();
+    const seed = createSeed(tokens);
+    const subscription = seed.workspaceSubscriptions?.[0];
+    if (!subscription) throw new Error('commercial fixture missing');
+    subscription.planId = 'free';
+    const app = createApiApp({
+      repository: createInMemoryControlPlaneRepository(seed),
+      defaultWorkspaceId: WORKSPACE_ID,
+      defaultUserId: OWNER_ID,
+    });
+
+    const denied = await app.inject({
+      method: 'POST',
+      url: dashboardRecoveryPath(),
+      headers: dashboardHeaders,
+      payload: rollbackRequest(),
+    });
+
+    expect(denied.statusCode, denied.body).toBe(403);
+    expect(denied.json()).toEqual({
+      error: 'commercial_entitlement_exceeded',
+      message: 'recovery is not included in this workspace plan',
+    });
     await app.close();
   });
 
@@ -335,7 +431,7 @@ describe('release recovery HTTP integration', () => {
     });
     expect(manifest.statusCode, manifest.body).toBe(200);
     expect(manifest.json()).toEqual({
-      schemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
+      schemaVersion: PUBLIC_MANIFEST_SCHEMA_VERSION,
       workspaceId: WORKSPACE_ID,
       environmentId: PRODUCTION_ID,
       documentId: DOCUMENT_ID,
@@ -463,6 +559,20 @@ function createSeed(tokens: FixtureTokens): InMemoryControlPlaneSeed {
   const installationId = 'ins_pub_api_recovery_hosted';
 
   return {
+    workspaceSubscriptions: [
+      {
+        workspaceId: WORKSPACE_ID,
+        planId: 'business',
+        planVersion: COMMERCIAL_PLAN_VERSION,
+        status: 'active',
+        entitlementOverrides: {},
+        currentPeriodStart: '2026-08-01T00:00:00.000Z',
+        currentPeriodEnd: '2026-09-01T00:00:00.000Z',
+        revision: 1,
+        createdAt: CREATED_AT,
+        updatedAt: CREATED_AT,
+      },
+    ],
     documents: [document],
     environments: [
       environment(DEVELOPMENT_ID, WORKSPACE_ID, 'development', 'http://localhost:5175', 0),
@@ -518,6 +628,7 @@ function createSeed(tokens: FixtureTokens): InMemoryControlPlaneSeed {
         createdAt: CREATED_AT,
         updatedAt: CREATED_AT,
         revokedAt: null,
+        suspendedAt: null,
       },
     ],
     publicSdkInstallationOrigins: [

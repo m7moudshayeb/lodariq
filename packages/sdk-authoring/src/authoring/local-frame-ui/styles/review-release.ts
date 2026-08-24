@@ -57,8 +57,8 @@ export const AUTHORING_REVIEW_RELEASE_CSS = `
     border-radius: 8px;
     color: var(--lq-color-muted);
     cursor: pointer;
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     list-style: none;
     padding: 8px 8px;
   }
@@ -119,7 +119,7 @@ export const AUTHORING_REVIEW_RELEASE_CSS = `
     margin: 0;
     overflow-wrap: anywhere;
     color: var(--lq-color-muted);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     line-height: 1.4;
   }
 
@@ -175,12 +175,12 @@ export const AUTHORING_REVIEW_RELEASE_CSS = `
 
   .target-lifecycle-header strong {
     color: var(--lq-color-ink);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .target-lifecycle-header span {
     color: var(--lq-color-muted);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
   }
 
   .target-lifecycle-field {
@@ -196,8 +196,8 @@ export const AUTHORING_REVIEW_RELEASE_CSS = `
   .target-lifecycle-field > span,
   .target-lifecycle-control-group > span {
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0;
     text-transform: uppercase;
   }
@@ -210,7 +210,7 @@ export const AUTHORING_REVIEW_RELEASE_CSS = `
     border-radius: var(--lq-radius-sm);
     background: var(--lq-color-page);
     color: var(--lq-color-ink);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .target-lifecycle-field input {
@@ -244,7 +244,7 @@ export const AUTHORING_REVIEW_RELEASE_CSS = `
 
   .target-advanced strong {
     color: var(--lq-color-ink);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .target-advanced span {
@@ -273,15 +273,15 @@ export const AUTHORING_REVIEW_RELEASE_CSS = `
 
   .target-advanced dt {
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0;
     text-transform: uppercase;
   }
 
   .target-advanced dd {
     color: var(--lq-color-ink);
-    font-weight: 600;
+    font-weight: var(--lq-weight-semibold);
   }
 
   .target-matching-details {
@@ -390,13 +390,13 @@ export const AUTHORING_REVIEW_RELEASE_CSS = `
   .preview-copy strong,
   summary {
     color: var(--lq-color-ink);
-    font-size: 14px;
-    font-weight: 700;
+    font-size: var(--lq-font-md);
+    font-weight: var(--lq-weight-bold);
   }
 
   .preview-copy span {
     color: var(--lq-color-muted);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .preview-workbench .preview-copy strong {
@@ -421,7 +421,7 @@ export const AUTHORING_REVIEW_RELEASE_CSS = `
   .issue-panel p,
   .issue-panel li {
     color: var(--lq-color-muted);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     line-height: 1.4;
   }
 
@@ -472,14 +472,14 @@ export const AUTHORING_REVIEW_RELEASE_CSS = `
 
   .publish-issue-cta {
     color: var(--lq-color-primary);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     font-weight: var(--lq-weight-semibold);
     white-space: nowrap;
   }
 
   .issue-panel li strong {
     color: var(--lq-color-ink);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .issue-panel li span {
@@ -492,7 +492,7 @@ export const AUTHORING_REVIEW_RELEASE_CSS = `
 
   .issue-panel .publish-issue-action small {
     color: var(--lq-color-muted);
-    font-size: 11px;
+    font-size: var(--lq-font-sm);
     line-height: 1.4;
   }
 

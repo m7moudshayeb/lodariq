@@ -14,6 +14,7 @@ export interface DirectAuthoringHostServiceOptions {
   checkBrandDrift?: boolean;
   acknowledgeBrandTheme?: boolean;
   verifyBrowserPublication?: boolean;
+  localeLayoutQa?: boolean;
   submitStagingVerification?: boolean;
   promoteProduction?: boolean;
   approveProduction?: boolean;

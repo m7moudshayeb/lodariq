@@ -5,7 +5,7 @@ export const AUTHORING_COMPACT_RESPONSIVE_CSS = `
     height: 30px;
     justify-content: center;
     border-radius: 8px;
-    font-size: 11px;
+    font-size: var(--lq-font-sm);
     padding: 0 12px;
   }
 
@@ -33,8 +33,8 @@ export const AUTHORING_COMPACT_RESPONSIVE_CSS = `
 
   .storyboard-spacing-slider legend {
     color: var(--lq-color-muted);
-    font-size: 11px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     margin-bottom: 8px;
   }
 
@@ -53,14 +53,14 @@ export const AUTHORING_COMPACT_RESPONSIVE_CSS = `
 
   .storyboard-spacing-slider output {
     color: var(--lq-color-ink-soft);
-    font-size: 11px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     text-align: right;
   }
 
   .storyboard-empty-property {
     color: var(--lq-color-muted);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     margin: 0;
     padding: 16px;
   }

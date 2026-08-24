@@ -9,6 +9,7 @@ import {
   RENDERER_CONTRACT_VERSION,
   type NewCompiledDocument,
   type CompiledDocument,
+  type CompiledStepV4,
   type LodariqDocument,
 } from '@lodariq/schema';
 import { DEFAULT_EXPERIENCE_APPEARANCE } from '@lodariq/schema/brand-runtime';
@@ -133,6 +134,36 @@ describe('tour renderer (PRD §16.1)', () => {
     player.stop();
   });
 
+  it('renders the immutable Free-plan badge and omits it from paid artifacts', async () => {
+    const freePlayer = new TourPlayer({ ...outlineDisabledCompiledDoc, showLodariqBadge: true });
+    freePlayer.start();
+    await freePlayer.waitUntilReady();
+    await vi.waitFor(() =>
+      expect(
+        document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('.tour-lodariq-badge'),
+      ).not.toBeNull(),
+    );
+
+    const freeBadge = document
+      .querySelector('lodariq-tour')
+      ?.shadowRoot?.querySelector<HTMLAnchorElement>('.tour-lodariq-badge');
+    expect(freeBadge).toMatchObject({
+      textContent: 'Powered by Lodariq',
+      target: '_blank',
+      rel: 'noopener noreferrer',
+    });
+    expect(freeBadge?.href).toBe('https://lodariq.io/');
+    freePlayer.stop();
+
+    const paidPlayer = new TourPlayer(outlineDisabledCompiledDoc);
+    paidPlayer.start();
+    await paidPlayer.waitUntilReady();
+    expect(
+      document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('.tour-lodariq-badge'),
+    ).toBeNull();
+    paidPlayer.stop();
+  });
+
   it('renders the selected authored-content locale and attaches it to Tour analytics', async () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', fetch);
@@ -173,6 +204,106 @@ describe('tour renderer (PRD §16.1)', () => {
       events: Array<{ props?: Record<string, unknown> }>;
     };
     expect(body.events.map((event) => event.props?.['locale'])).toEqual(['ar', 'ar']);
+    player.stop();
+  });
+
+  it('renders mixed conditional blocks in canonical order without hidden accessibility content', async () => {
+    const conditionalDocument = structuredClone(compiledDoc);
+    conditionalDocument.targets = [];
+    const step = conditionalDocument.steps[0]!;
+    delete step.targetId;
+    step.body = [
+      { id: 'heading', type: 'heading', text: 'Welcome', props: {} },
+      {
+        id: 'growth-copy',
+        type: 'paragraph',
+        text: 'Growth guidance',
+        props: {
+          showWhen: {
+            source: 'identifyTrait',
+            key: 'plan',
+            operator: 'equals',
+            value: 'growth',
+          },
+        },
+      },
+      {
+        id: 'free-copy',
+        type: 'paragraph',
+        text: 'Free guidance',
+        props: {
+          showWhen: {
+            source: 'identifyTrait',
+            key: 'plan',
+            operator: 'equals',
+            value: 'free',
+          },
+        },
+      },
+      {
+        id: 'locale-copy',
+        type: 'paragraph',
+        text: 'English guidance',
+        props: { showWhen: { source: 'locale', locale: 'en-GB' } },
+      },
+      {
+        id: 'continue',
+        type: 'button',
+        text: 'Continue',
+        props: { action: { type: 'next' } },
+      },
+    ];
+    const player = new TourPlayer(conditionalDocument, {
+      flowConditionContext: { identifyTraits: { plan: 'growth' } },
+    });
+
+    player.start();
+    await player.waitUntilReady();
+
+    const dialog = document
+      .querySelector('lodariq-tour')
+      ?.shadowRoot?.querySelector('[role="dialog"]');
+    const renderedIds = [
+      ...(dialog?.querySelectorAll(`[${LODARIQ_RENDERED_NODE_ID_ATTRIBUTE}]`) ?? []),
+    ].map((element) => element.getAttribute(LODARIQ_RENDERED_NODE_ID_ATTRIBUTE));
+    expect(renderedIds).toEqual(['heading', 'growth-copy', 'locale-copy', 'continue']);
+    expect(dialog?.textContent).not.toContain('Free guidance');
+    expect(dialog?.querySelector(`[${LODARIQ_RENDERED_NODE_ID_ATTRIBUTE}="free-copy"]`)).toBeNull();
+    player.stop();
+  });
+
+  it('bounds missing-context diagnostics without exposing condition data', async () => {
+    const diagnosticDocument = structuredClone(compiledDoc);
+    diagnosticDocument.targets = [];
+    const step = diagnosticDocument.steps[0]!;
+    delete step.targetId;
+    step.body = Array.from({ length: 10 }, (_value, index) => ({
+      id: `conditional-${index}`,
+      type: 'paragraph',
+      text: `Sensitive ${index}`,
+      props: {
+        showWhen: {
+          source: 'documentState' as const,
+          key: `private_${index}`,
+          operator: 'exists' as const,
+        },
+      },
+    }));
+    const onConditionDiagnostic = vi.fn();
+    const player = new TourPlayer(diagnosticDocument, { onConditionDiagnostic });
+
+    player.start();
+    await player.waitUntilReady();
+
+    expect(onConditionDiagnostic).toHaveBeenCalledTimes(8);
+    expect(onConditionDiagnostic.mock.calls[0]?.[1]).toEqual({
+      blockId: 'conditional-0',
+      reason: 'missing-context',
+      source: 'documentState',
+    });
+    expect(JSON.stringify(onConditionDiagnostic.mock.calls.map((call) => call[1]))).not.toContain(
+      'private_',
+    );
     player.stop();
   });
 
@@ -217,6 +348,74 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(outline?.style.width).toBe('266px');
     expect(outline?.style.height).toBe('110px');
     player.stop();
+  });
+
+  it('travels one spotlight hole between resolved targets', async () => {
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      '<button data-lodariq-id="project-template" aria-label="Project template">Template</button>',
+    );
+    const first = document.querySelector<HTMLElement>('[data-lodariq-id="new-project"]')!;
+    const second = document.querySelector<HTMLElement>('[data-lodariq-id="project-template"]')!;
+    first.getBoundingClientRect = () => domRect({ x: 40, y: 80, width: 180, height: 48 });
+    second.getBoundingClientRect = () => domRect({ x: 420, y: 260, width: 220, height: 56 });
+    const cancel = vi.fn();
+    const animate = vi.fn(() => ({ cancel }) as unknown as Animation);
+    const animateDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'animate');
+    Object.defineProperty(HTMLElement.prototype, 'animate', { configurable: true, value: animate });
+    const spotlightDocument: NewCompiledDocument = {
+      ...outlineDisabledCompiledDoc,
+      targets: [
+        compiledDoc.targets[0]!,
+        {
+          id: 'target_template',
+          fingerprint: {
+            tagName: 'button',
+            role: 'button',
+            accessibleName: 'Project template',
+            stableAttributes: { 'data-lodariq-id': 'project-template' },
+          },
+        },
+      ],
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          emphasis: { backdrop: { dimPercent: 55, clickBehavior: 'none' } },
+        },
+        {
+          id: 'step_2',
+          targetId: 'target_template',
+          placement: 'bottom',
+          emphasis: { backdrop: { dimPercent: 55, clickBehavior: 'none' } },
+          body: [{ id: 'heading_2', type: 'heading', text: 'Choose a template', props: {} }],
+        },
+      ],
+    };
+    const player = new TourPlayer(spotlightDocument);
+    try {
+      player.start();
+      await player.waitUntilReady();
+      expect(animate).not.toHaveBeenCalled();
+
+      player.next();
+      await player.waitUntilReady();
+
+      await vi.waitFor(() => expect(animate).toHaveBeenCalledTimes(1));
+      expect(animate).toHaveBeenCalledWith(
+        [
+          expect.objectContaining({ left: '37px', top: '77px' }),
+          expect.objectContaining({ left: '417px', top: '257px' }),
+        ],
+        expect.objectContaining({ easing: 'cubic-bezier(0.16, 1, 0.3, 1)' }),
+      );
+    } finally {
+      player.stop();
+      if (animateDescriptor) {
+        Object.defineProperty(HTMLElement.prototype, 'animate', animateDescriptor);
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, 'animate');
+      }
+    }
   });
 
   it('does not steal focus when a target-bound step cannot resolve safely', async () => {
@@ -725,6 +924,144 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(document.querySelector('lodariq-tour')).toBeNull();
   });
 
+  it('finishes target-origin exit motion before changing steps and ignores duplicate actions', async () => {
+    const motionDocument: NewCompiledDocument = {
+      ...outlineDisabledCompiledDoc,
+      targets: [],
+      steps: [
+        {
+          id: 'step_1',
+          body: [
+            { id: 'heading_1', type: 'heading', text: 'First motion step', props: {} },
+            {
+              id: 'button_1',
+              type: 'button',
+              text: 'Continue',
+              props: { action: { type: 'next' } },
+            },
+          ],
+          motion: {
+            recipe: 'lift',
+            durationMs: 240,
+            easing: 'emphasized',
+            reducedMotion: 'none',
+          },
+        },
+        {
+          id: 'step_2',
+          body: [{ id: 'heading_2', type: 'heading', text: 'Second motion step', props: {} }],
+        },
+      ],
+    };
+    const onStepChange = vi.fn();
+    const player = new TourPlayer(motionDocument, { onStepChange });
+    player.start();
+    await player.waitUntilReady();
+    const card = document
+      .querySelector('lodariq-tour')
+      ?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+    const next = card?.querySelector<HTMLButtonElement>('button');
+
+    next?.click();
+    next?.click();
+    await vi.waitFor(() => expect(card?.dataset['lodariqMotionPhase']).toBe('exit'));
+
+    expect(card?.textContent).toContain('First motion step');
+    expect(onStepChange).toHaveBeenCalledTimes(1);
+
+    card?.dispatchEvent(new Event('animationend'));
+
+    expect(card?.textContent).toContain('Second motion step');
+    expect(onStepChange).toHaveBeenCalledTimes(2);
+    player.stop();
+  });
+
+  it('cancels a pending exit transition when playback stops', async () => {
+    const motionDocument: NewCompiledDocument = {
+      ...outlineDisabledCompiledDoc,
+      targets: [],
+      steps: [
+        {
+          id: 'step_1',
+          body: [
+            {
+              id: 'button_1',
+              type: 'button',
+              text: 'Continue',
+              props: { action: { type: 'next' } },
+            },
+          ],
+          motion: {
+            recipe: 'fade',
+            durationMs: 240,
+            easing: 'standard',
+            reducedMotion: 'none',
+          },
+        },
+        {
+          id: 'step_2',
+          body: [{ id: 'heading_2', type: 'heading', text: 'Must not render', props: {} }],
+        },
+      ],
+    };
+    const onStepChange = vi.fn();
+    const player = new TourPlayer(motionDocument, { onStepChange });
+    player.start();
+    await player.waitUntilReady();
+    const card = document
+      .querySelector('lodariq-tour')
+      ?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+
+    card?.querySelector<HTMLButtonElement>('button')?.click();
+    player.stop();
+    card?.dispatchEvent(new Event('animationend'));
+
+    expect(onStepChange).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('lodariq-tour')).toBeNull();
+  });
+
+  it('keeps runtime chrome outside bounded product-surface zoom and restores it on stop', async () => {
+    const target = document.querySelector<HTMLElement>('[data-lodariq-id="new-project"]')!;
+    target.getBoundingClientRect = () => domRect({ x: 100, y: 160, width: 240, height: 48 });
+    target.scrollIntoView = vi.fn();
+    const zoomDocument: NewCompiledDocument = {
+      ...outlineDisabledCompiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          emphasis: { viewportFocus: { behavior: 'zoom', scalePercent: 150 } },
+          motion: {
+            recipe: 'scale',
+            durationMs: 240,
+            easing: 'emphasized',
+            reducedMotion: 'none',
+          },
+        },
+      ],
+    };
+    const player = new TourPlayer(zoomDocument);
+
+    player.start();
+    await player.waitUntilReady();
+
+    const host = document.querySelector('lodariq-tour');
+    const card = host?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+    expect(document.body.style.zoom).toBe('1.5');
+    expect(host?.parentNode).toBe(document.documentElement);
+    expect(card?.dataset['lodariqMotionPhase']).toBe('entry');
+    expect(card?.style.getPropertyValue('--lq-step-origin-x')).toBe('208px');
+    expect(card?.style.getPropertyValue('--lq-step-origin-y')).toBe('168px');
+    expect(target.scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'center',
+      inline: 'center',
+    });
+
+    player.stop();
+    expect(document.body.style.zoom).toBe('');
+    expect(document.querySelector('lodariq-tour')).toBeNull();
+  });
+
   it('renders allowlisted rich-text styles from the compiled body node', async () => {
     const styledDocument: CompiledDocument = structuredClone(compiledDoc);
     styledDocument.steps[0]!.body[0]!.props.textStyle = {
@@ -1166,7 +1503,14 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(ring?.style.height).toBe('102px');
     expect(host?.style.getPropertyValue('--lq-tour-focus-color')).toBe('#0b63ce');
     const styles = host?.shadowRoot?.querySelector('style')?.textContent ?? '';
-    expect(styles).toContain('border: 2px solid var(--lq-tour-focus-color)');
+    // The ring is customisable per step, so its default lives in the fallbacks —
+    // and a step with no emphasis must leave every override unset.
+    expect(styles).toContain(
+      'border: var(--lq-outline-weight, 2px) var(--lq-outline-line, solid)\n        var(--lq-outline-color, var(--lq-tour-focus-color))',
+    );
+    expect(ring?.style.getPropertyValue('--lq-outline-weight')).toBe('');
+    expect(ring?.style.getPropertyValue('--lq-outline-color')).toBe('');
+    expect(ring?.hasAttribute('data-lodariq-outline-line')).toBe(false);
     expect(styles).toContain('pointer-events: none');
     expect(onTargetResolution).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'step_1' }),
@@ -1264,6 +1608,66 @@ describe('tour renderer (PRD §16.1)', () => {
     await expect(player.waitUntilReady()).rejects.toThrow(
       'Lodariq tour target could not be resolved for step step_1',
     );
+    player.stop();
+  });
+
+  it('runs a compiled semantic approach before resolving a transient step target', async () => {
+    document.body.innerHTML = '<button data-testid="open-panel">Open panel</button>';
+    const opener = document.querySelector<HTMLButtonElement>('[data-testid="open-panel"]')!;
+    opener.addEventListener('click', () => {
+      const target = document.createElement('button');
+      target.dataset['testid'] = 'transient-target';
+      target.textContent = 'Transient target';
+      document.body.appendChild(target);
+    });
+    const approachDocument = structuredClone(outlineDisabledCompiledDoc);
+    approachDocument.targets = [
+      {
+        id: 'target_transient',
+        fingerprint: {
+          tagName: 'button',
+          role: 'button',
+          accessibleName: 'Transient target',
+          stableAttributes: { 'data-testid': 'transient-target' },
+        },
+        approach: {
+          legs: [
+            {
+              act: { kind: 'activateTarget', targetId: 'target_opener' },
+              wait: { type: 'targetAvailable', targetId: 'target_transient' },
+              label: 'Open the transient panel',
+            },
+          ],
+        },
+      },
+      {
+        id: 'target_opener',
+        fingerprint: {
+          tagName: 'button',
+          role: 'button',
+          accessibleName: 'Open panel',
+          stableAttributes: { 'data-testid': 'open-panel' },
+        },
+      },
+    ];
+    approachDocument.steps[0]!.targetId = 'target_transient';
+    const stages: string[] = [];
+    const outcomes: string[] = [];
+    const player = new TourPlayer(approachDocument, {
+      authoringPreviewOwnerId: 'approach_preview',
+      authoringPreviewInteractive: true,
+      onTargetApproachStageChange: (_step, update) =>
+        stages.push(`${update.stage}:${update.status}`),
+      onTargetApproachOutcome: (_step, outcome) => outcomes.push(outcome.state),
+    });
+
+    player.start();
+    await player.waitUntilReady();
+
+    expect(opener).toHaveProperty('isConnected', true);
+    expect(document.querySelector('[data-testid="transient-target"]')).not.toBeNull();
+    expect(stages).toEqual(['act:started', 'act:completed', 'wait:started', 'wait:completed']);
+    expect(outcomes).toEqual(['pass']);
     player.stop();
   });
 
@@ -1646,7 +2050,10 @@ describe('tour renderer (PRD §16.1)', () => {
     player.start();
     await vi.waitFor(() =>
       expect(
-        document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('img')?.getAttribute('src'),
+        document
+          .querySelector('lodariq-tour')
+          ?.shadowRoot?.querySelector('img')
+          ?.getAttribute('src'),
       ).toBe(blobUrl),
     );
     expect(
@@ -2333,6 +2740,318 @@ describe('tour renderer (PRD §16.1)', () => {
     owner.hidden = false;
     await revalidationTask();
     expect(card?.hidden).toBe(false);
+  });
+
+  describe('page scope', () => {
+    afterEach(() => {
+      history.replaceState(null, '', '/');
+    });
+
+    const tourCard = (): HTMLElement | null | undefined =>
+      document
+        .querySelector('lodariq-tour')
+        ?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+
+    it('suspends a step once the visitor leaves the page it appeared on', async () => {
+      const player = new TourPlayer(compiledDoc);
+      player.start();
+      await nextTask();
+      expect(tourCard()?.hidden).toBe(false);
+
+      // The owner is still in the document: only the page changed.
+      history.pushState(null, '', '/billing');
+      await revalidationTask();
+      expect(tourCard()?.hidden).toBe(true);
+
+      history.pushState(null, '', '/');
+      await revalidationTask();
+      expect(tourCard()?.hidden).toBe(false);
+      player.stop();
+    });
+
+    it('retries a step that landed on a page its target is not on', async () => {
+      // What a resumed step looks like: the tour comes back after a full page
+      // load on a screen the step does not belong to. It has no page of its own
+      // to be suspended from, and before this it stayed dead for the rest of the
+      // visit however much the visitor navigated.
+      document.querySelector('[data-lodariq-id="new-project"]')?.remove();
+      const player = new TourPlayer(compiledDoc);
+      player.start();
+      await nextTask();
+      // Long enough for resolution to give up rather than still be waiting:
+      // a step that is merely mid-resolution recovers on its own.
+      await new Promise((resolve) => setTimeout(resolve, 1_800));
+      expect(tourCard()?.hidden).toBe(true);
+
+      document.body.insertAdjacentHTML(
+        'afterbegin',
+        '<button data-lodariq-id="new-project" aria-label="New project">New project</button>',
+      );
+      history.pushState(null, '', '/projects');
+      await revalidationTask();
+      await revalidationTask();
+
+      expect(tourCard()?.hidden).toBe(false);
+      expect(tourCard()?.textContent).toContain('Create your first project');
+      player.stop();
+    });
+
+    it('reads the hash route as the page for a hash-routed application', async () => {
+      history.replaceState(null, '', '/#/projects/all');
+      const player = new TourPlayer(compiledDoc);
+      player.start();
+      await nextTask();
+      expect(tourCard()?.hidden).toBe(false);
+
+      location.hash = '#/billing/plan';
+      await revalidationTask();
+      expect(tourCard()?.hidden).toBe(true);
+      player.stop();
+    });
+
+    it('keeps the step through query strings, hash queries and in-page fragments', async () => {
+      const player = new TourPlayer(compiledDoc);
+      player.start();
+      await nextTask();
+      expect(tourCard()?.hidden).toBe(false);
+
+      // Search terms, sort order and open dialogs all land here; none of them
+      // is a different page.
+      history.pushState(null, '', '/?q=invoices&sort=name');
+      await revalidationTask();
+      expect(tourCard()?.hidden).toBe(false);
+
+      location.hash = '#section-2';
+      await revalidationTask();
+      expect(tourCard()?.hidden).toBe(false);
+      player.stop();
+    });
+
+    it('lets a step that is waiting for a route drive the navigation itself', async () => {
+      const routedSteps: CompiledStepV4[] = [
+        {
+          id: 'step_go',
+          entrySequence: {
+            trigger: { type: 'manual' },
+            waitFor: [{ type: 'route', match: 'exact', value: '/reports' }],
+            transition: { type: 'next' },
+            timeoutMs: 2_000,
+            onTimeout: 'stay',
+          },
+          body: [{ id: 'heading_go', type: 'heading', text: 'Open Reports', props: {} }],
+        },
+        {
+          id: 'step_there',
+          body: [{ id: 'heading_there', type: 'heading', text: 'Reports live here', props: {} }],
+        },
+      ];
+      const routedDoc: NewCompiledDocument = {
+        ...outlineDisabledCompiledDoc,
+        steps: routedSteps,
+      };
+      const player = new TourPlayer(routedDoc);
+      player.start();
+      await nextTask();
+      expect(tourCard()?.textContent).toContain('Open Reports');
+
+      history.pushState(null, '', '/reports');
+      await revalidationTask();
+      await revalidationTask();
+
+      expect(tourCard()?.hidden).toBe(false);
+      expect(tourCard()?.textContent).toContain('Reports live here');
+      player.stop();
+    });
+
+    it('never presses a lookalike button on a page the target does not belong to', async () => {
+      // Hiding the card is not enough here: the completion action clicks for the
+      // visitor, in their live application, whatever the resolver handed back.
+      const scopedDoc: CompiledDocument = {
+        ...compiledDoc,
+        targets: [
+          {
+            id: 'target_finish',
+            fingerprint: {
+              tagName: 'button',
+              role: 'button',
+              accessibleName: 'Publish',
+              stableAttributes: { 'data-lodariq-id': 'publish' },
+            },
+            identity: {
+              schemaVersion: 2,
+              targetId: 'target_finish',
+              intent: { elementKind: 'control', requiredAction: 'observe-click' },
+              invariants: { configuredAttributes: { 'data-lodariq-id': 'publish' } },
+              semantics: { tagName: 'button', role: 'button' },
+              context: { page: { key: '/projects' } },
+              localizedEvidence: [{ locale: 'en', accessibleName: 'Publish' }],
+              captureEvidence: {
+                sampleCount: 3,
+                stableSignalFamilies: ['configured-attribute', 'element-semantics'],
+                uniqueCandidateCount: 1,
+                runnerUpMargin: 0.75,
+                quality: 'strong',
+              },
+              display: { authorLabel: 'Publish' },
+            },
+          },
+        ],
+        steps: [
+          {
+            id: 'step_last',
+            body: [
+              { id: 'heading_last', type: 'heading', text: 'All done', props: {} },
+              {
+                id: 'button_last',
+                type: 'button',
+                text: 'Finish',
+                props: { action: { type: 'complete' } },
+              },
+            ],
+          },
+        ],
+        completion: { type: 'activateTarget', targetId: 'target_finish' },
+      } as CompiledDocument;
+
+      history.replaceState(null, '', '/billing');
+      const lookalike = document.createElement('button');
+      lookalike.type = 'button';
+      lookalike.dataset['lodariqId'] = 'publish';
+      lookalike.setAttribute('aria-label', 'Publish');
+      const clicks = vi.fn();
+      lookalike.addEventListener('click', clicks);
+      document.body.appendChild(lookalike);
+
+      const player = new TourPlayer(scopedDoc);
+      player.start();
+      await nextTask();
+      const finish = document
+        .querySelector('lodariq-tour')
+        ?.shadowRoot?.querySelector<HTMLButtonElement>(
+          `[${LODARIQ_RENDERED_NODE_ID_ATTRIBUTE}="button_last"]`,
+        );
+      finish?.click();
+      await revalidationTask();
+      await revalidationTask();
+
+      expect(lookalike.isConnected).toBe(true);
+      expect(clicks).not.toHaveBeenCalled();
+      lookalike.remove();
+      player.stop();
+    });
+
+    it('walks the visitor to the page the next step belongs to', async () => {
+      const twoPageDoc: CompiledDocument = {
+        ...compiledDoc,
+        targets: [
+          ...compiledDoc.targets,
+          {
+            id: 'target_billing',
+            fingerprint: {
+              tagName: 'button',
+              role: 'button',
+              accessibleName: 'Choose a plan',
+              stableAttributes: { 'data-lodariq-id': 'choose-plan' },
+            },
+            identity: {
+              schemaVersion: 2,
+              targetId: 'target_billing',
+              intent: { elementKind: 'control', requiredAction: 'anchor' },
+              invariants: { configuredAttributes: { 'data-lodariq-id': 'choose-plan' } },
+              semantics: { tagName: 'button', role: 'button' },
+              context: { page: { key: '/billing' } },
+              localizedEvidence: [{ locale: 'en', accessibleName: 'Choose a plan' }],
+              captureEvidence: {
+                sampleCount: 3,
+                stableSignalFamilies: ['configured-attribute', 'element-semantics'],
+                uniqueCandidateCount: 1,
+                runnerUpMargin: 0.75,
+                quality: 'strong',
+              },
+              display: { authorLabel: 'Choose a plan' },
+            },
+          },
+        ],
+        steps: [
+          {
+            id: 'step_one',
+            targetId: 'target_new_project',
+            placement: 'bottom',
+            body: [
+              { id: 'heading_one', type: 'heading', text: 'Start here', props: {} },
+              {
+                id: 'button_one',
+                type: 'button',
+                text: 'Continue',
+                props: { action: { type: 'next' } },
+              },
+            ],
+          },
+          {
+            id: 'step_two',
+            targetId: 'target_billing',
+            placement: 'bottom',
+            body: [{ id: 'heading_two', type: 'heading', text: 'Pick a plan', props: {} }],
+          },
+        ],
+      } as CompiledDocument;
+
+      const owner = document.createElement('button');
+      owner.dataset['lodariqId'] = 'choose-plan';
+      owner.setAttribute('aria-label', 'Choose a plan');
+      document.body.appendChild(owner);
+
+      const player = new TourPlayer(twoPageDoc);
+      player.start();
+      await nextTask();
+      expect(location.pathname).toBe('/');
+
+      document
+        .querySelector('lodariq-tour')
+        ?.shadowRoot?.querySelector<HTMLButtonElement>(
+          `[${LODARIQ_RENDERED_NODE_ID_ATTRIBUTE}="button_one"]`,
+        )
+        ?.click();
+      await revalidationTask();
+      await revalidationTask();
+
+      expect(location.pathname).toBe('/billing');
+      expect(tourCard()?.hidden).toBe(false);
+      expect(tourCard()?.textContent).toContain('Pick a plan');
+
+      owner.remove();
+      player.stop();
+    });
+
+    it('does not drag a visitor back when they leave a page themselves', async () => {
+      const player = new TourPlayer(compiledDoc);
+      player.start();
+      await nextTask();
+      expect(tourCard()?.hidden).toBe(false);
+
+      // Leaving is the visitor's own move: it suspends, it never navigates back.
+      history.pushState(null, '', '/somewhere-else');
+      await revalidationTask();
+      await revalidationTask();
+
+      expect(location.pathname).toBe('/somewhere-else');
+      expect(tourCard()?.hidden).toBe(true);
+      player.stop();
+    });
+
+    it('leaves the authoring canvas alone while the creator moves around the app', async () => {
+      const player = new TourPlayer(compiledDoc, {
+        authoringPreviewOwnerId: 'authoring-preview-page-scope',
+      });
+      player.start();
+      await nextTask();
+      expect(tourCard()?.hidden).toBe(false);
+
+      history.pushState(null, '', '/billing');
+      await revalidationTask();
+      expect(tourCard()?.hidden).toBe(false);
+      player.stop();
+    });
   });
 
   it('keeps authoring preview focus while its visible owner and surrounding page mutate', async () => {

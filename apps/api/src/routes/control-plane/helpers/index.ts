@@ -15,3 +15,4 @@ export * from './document-compilation';
 export * from './responses';
 export * from './sdk-cors';
 export * from './authoring-membership';
+export * from './authoring-step-locks';

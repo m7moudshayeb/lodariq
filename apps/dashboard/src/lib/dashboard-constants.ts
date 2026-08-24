@@ -8,7 +8,9 @@ export const DASHBOARD_VIEW_IDS = [
   'analytics',
   'brand-system',
   'environments',
+  'applications',
   'members',
+  'billing',
   'support',
 ] as const;
 
@@ -26,7 +28,9 @@ export interface DashboardNavigationItem {
     | 'analytics'
     | 'brand'
     | 'environments'
+    | 'applications'
     | 'members'
+    | 'billing'
     | 'support';
 }
 
@@ -37,7 +41,9 @@ export const DASHBOARD_PRIMARY_NAVIGATION = [
   { id: 'analytics', label: DASHBOARD_NAVIGATION_MESSAGES.analytics, icon: 'analytics' },
   { id: 'brand-system', label: DASHBOARD_NAVIGATION_MESSAGES.brandSystem, icon: 'brand' },
   { id: 'environments', label: DASHBOARD_NAVIGATION_MESSAGES.environments, icon: 'environments' },
+  { id: 'applications', label: DASHBOARD_NAVIGATION_MESSAGES.applications, icon: 'applications' },
   { id: 'members', label: DASHBOARD_NAVIGATION_MESSAGES.members, icon: 'members' },
+  { id: 'billing', label: DASHBOARD_NAVIGATION_MESSAGES.billing, icon: 'billing' },
 ] as const satisfies readonly DashboardNavigationItem[];
 
 export const DASHBOARD_SUPPORT_NAVIGATION = {
@@ -79,9 +85,17 @@ export const DASHBOARD_PAGE_COPY = {
     title: DASHBOARD_PAGE_MESSAGES.environmentsTitle,
     description: DASHBOARD_PAGE_MESSAGES.environmentsDescription,
   },
+  applications: {
+    title: DASHBOARD_PAGE_MESSAGES.applicationsTitle,
+    description: DASHBOARD_PAGE_MESSAGES.applicationsDescription,
+  },
   members: {
     title: DASHBOARD_PAGE_MESSAGES.membersTitle,
     description: DASHBOARD_PAGE_MESSAGES.membersDescription,
+  },
+  billing: {
+    title: DASHBOARD_PAGE_MESSAGES.billingTitle,
+    description: DASHBOARD_PAGE_MESSAGES.billingDescription,
   },
   support: {
     title: DASHBOARD_PAGE_MESSAGES.supportTitle,

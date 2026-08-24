@@ -20,13 +20,27 @@ import {
   DashboardThemeMutationResponse as DashboardThemeMutationResponseSchema,
   DashboardThemesResponse as DashboardThemesResponseSchema,
   DashboardWorkspaceThemeDetail as DashboardWorkspaceThemeDetailSchema,
+  ExperienceAnalytics as ExperienceAnalyticsSchema,
+  ExperienceMeasurementConfig as ExperienceMeasurementConfigSchema,
+  ExperienceSessionsResponse as ExperienceSessionsResponseSchema,
+  ExperimentResponse as ExperimentResponseSchema,
+  WorkspaceApplicationsResponse as WorkspaceApplicationsResponseSchema,
   ReleaseRecoveryRequest as ReleaseRecoveryRequestSchema,
   ReleaseRecoveryResult as ReleaseRecoveryResultSchema,
   ReleaseRecoveryStateResponse as ReleaseRecoveryStateResponseSchema,
   releaseRecoveryStateMatchesScope,
   validate,
+  validateWithReferences,
   type AnalyticsAggregateResponse,
   type AnalyticsEventAggregate,
+  type ApplicationSummary,
+  type ExperienceAnalytics,
+  type ExperienceSessionsResponse,
+  type ExperienceMeasurementConfig,
+  type ExperimentResponse,
+  type UpdateExperienceMeasurementBody,
+  type UpdateExperimentBody,
+  type UpsertWorkspaceApplicationBody,
   type BrandThemeDefinition,
   type ControlPlaneAuthContext,
   type DashboardDocumentPublication,
@@ -50,6 +64,15 @@ import {
   type ReleaseRecoveryStateResponse,
   type ThemeBinding,
 } from '@lodariq/schema';
+import {
+  BillingOverview as BillingOverviewSchema,
+  BillingRedirectSession as BillingRedirectSessionSchema,
+  COMMERCIAL_BILLING_REFERENCE_SCHEMAS,
+  type BillingOverview,
+  type BillingRedirectSession,
+  type CreateBillingCheckoutSessionRequest,
+  type CreateBillingPortalSessionRequest,
+} from '@lodariq/schema/commercial-billing';
 import {
   dashboardSessionCookieName,
   isDevelopmentHeaderAuthMode,
@@ -136,6 +159,9 @@ export interface SyncPublicSdkInstallationOriginsResponseDto {
 export interface RevokePublicSdkInstallationResponseDto {
   installation: Omit<PublicSdkInstallationDto, 'origins' | 'sdkSnippet'>;
 }
+
+/** The kill switch shares revoke's response shape: one updated installation. */
+export type SuspendPublicSdkInstallationResponseDto = RevokePublicSdkInstallationResponseDto;
 
 export interface AuthoringSessionDto {
   id: string;
@@ -523,6 +549,29 @@ export async function revokePublicSdkInstallation(
   return response;
 }
 
+/**
+ * Pause or resume delivery for one installation (ADR-0027).
+ *
+ * Unlike revoke this is reversible, which is the whole point: a customer who
+ * suspects Lodariq of breaking their page can prove it either way in seconds
+ * and undo it just as fast.
+ */
+export async function setPublicSdkInstallationSuspension(
+  installationId: string,
+  suspended: boolean,
+): Promise<SuspendPublicSdkInstallationResponseDto> {
+  const response = await validatedControlPlaneFetch<SuspendPublicSdkInstallationResponseDto>(
+    DashboardPublicSdkInstallationRevokeResponseSchema,
+    `/v1/sdk-installations/${encodeURIComponent(installationId)}/suspension`,
+    { method: 'POST', body: JSON.stringify({ suspended }) },
+    'SDK installation mutation',
+  );
+  if (response.installation.installationId !== installationId) {
+    throw invalidControlPlaneResponse('SDK installation mutation');
+  }
+  return response;
+}
+
 export async function createEnvironmentToken(
   input: CreateEnvironmentTokenDto,
 ): Promise<CreateEnvironmentTokenResponseDto> {
@@ -591,6 +640,147 @@ export async function loadAnalyticsAggregates(
     throw new DashboardApiError(502, 'Invalid analytics aggregate response.');
   }
   return response.value;
+}
+
+/**
+ * Per-experience measurement. Deliberately separate from the workspace-wide
+ * aggregate above: that answers "is the SDK healthy", this answers "did this
+ * experience change anything", and merging them would make neither readable.
+ */
+export async function loadExperienceAnalytics(
+  documentId: string,
+  environmentId: string,
+): Promise<ExperienceAnalytics> {
+  const search = new URLSearchParams({ environmentId });
+  return validatedControlPlaneFetch<ExperienceAnalytics>(
+    ExperienceAnalyticsSchema,
+    `/v1/documents/${encodeURIComponent(documentId)}/analytics?${search.toString()}`,
+    {},
+    'experience analytics',
+  );
+}
+
+/**
+ * The runs behind the funnel. Bounded here rather than in the panel so a busy
+ * experience cannot make the dashboard request unbounded history.
+ */
+export const DASHBOARD_SESSION_LIMIT = 20;
+
+export async function loadExperienceSessions(
+  documentId: string,
+  environmentId: string,
+): Promise<ExperienceSessionsResponse> {
+  const search = new URLSearchParams({
+    environmentId,
+    limit: String(DASHBOARD_SESSION_LIMIT),
+  });
+  return validatedControlPlaneFetch<ExperienceSessionsResponse>(
+    ExperienceSessionsResponseSchema,
+    `/v1/documents/${encodeURIComponent(documentId)}/sessions?${search.toString()}`,
+    {},
+    'experience sessions',
+  );
+}
+
+export async function loadExperienceMeasurement(
+  documentId: string,
+): Promise<ExperienceMeasurementConfig> {
+  return validatedControlPlaneFetch<ExperienceMeasurementConfig>(
+    ExperienceMeasurementConfigSchema,
+    `/v1/documents/${encodeURIComponent(documentId)}/measurement`,
+    {},
+    'experience measurement',
+  );
+}
+
+export async function saveExperienceMeasurement(
+  documentId: string,
+  body: UpdateExperienceMeasurementBody,
+): Promise<ExperienceMeasurementConfig> {
+  return validatedControlPlaneFetch<ExperienceMeasurementConfig>(
+    ExperienceMeasurementConfigSchema,
+    `/v1/documents/${encodeURIComponent(documentId)}/measurement`,
+    { method: 'PATCH', body: JSON.stringify(body) },
+    'experience measurement',
+  );
+}
+
+export async function loadDocumentExperiment(
+  documentId: string,
+  environmentId: string,
+): Promise<ExperimentResponse> {
+  const search = new URLSearchParams({ environmentId });
+  return validatedControlPlaneFetch<ExperimentResponse>(
+    ExperimentResponseSchema,
+    `/v1/documents/${encodeURIComponent(documentId)}/experiment?${search.toString()}`,
+    {},
+    'experiment',
+  );
+}
+
+export async function saveDocumentExperiment(
+  experimentId: string,
+  body: UpdateExperimentBody,
+): Promise<ExperimentResponse['experiment']> {
+  const value = await controlPlaneFetch<{ experiment?: unknown }>(
+    `/v1/experiments/${encodeURIComponent(experimentId)}`,
+    { method: 'PATCH', body: JSON.stringify(body) },
+  );
+  const result = validate(ExperimentResponseSchema, {
+    experiment: value.experiment,
+    results: null,
+  });
+  if (!result.valid) throw invalidControlPlaneResponse('experiment');
+  return (result.value as ExperimentResponse).experiment;
+}
+
+export async function loadWorkspaceApplications(): Promise<readonly ApplicationSummary[]> {
+  const response = await validatedControlPlaneFetch<{
+    applications: readonly ApplicationSummary[];
+  }>(WorkspaceApplicationsResponseSchema, '/v1/applications', {}, 'applications');
+  return response.applications;
+}
+
+export async function loadWorkspaceBillingOverview(): Promise<BillingOverview> {
+  const result = validateWithReferences(
+    BillingOverviewSchema,
+    COMMERCIAL_BILLING_REFERENCE_SCHEMAS,
+    await controlPlaneFetch<unknown>('/v1/billing/overview'),
+  );
+  if (!result.valid) throw invalidControlPlaneResponse('billing overview');
+  return result.value;
+}
+
+export async function createWorkspaceBillingCheckoutSession(
+  input: CreateBillingCheckoutSessionRequest,
+): Promise<BillingRedirectSession> {
+  return validatedControlPlaneFetch<BillingRedirectSession>(
+    BillingRedirectSessionSchema,
+    '/v1/billing/checkout-sessions',
+    { method: 'POST', body: JSON.stringify(input) },
+    'billing checkout session',
+  );
+}
+
+export async function createWorkspaceBillingPortalSession(
+  input: CreateBillingPortalSessionRequest,
+): Promise<BillingRedirectSession> {
+  return validatedControlPlaneFetch<BillingRedirectSession>(
+    BillingRedirectSessionSchema,
+    '/v1/billing/portal-sessions',
+    { method: 'POST', body: JSON.stringify(input) },
+    'billing portal session',
+  );
+}
+
+export async function saveWorkspaceApplication(
+  body: UpsertWorkspaceApplicationBody,
+): Promise<readonly ApplicationSummary[]> {
+  await controlPlaneFetch<unknown>(`/v1/applications/${encodeURIComponent(body.id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+  return loadWorkspaceApplications();
 }
 
 export async function loadDocumentReleaseRecoveryState(input: {

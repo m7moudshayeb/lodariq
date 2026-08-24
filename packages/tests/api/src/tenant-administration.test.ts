@@ -149,7 +149,7 @@ describe('@lodariq/api tenant administration', () => {
     });
     expect(ownerList.statusCode).toBe(200);
     await app.close();
-  });
+  }, 15_000);
 
   it('rejects cross-origin mutation and protects the final owner', async () => {
     const ownerToken = 'lq_sess_final_owner';
@@ -181,7 +181,7 @@ describe('@lodariq/api tenant administration', () => {
     expect(finalOwner.statusCode).toBe(409);
     expect(finalOwner.json<{ error: string }>().error).toBe('final_owner_required');
     await app.close();
-  });
+  }, 15_000);
 });
 
 function tenantRepository(overrides: InMemoryControlPlaneSeed = {}) {

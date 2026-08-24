@@ -68,9 +68,16 @@ const document: LodariqDocument = {
 
 describe('authoring auto-translation', () => {
   it('translates only missing copy and retains rich-text metadata', async () => {
-    const translateTexts = vi.fn(async ({ texts }: { texts: readonly string[] }) =>
-      texts.map((text) => `FR:${text}`),
-    );
+    const translateTexts = vi.fn(async ({ texts }: { texts: readonly string[] }) => ({
+      texts: texts.map((text) => `FR:${text}`),
+      usage: {
+        provider: 'test-translator',
+        usageUnit: 'characters' as const,
+        inputUnits: texts.reduce((total, text) => total + text.length, 0),
+        outputUnits: texts.reduce((total, text) => total + text.length + 3, 0),
+        providerCostMicros: 0,
+      },
+    }));
     const result = await translateMissingAuthoringCopy(document, 'fr', {
       translateTexts,
     } as AuthoringTranslationProvider);
@@ -86,6 +93,7 @@ describe('authoring auto-translation', () => {
       targetLocale: 'fr',
       translatedTitle: true,
       translatedBlockCount: 1,
+      providerUsage: { provider: 'test-translator', usageUnit: 'characters' },
     });
     const variant = result.document.localization?.variants.find((item) => item.locale === 'fr');
     expect(variant?.title).toBe('FR:Welcome tour');
@@ -139,7 +147,16 @@ describe('authoring auto-translation', () => {
         texts: ['Hello {name}'],
         context: 'Product guidance',
       }),
-    ).resolves.toEqual(['Bonjour {name}']);
+    ).resolves.toEqual({
+      texts: ['Bonjour {name}'],
+      usage: {
+        provider: 'deepl',
+        usageUnit: 'characters',
+        inputUnits: 12,
+        outputUnits: 14,
+        providerCostMicros: 0,
+      },
+    });
 
     const [url, init] = fetchMock.mock.calls[0]!;
     if (!init) throw new Error('DeepL request options missing');

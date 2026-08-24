@@ -273,6 +273,18 @@ describe('Fly deployment workflow', () => {
     expect(publisher).not.toMatch(/delete-object|delete-bucket|create-bucket/iu);
     expect(sdkOutputsScript).toContain('Prepared SDK manifest has no creator module identity.');
     expect(deployAction).toContain('--env "LODARIQ_CREATOR_MODULE_URL=$CREATOR_MODULE_URL"');
+    // Without this the API has no digest to pin and every issued snippet ships
+    // unpinned, which is the state ADR-0027 closed.
+    expect(sdkOutputsScript).toContain('Prepared SDK manifest has no public loader identity.');
+    expect(sdkOutputsScript).toContain('public_loader_integrity=');
+    // Pinning the loader must stay opt-in. It is served from a stable URL whose
+    // bytes change every deploy, so an always-on digest would break every page
+    // still carrying a previously issued snippet.
+    expect(deployAction).toContain("default: 'false'");
+    expect(deployAction).toContain("inputs.pin_public_loader_integrity == 'true'");
+    expect(deployAction).toContain(
+      '--env "LODARIQ_PUBLIC_LOADER_INTEGRITY=$PUBLIC_LOADER_INTEGRITY"',
+    );
   });
 
   it('probes every exact public endpoint and validates the returned contracts', () => {
@@ -280,7 +292,7 @@ describe('Fly deployment workflow', () => {
     expect(probesScript).toContain("new URL('/healthz', editorOrigin)");
     expect(probesScript).toContain("new URL('/readyz', apiOrigin)");
     expect(probesScript).toContain("new URL('/healthz', dashboardOrigin)");
-    expect(probesScript).toContain("new URL('/openapi.json', apiOrigin)");
+    expect(probesScript).toContain("new URL('/v1/openapi.json', apiOrigin)");
     expect(probesScript).toContain("value?.openapi !== '3.0.3'");
     expect(probesScript).toContain('Lodariq Control API');
     expect(probesScript).toContain("new URL('/authoring.html', editorOrigin)");

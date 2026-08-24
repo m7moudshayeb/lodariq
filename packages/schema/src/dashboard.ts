@@ -3,6 +3,7 @@ import { BrandThemeDefinition, BrandThemeSnapshot, ProductStyleSource } from './
 import { Environment, DocumentStatus, DocumentType } from './common';
 import { ControlPlaneAuthContext } from './control-plane';
 import { EnvironmentPolicyValidationIssue, EnvironmentReleasePolicy } from './environment-policy';
+import { EnvironmentGovernanceCapability } from './governance-capabilities';
 import { DocumentDeployment } from './release';
 import { AuthoringActivationCapabilitySet, AuthoringDocumentIntent } from './sdk';
 
@@ -105,6 +106,9 @@ export const DashboardWorkspaceEnvironment = Type.Object(
     authoringEnabled: Type.Optional(Type.Boolean()),
     promotionSourceEnvironmentId: Type.Optional(DashboardIdentifier),
     releasePolicy: Type.Optional(Type.Ref(EnvironmentReleasePolicy)),
+    governanceCapabilities: Type.Optional(
+      Type.Array(Type.Ref(EnvironmentGovernanceCapability), { minItems: 1, maxItems: 11, uniqueItems: true }),
+    ),
     createdAt: DashboardTimestamp,
     updatedAt: DashboardTimestamp,
   },
@@ -152,6 +156,8 @@ export const DashboardPublicSdkInstallation = Type.Object(
     createdAt: DashboardTimestamp,
     updatedAt: DashboardTimestamp,
     revokedAt: Type.Union([DashboardTimestamp, Type.Null()]),
+    /** Set while the kill switch is engaged; null when the install is live. */
+    suspendedAt: Type.Union([DashboardTimestamp, Type.Null()]),
     origins: Type.Array(DashboardPublicSdkInstallationOrigin, { maxItems: 100 }),
     sdkSnippet: Type.String({ minLength: 1, maxLength: 16_384 }),
   },
@@ -333,6 +339,14 @@ export const DashboardPublicSdkInstallationRevokeResponse = Type.Object(
   { installation: DashboardPublicSdkInstallationRecord },
   { additionalProperties: false },
 );
+
+export const DashboardPublicSdkInstallationSuspensionBody = Type.Object(
+  { suspended: Type.Boolean() },
+  { $id: 'DashboardPublicSdkInstallationSuspensionBody', additionalProperties: false },
+);
+export type DashboardPublicSdkInstallationSuspensionBody = Static<
+  typeof DashboardPublicSdkInstallationSuspensionBody
+>;
 
 export const DashboardThemeMutationResponse = Type.Object(
   { theme: DashboardWorkspaceTheme },

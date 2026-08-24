@@ -43,8 +43,25 @@ const tenantScopedTables = [
   'release_approvals',
   'document_deployments',
   'authoring_sessions',
+  'authoring_presence',
   'events',
   'analytics_events',
+  'governance_capability_profiles',
+  'governance_audit_events',
+  'governance_capability_profile_assignments',
+  'workspace_governance_capability_profile_assignments',
+  'webhook_endpoints',
+  'webhook_events',
+  'webhook_deliveries',
+  'workspace_data_placements',
+  'data_residency_migrations',
+  'data_residency_migration_evidence',
+  'data_residency_migration_history',
+  'analytics_warehouse_destinations',
+  'analytics_warehouse_sync_runs',
+  'accessibility_sweeps',
+  'accessibility_findings',
+  'accessibility_finding_events',
 ];
 
 const identityScopedTables = [
@@ -85,12 +102,26 @@ const appendOnlyRuntimeTables = [
   'auth_security_events',
   'account_security_events',
   'enterprise_audit_events',
+  'governance_audit_events',
+  'webhook_events',
+  'data_residency_migration_history',
+  'data_residency_migration_evidence',
+  'analytics_warehouse_sync_runs',
+  'accessibility_sweeps',
+  'accessibility_finding_events',
 ];
 const appendOnlyInsertPolicies = new Map([
   ['auth_security_events', 'auth_security_events_owned_insert'],
   ['account_security_events', 'account_security_events_owned_insert'],
   ['tenant_audit_events', 'tenant_audit_events_workspace_insert'],
+  ['governance_audit_events', 'governance_audit_events_workspace_insert'],
   ['enterprise_audit_events', 'enterprise_audit_events_workspace_insert'],
+  ['webhook_events', 'webhook_events_workspace_insert'],
+  ['data_residency_migration_history', 'data_residency_migration_history_workspace_insert'],
+  ['data_residency_migration_evidence', 'data_residency_migration_evidence_workspace_insert'],
+  ['analytics_warehouse_sync_runs', 'analytics_warehouse_sync_runs_workspace_insert'],
+  ['accessibility_sweeps', 'accessibility_sweeps_workspace_isolation'],
+  ['accessibility_finding_events', 'accessibility_finding_events_workspace_insert'],
 ]);
 
 const workspaceIsolationPolicyNames = new Map([
@@ -100,7 +131,16 @@ const workspaceIsolationPolicyNames = new Map([
   ['enterprise_scim_connections', 'enterprise_scim_connections_workspace_access'],
   ['enterprise_principals', 'enterprise_principals_workspace_access'],
   ['enterprise_audit_events', 'enterprise_audit_events_workspace_access'],
+  ['governance_audit_events', 'governance_audit_events_workspace_select'],
   ['enterprise_break_glass_requests', 'enterprise_break_glass_workspace_access'],
+  ['webhook_endpoints', 'webhook_endpoints_workspace_select'],
+  ['webhook_events', 'webhook_events_workspace_select'],
+  ['data_residency_migration_history', 'data_residency_migration_history_workspace_select'],
+  ['data_residency_migration_evidence', 'data_residency_migration_evidence_workspace_select'],
+  ['analytics_warehouse_sync_runs', 'analytics_warehouse_sync_runs_workspace_select'],
+  ['accessibility_sweeps', 'accessibility_sweeps_workspace_isolation'],
+  ['accessibility_findings', 'accessibility_findings_workspace_isolation'],
+  ['accessibility_finding_events', 'accessibility_finding_events_workspace_select'],
 ]);
 
 const tokenLookupPolicies = new Map([
@@ -366,7 +406,10 @@ const identityBridgePolicies = new Map([
   ['sso_connections', ['sso_connections_workspace_isolation']],
   [
     'enterprise_validation_evidence',
-    ['enterprise_validation_evidence_workspace_read', 'enterprise_validation_evidence_operator_write'],
+    [
+      'enterprise_validation_evidence_workspace_read',
+      'enterprise_validation_evidence_operator_write',
+    ],
   ],
   [
     'workspace_verified_domains',
@@ -394,6 +437,7 @@ const identityBridgePolicies = new Map([
 ]);
 
 const writeCheckConsent = 'I_UNDERSTAND_THIS_WRITES_SCRATCH_ROWS';
+const postgresIdentifierMaxLength = 63;
 
 async function main() {
   const databaseUrl = process.env.DATABASE_URL?.trim();
@@ -452,7 +496,9 @@ async function verifyCatalogState(sql) {
   `;
   const policies = new Set(policyRows.map((row) => `${row.tablename}:${row.policyname}`));
   for (const table of tenantScopedTables) {
-    const policyName = workspaceIsolationPolicyNames.get(table) ?? `${table}_workspace_isolation`;
+    const policyName = (
+      workspaceIsolationPolicyNames.get(table) ?? `${table}_workspace_isolation`
+    ).slice(0, postgresIdentifierMaxLength);
     const policy = `${table}:${policyName}`;
     if (!policies.has(policy)) fail(`Workspace isolation policy is missing for ${table}.`);
   }
@@ -461,13 +507,26 @@ async function verifyCatalogState(sql) {
     if (!policies.has(`${table}:${insertPolicy}`)) {
       fail(`Append-only insert policy is missing for ${table}.`);
     }
-    const mutablePolicy = policyRows.find(
-      (row) =>
-        row.tablename === table &&
-        (row.cmd === 'ALL' || row.cmd === 'UPDATE' || row.cmd === 'DELETE'),
+    const updatePolicy = policyRows.find(
+      (row) => row.tablename === table && (row.cmd === 'ALL' || row.cmd === 'UPDATE'),
     );
-    if (mutablePolicy) {
-      fail(`Append-only table ${table} exposes mutable policy ${mutablePolicy.policyname}.`);
+    const deletePolicy = policyRows.find(
+      (row) => row.tablename === table && (row.cmd === 'ALL' || row.cmd === 'DELETE'),
+    );
+    const [privileges] = await sql`
+      select
+        has_table_privilege(current_user, ${table}, 'UPDATE') as can_update,
+        has_table_privilege(current_user, ${table}, 'DELETE') as can_delete
+    `;
+    if (updatePolicy && privileges?.can_update) {
+      fail(
+        `Append-only table ${table} is mutable through policy ${updatePolicy.policyname} and runtime UPDATE privilege.`,
+      );
+    }
+    if (deletePolicy && privileges?.can_delete) {
+      fail(
+        `Append-only table ${table} is mutable through policy ${deletePolicy.policyname} and runtime DELETE privilege.`,
+      );
     }
   }
   if (!policies.has('release_operations:release_operations_workspace_insert')) {

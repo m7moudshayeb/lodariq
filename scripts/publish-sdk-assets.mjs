@@ -42,7 +42,14 @@ export function createUploadPlan(path = defaultManifestPath) {
   if (
     !manifest ||
     typeof manifest !== 'object' ||
-    !hasExactKeys(manifest, ['creatorModule', 'entries', 'files', 'generatedAt', 'prefix']) ||
+    !hasExactKeys(manifest, [
+      'creatorModule',
+      'entries',
+      'files',
+      'generatedAt',
+      'prefix',
+      'publicLoader',
+    ]) ||
     typeof manifest.generatedAt !== 'string' ||
     manifest.prefix !== '/sdk/' ||
     !manifest.entries ||
@@ -53,7 +60,13 @@ export function createUploadPlan(path = defaultManifestPath) {
     !Array.isArray(manifest.files) ||
     !manifest.creatorModule ||
     typeof manifest.creatorModule !== 'object' ||
-    !hasExactKeys(manifest.creatorModule, ['integrity', 'url', 'version'])
+    !hasExactKeys(manifest.creatorModule, ['integrity', 'url', 'version']) ||
+    !manifest.publicLoader ||
+    typeof manifest.publicLoader !== 'object' ||
+    !hasExactKeys(manifest.publicLoader, ['integrity', 'path']) ||
+    typeof manifest.publicLoader.path !== 'string' ||
+    typeof manifest.publicLoader.integrity !== 'string' ||
+    !/^sha256-[A-Za-z0-9+/]+={0,2}$/u.test(manifest.publicLoader.integrity)
   ) {
     throw new Error('SDK asset manifest has an invalid closed shape');
   }

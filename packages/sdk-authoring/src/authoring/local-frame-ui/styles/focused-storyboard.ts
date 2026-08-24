@@ -1,6 +1,5 @@
 /** Focused storyboard rail, batch toolbar, and batch workspace. */
 export const AUTHORING_FOCUSED_STORYBOARD_CSS = `
-  /* Compact Step Rail + focused authoring modes. */
   .panel-storyboard-workspace {
     grid-template-rows: auto minmax(0, 1fr);
   }
@@ -62,13 +61,13 @@ export const AUTHORING_FOCUSED_STORYBOARD_CSS = `
   }
 
   .tour-storyboard-heading strong {
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .tour-storyboard-number {
     width: 20px;
     height: 20px;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
   }
 
   .tour-storyboard-step.active .tour-storyboard-number {
@@ -146,8 +145,8 @@ export const AUTHORING_FOCUSED_STORYBOARD_CSS = `
     background: #ffffff;
     color: var(--lq-color-ink-soft);
     cursor: pointer;
-    font-size: 10px;
-    font-weight: 600;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
     padding: 0 12px;
     white-space: nowrap;
   }
@@ -203,7 +202,7 @@ export const AUTHORING_FOCUSED_STORYBOARD_CSS = `
   .tour-storyboard[data-batch-mode='true'] .tour-storyboard-preview small {
     color: var(--lq-color-primary);
     font-size: 8px;
-    font-weight: 600;
+    font-weight: var(--lq-weight-semibold);
   }
 
   .tour-storyboard[data-batch-mode='true'] .tour-storyboard-add-item {
@@ -239,7 +238,7 @@ export const AUTHORING_FOCUSED_STORYBOARD_CSS = `
 
   .tour-step-batch-toolbar > strong {
     min-width: 96px;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     white-space: nowrap;
   }
 
@@ -255,7 +254,7 @@ export const AUTHORING_FOCUSED_STORYBOARD_CSS = `
     min-height: 36px;
     border-color: transparent;
     background: transparent;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
   }
 
   .tour-step-batch-toolbar .ui-button:hover {
@@ -293,8 +292,8 @@ export const AUTHORING_FOCUSED_STORYBOARD_CSS = `
     display: grid;
     gap: 4px;
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 600;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
   }
 
   .tour-step-batch-menu select {

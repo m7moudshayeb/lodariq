@@ -24,6 +24,11 @@ interface ApplyProductStyleProposalInput {
 }
 
 export async function applyProductStyleProposal(input: ApplyProductStyleProposalInput) {
+  await input.repository.consumeThemeGenerationRun({
+    workspaceId: input.workspaceId,
+    operationId: input.proposal.proposalId,
+    occurredAt: new Date().toISOString(),
+  });
   const nextDraft = mergeProductStyleTokensIntoDraft(input.theme.draft, input.proposal);
   const applied = await input.repository.applyProductStyleProposal({
     workspaceId: input.workspaceId,

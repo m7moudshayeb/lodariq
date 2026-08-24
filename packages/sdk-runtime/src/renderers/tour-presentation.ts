@@ -24,13 +24,20 @@ export function resolveResponsiveTourStep(step: CompiledStep, viewportWidth: num
 }
 
 export function applyStepMotion(card: HTMLElement, step: CompiledStep): void {
+  cancelCardAnimations(card);
+  clearStepMotionOrigin(card);
   if (!step.motion) {
     delete card.dataset['lodariqMotion'];
+    delete card.dataset['lodariqMotionPhase'];
     card.style.removeProperty('--lq-step-motion-duration');
     card.style.removeProperty('--lq-step-motion-easing');
     return;
   }
+  void import('./tour-presentation-effects')
+    .then(({ installStepPresentationStyles }) => installStepPresentationStyles(card))
+    .catch(() => {});
   card.dataset['lodariqMotion'] = step.motion.recipe;
+  card.dataset['lodariqMotionPhase'] = 'entry';
   card.style.setProperty('--lq-step-motion-duration', `${step.motion.durationMs}ms`);
   card.style.setProperty('--lq-step-motion-easing', motionEasing(step.motion.easing));
 }
@@ -48,4 +55,19 @@ function responsiveTooltipLayout(
 function motionEasing(easing: 'standard' | 'emphasized' | 'linear'): string {
   if (easing === 'linear') return 'linear';
   return easing === 'emphasized' ? 'cubic-bezier(0.16, 1, 0.3, 1)' : 'cubic-bezier(0.2, 0, 0, 1)';
+}
+
+function clearStepMotionOrigin(card: HTMLElement): void {
+  for (const property of [
+    '--lq-step-origin-x',
+    '--lq-step-origin-y',
+    '--lq-step-slide-x',
+    '--lq-step-slide-y',
+  ]) {
+    card.style.removeProperty(property);
+  }
+}
+
+function cancelCardAnimations(card: HTMLElement): void {
+  card.getAnimations?.().forEach((animation) => animation.cancel());
 }

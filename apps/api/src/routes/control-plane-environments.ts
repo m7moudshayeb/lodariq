@@ -6,13 +6,14 @@ import {
   DashboardEnvironmentMutationResponse,
   DashboardEnvironmentMutationError,
   DashboardEnvironmentsResponse,
+  type EnvironmentGovernanceCapability,
   type EnvironmentReleasePolicy as EnvironmentReleasePolicyType,
 } from '@lodariq/schema';
 import type { FastifyInstance } from 'fastify';
 import {
   authenticate,
+  requireEnvironmentReleaseCapability,
   requireRecentControlPlaneAuthentication,
-  requireReleaseCapability,
 } from './control-plane-access';
 import {
   ApiErrorResponse,
@@ -52,9 +53,18 @@ export function registerControlPlaneEnvironmentRoutes(
     async (request, reply) => {
       const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
-      if (!requireReleaseCapability(auth, 'manage-release-policy', reply)) return;
-      if (!requireRecentControlPlaneAuthentication(auth, reply)) return;
       const { environmentId } = request.params as { environmentId: string };
+      if (
+        !(await requireEnvironmentReleaseCapability(
+          options.repository,
+          auth,
+          environmentId,
+          'manage-release-policy',
+          reply,
+        ))
+      )
+        return;
+      if (!requireRecentControlPlaneAuthentication(auth, reply)) return;
       const body = request.body as { requiredApprovalCount: 0 | 1; expectedUpdatedAt: string };
       const environment = (await options.repository.listEnvironments(auth.workspaceId)).find(
         (candidate) => candidate.id === environmentId,
@@ -109,15 +119,25 @@ export function registerControlPlaneEnvironmentRoutes(
     async (request, reply) => {
       const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
-      if (!requireReleaseCapability(auth, 'manage-release-policy', reply)) return;
-      if (!requireRecentControlPlaneAuthentication(auth, reply)) return;
       const { environmentId } = request.params as { environmentId: string };
+      if (
+        !(await requireEnvironmentReleaseCapability(
+          options.repository,
+          auth,
+          environmentId,
+          'manage-release-policy',
+          reply,
+        ))
+      )
+        return;
+      if (!requireRecentControlPlaneAuthentication(auth, reply)) return;
       const body = request.body as {
         name: string;
         originAllowlist: string[];
         enabled: boolean;
         pipelinePosition: 0 | 1 | 2;
         authoringEnabled: boolean;
+        governanceCapabilities?: EnvironmentGovernanceCapability[];
         promotionSourceEnvironmentId?: string;
         releasePolicy: EnvironmentReleasePolicyType;
         expectedUpdatedAt: string;
@@ -131,6 +151,9 @@ export function registerControlPlaneEnvironmentRoutes(
           enabled: body.enabled,
           pipelinePosition: body.pipelinePosition,
           authoringEnabled: body.authoringEnabled,
+          ...(body.governanceCapabilities
+            ? { governanceCapabilities: body.governanceCapabilities }
+            : {}),
           ...(body.promotionSourceEnvironmentId
             ? { promotionSourceEnvironmentId: body.promotionSourceEnvironmentId }
             : {}),

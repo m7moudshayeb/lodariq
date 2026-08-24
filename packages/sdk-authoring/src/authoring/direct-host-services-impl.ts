@@ -1,6 +1,7 @@
 import {
   AUTHORING_APPROVE_PRODUCTION_RESULT_TYPE,
   AUTHORING_BROWSER_VERIFY_RESULT_TYPE,
+  AUTHORING_LOCALE_LAYOUT_QA_RESULT_TYPE,
   AUTHORING_BRAND_DRIFT_CHECK_RESULT_TYPE,
   AUTHORING_BRAND_THEME_ACKNOWLEDGE_RESULT_TYPE,
   AUTHORING_PUBLISH_STAGING_RESULT_TYPE,
@@ -23,6 +24,7 @@ import {
   type AuthoringStagingVerificationResult,
   type AuthoringReleaseStateResultMessage,
   type BrowserVerificationReport,
+  type LocaleLayoutQaReport,
   type BrandDriftCheckRequest,
   type LodariqDocument,
   type ProductStyleProposal,
@@ -30,7 +32,11 @@ import {
   type ProductionPromotionResult,
   type ReleaseApproval,
   type ReleaseRecoveryRequest,
+  AUTHORING_OPERATIONS_REQUEST_TYPE,
+  AUTHORING_OPERATIONS_RESULT_TYPE,
+  type AuthoringOperationsResultMessage,
 } from '@lodariq/schema';
+import { createBridgeOperationsServices } from './operations/operations-bridge';
 import {
   AuthoringBridge,
   RELEASE_RECOVERY_BRIDGE_MESSAGE_BYTE_LIMITS,
@@ -55,6 +61,7 @@ const DIRECT_OPTIONAL_PANEL_RESULT_TYPES = new Set<string>([
   AUTHORING_BRAND_THEME_ACKNOWLEDGE_RESULT_TYPE,
   AUTHORING_PUBLISH_STAGING_RESULT_TYPE,
   AUTHORING_BROWSER_VERIFY_RESULT_TYPE,
+  AUTHORING_LOCALE_LAYOUT_QA_RESULT_TYPE,
   AUTHORING_SUBMIT_VERIFICATION_RESULT_TYPE,
   AUTHORING_PROMOTE_PRODUCTION_RESULT_TYPE,
   AUTHORING_APPROVE_PRODUCTION_RESULT_TYPE,
@@ -63,6 +70,9 @@ const DIRECT_OPTIONAL_PANEL_RESULT_TYPES = new Set<string>([
 export interface DirectAuthoringHostFrameServices extends Required<
   Pick<LocalAuthoringFrameServices, 'getReleaseState' | 'persistDocument'>
 > {
+  /** §4.7 — always present: the host answers, or says the session cannot. */
+  operations: LocalAuthoringFrameServices['operations'];
+  requestAiAssist: NonNullable<LocalAuthoringFrameServices['requestAiAssist']>;
   publishToStaging?: LocalAuthoringFrameServices['publishToStaging'];
   getReleaseRecoveryState?: LocalAuthoringFrameServices['getReleaseRecoveryState'];
   recoverRelease?: LocalAuthoringFrameServices['recoverRelease'];
@@ -79,6 +89,7 @@ export interface DirectAuthoringHostFrameServices extends Required<
     publicationId: string,
     expectedContentHash: string,
   ) => Promise<BrowserVerificationReport>;
+  runLocaleLayoutQa?: (expectedDocumentRevision: number) => Promise<LocaleLayoutQaReport>;
   submitStagingVerification?: (
     request: AuthoringStagingVerificationRequest,
   ) => Promise<AuthoringStagingVerificationResult>;
@@ -109,6 +120,7 @@ export function createDirectAuthoringHostServicesImplementation(
 ): DirectAuthoringHostServiceHandle {
   const releaseStateRequests = new Map<string, PendingRequest<AuthoringStagingReleaseState>>();
   let optionalPanelServices: DirectAuthoringOptionalPanelServices | undefined;
+  const operationsListeners = new Set<(message: AuthoringOperationsResultMessage) => void>();
 
   const bridge = new AuthoringBridge(options.peerWindow, {
     allowedOrigins: options.allowedOrigins,
@@ -119,6 +131,10 @@ export function createDirectAuthoringHostServicesImplementation(
     onMessage: (message) => {
       if (message.type === AUTHORING_RELEASE_STATE_RESULT_TYPE) {
         settleReleaseStateRequest(releaseStateRequests, message);
+        return;
+      }
+      if (message.type === AUTHORING_OPERATIONS_RESULT_TYPE) {
+        for (const listener of operationsListeners) listener(message);
         return;
       }
       if (isOptionalPanelResultMessage(message.type)) {
@@ -132,8 +148,31 @@ export function createDirectAuthoringHostServicesImplementation(
     optionalPanelServices = createDirectAuthoringOptionalPanelServices(bridge, options);
   }
 
+  // The frame's Operations calls become bridge requests; the host owns the URL
+  // and the bearer, and answers with normalized data.
+  const operations = createBridgeOperationsServices({
+    send: (requestId, method, args) => {
+      bridge.send({
+        protocol: BRIDGE_PROTOCOL_VERSION,
+        sessionId: options.sessionId,
+        documentId: options.documentId,
+        correlationId: createBridgeCorrelationId('authoring_operations_request'),
+        type: AUTHORING_OPERATIONS_REQUEST_TYPE,
+        requestId,
+        method,
+        ...(args.length ? { args: [...args] } : {}),
+      });
+    },
+    subscribe: (listener) => {
+      operationsListeners.add(listener);
+      return () => operationsListeners.delete(listener);
+    },
+  });
+
   return {
     services: {
+      operations,
+      requestAiAssist: (request) => operations.requestAiAssist!(request),
       persistDocument: (document) => persistDocument(bridge, options, document),
       getReleaseState: () => requestReleaseState(bridge, options, releaseStateRequests),
       ...(options.readReleaseRecovery
@@ -184,6 +223,12 @@ export function createDirectAuthoringHostServicesImplementation(
         ? {
             verifyBrowserPublication: (publicationId: string, expectedContentHash: string) =>
               optionalPanelServices!.verifyBrowserPublication(publicationId, expectedContentHash),
+          }
+        : {}),
+      ...(options.localeLayoutQa
+        ? {
+            runLocaleLayoutQa: (expectedDocumentRevision: number) =>
+              optionalPanelServices!.runLocaleLayoutQa(expectedDocumentRevision),
           }
         : {}),
       ...(options.submitStagingVerification
@@ -331,6 +376,7 @@ function hasOptionalPanelServices(options: DirectAuthoringHostServiceOptions): b
     options.acknowledgeBrandTheme ||
     options.publishToStaging ||
     options.verifyBrowserPublication ||
+    options.localeLayoutQa ||
     options.submitStagingVerification ||
     options.promoteProduction ||
     options.approveProduction,

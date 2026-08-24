@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { canonicalJson, compileDocument } from '@lodariq/compiler';
+import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import {
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RENDERER_CONTRACT_VERSION,
@@ -76,6 +77,7 @@ describe('authoring Brand drift service', () => {
     expect(reads.getDocument).toHaveBeenCalledOnce();
     expect(reads.listStyleSources).toHaveBeenCalledWith('wk_a', 'theme_primary');
     expect(reads.createBrandDriftRun).toHaveBeenCalledOnce();
+    expect(reads.enqueueWebhookEvent).toHaveBeenCalledOnce();
     const persisted = reads.createBrandDriftRun.mock.calls[0]?.[0];
     expect(persisted).toMatchObject({
       workspaceId: 'wk_a',
@@ -96,6 +98,7 @@ describe('authoring Brand drift service', () => {
       'listStyleSources',
       'listWorkspaceThemeImpact',
       'createBrandDriftRun',
+      'enqueueWebhookEvent',
     ]);
     const serialized = JSON.stringify({ result, persisted });
     for (const prohibited of ['selector', 'outerHTML', 'coordinates', 'https://', 'rawCss']) {
@@ -218,6 +221,7 @@ function repositoryFixture(options: {
     getDocument: ReturnType<typeof vi.fn>;
     listStyleSources: ReturnType<typeof vi.fn>;
     createBrandDriftRun: ReturnType<typeof vi.fn>;
+    enqueueWebhookEvent: ReturnType<typeof vi.fn>;
   };
 } {
   const document = documentFixture();
@@ -255,6 +259,7 @@ function repositoryFixture(options: {
     },
   ]);
   const createBrandDriftRun = vi.fn(async () => undefined);
+  const enqueueWebhookEvent = vi.fn(async () => []);
   const repository = {
     getDocument,
     getWorkspaceTheme: vi.fn(async () => theme),
@@ -286,8 +291,12 @@ function repositoryFixture(options: {
       },
     ]),
     createBrandDriftRun,
+    enqueueWebhookEvent,
   } as unknown as ControlPlaneRepository;
-  return { repository, reads: { getDocument, listStyleSources, createBrandDriftRun } };
+  return {
+    repository,
+    reads: { getDocument, listStyleSources, createBrandDriftRun, enqueueWebhookEvent },
+  };
 }
 
 function authoringSession(): AuthoringSessionRecord {
@@ -307,22 +316,20 @@ function authoringSession(): AuthoringSessionRecord {
 }
 
 function documentFixture(): LodariqDocument {
+  const document = structuredClone(tourFixture) as LodariqDocument;
+  delete document.localization;
+  document.blocks = document.blocks.slice(0, 1);
+  document.targets = document.targets.slice(0, 1);
   return {
-    schemaVersion: '1',
+    ...document,
     id: 'tour_a',
     workspaceId: 'wk_a',
-    type: 'tour',
     title: 'Tour',
-    status: 'draft',
     themeBinding: {
       policy: 'workspace-current',
       themeId: 'theme_primary',
       acknowledgedThemeVersionId: 'themev_primary_v1',
     },
-    trigger: { type: 'manual' },
-    audience: { environments: ['staging'] },
-    targets: [],
-    blocks: [],
   };
 }
 

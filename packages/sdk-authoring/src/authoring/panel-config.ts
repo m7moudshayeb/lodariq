@@ -1,4 +1,6 @@
-import type { AuthoringPanelLayoutMode } from '@lodariq/schema';
+import type { AuthoringPanelLayoutMode, AuthoringSaveState } from '@lodariq/schema';
+import type { AuthoringMutationQueueState } from './mutations/types';
+import type { ModePillSaveState } from './overlay/mode-pill.types';
 import { authoringText } from '../i18n';
 import {
   Focus,
@@ -62,15 +64,85 @@ export const AUTHORING_SAVE_REQUEST_TIMEOUT_MS = 5_000;
 export const HOSTED_SESSION_CLOSE_TIMEOUT_MS = 5_000;
 export const AUTHORING_PANEL_LABELS = {
   close: authoringText('Close authoring'),
+  operationsUnavailable: authoringText(
+    'Operations is not available in this session, so these numbers are read-only.',
+  ),
+  environmentSwitched: (environment: string): string =>
+    authoringText('Reading {environment}. Publishing still targets this session’s environment.', {
+      environment,
+    }),
   draftSaved: authoringText('Draft saved'),
   minimize: authoringText('Minimize authoring panel'),
   movePanel: authoringText('Move Lodariq authoring panel. Use arrow keys to reposition it.'),
   restore: authoringText('Restore authoring panel'),
   savingDraft: authoringText('Saving draft…'),
   discardingDraft: authoringText('Closing authoring…'),
-  selectExactArea: authoringText('Choose an exact area · Esc to cancel'),
-  selectTarget: authoringText('Select an element · Esc to cancel'),
+  addStep: authoringText('Add step'),
+  /** The card's own corner: §3.4 rule 4's manual fallback, worded not glyphed. */
+  moveCard: authoringText('Move this card'),
+  hidePanels: authoringText('Hide all panels'),
+  /** Names the product, because it is the only chrome left on the screen. */
+  showChrome: authoringText('Show Lodariq'),
+  changeTarget: authoringText('Change target'),
+  operations: authoringText('Operations'),
+  exitPreview: authoringText('Exit preview'),
+  filmstrip: authoringText('Tour steps'),
+  experienceTitle: authoringText('Experience title'),
+  /** The filmstrip's rail label. It holds steps; the name lives in Operations. */
+  steps: authoringText('Steps'),
+  /** After a resize: the number chosen, and the range it had to sit inside. */
+  cardSize: (
+    width: number,
+    height: number,
+    widthLimits: { min: number; max: number },
+    heightLimits: { min: number; max: number },
+  ): string =>
+    authoringText('Card {width} × {height} px · limits {wMin}–{wMax} wide, {hMin}–{hMax} tall')
+      .replace('{width}', String(width))
+      .replace('{height}', String(height))
+      .replace('{wMin}', String(widthLimits.min))
+      .replace('{wMax}', String(widthLimits.max))
+      .replace('{hMin}', String(heightLimits.min))
+      .replace('{hMax}', String(heightLimits.max)),
+  placementAbove: authoringText('Above'),
+  placementRight: authoringText('Right'),
+  placementBelow: authoringText('Below'),
+  placementLeft: authoringText('Left'),
 } as const;
+/**
+ * Environment chip in the mode pill (§4.1). "Why isn't my guide showing" is the
+ * category's top support ticket, so the environment is always on screen.
+ * Production never appears — ADR-0015 rejects it at every layer.
+ */
+export const AUTHORING_ENVIRONMENT_LABELS = {
+  development: authoringText('Dev'),
+  staging: authoringText('Staging'),
+} as const satisfies Readonly<Record<'development' | 'staging', string>>;
+
+/** What the pill's Environment group offers. Production is refused, not listed. */
+export const AUTHORING_SELECTABLE_ENVIRONMENTS = [
+  AUTHORING_ENVIRONMENT_LABELS.development,
+  AUTHORING_ENVIRONMENT_LABELS.staging,
+] as const;
+
+/** Host save state → what the pill shows. `error` becomes an actionable `Retry` (§8.1). */
+export const PILL_SAVE_STATE_BY_SAVE_STATE = {
+  saved: 'saved',
+  saving: 'saving',
+  error: 'retry',
+} as const satisfies Readonly<Record<AuthoringSaveState, 'saved' | 'saving' | 'retry'>>;
+
+/**
+ * The §8.1 queue's own states, mapped to what the pill says. `held` becomes
+ * `Reconnecting…` rather than an error: the work is queued, not lost (§15.4).
+ */
+export const PILL_SAVE_STATE_BY_QUEUE_STATE = {
+  saved: 'saved',
+  saving: 'saving',
+  held: 'reconnecting',
+  retry: 'retry',
+} as const satisfies Readonly<Record<AuthoringMutationQueueState, ModePillSaveState>>;
+
 export const AUTHORING_PANEL_KEYBOARD_OFFSETS: Readonly<
   Partial<Record<KeyboardEvent['key'], { x: number; y: number }>>
 > = {

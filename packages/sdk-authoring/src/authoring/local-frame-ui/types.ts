@@ -6,14 +6,42 @@ import type {
   LodariqDocument,
   ResolverDiagnostic,
   RuntimeLifecycleHints,
+  StepBackdrop,
+  TargetOutline,
+  ViewportFocus,
   TargetInspectAction,
+  AdaptivePolicy,
+  AdaptiveBehaviorEvidence,
+  AdoptionImpact,
+  ExperienceAnalyticsBreakdown,
+  ApplicationSummary,
+  Experiment,
+  ExperimentResults,
+  ExperienceSession,
+  ExperienceComment,
+  AuthoringAuditEvent,
+  WorkspaceCommercialUsage,
+  WorkspaceDataCatalog,
+  DeploymentSchedule,
+  DeliveryTransitionHistoryEntry,
+  DemoAnalyticsSummary,
+  DemoArtifactReview,
+  CanonicalTemplateInstantiationResult,
+  AuthoringDocumentVersionSummary,
+  SemanticVersionDiff,
+  ChangeAwareCopySuggestion,
+  RecordToAuthorProposal,
+  LocaleLayoutQaReport,
 } from '@lodariq/schema';
+import type { AccessibilitySweepResult } from '@lodariq/schema/accessibility-governance';
 import type { AuthoringReleaseFinding } from '../local-frame-types';
 import type {
   AuthoringBrandMatchProposal,
   AuthoringBrandWorkspaceState,
   AuthoringReleaseWorkflowState,
 } from '../local-frame-types';
+import type { AiAssistState } from '../ai/assist-machine';
+import type { NarrationVoice } from '../narration/narration-model';
 import type { AuthoringBrandDriftControllerSnapshot } from '../brand-drift-controller';
 import type {
   AuthoringReleaseRecoveryIntent,
@@ -129,6 +157,20 @@ export interface TargetInspectionState {
   diagnostic: ResolverDiagnostic;
 }
 
+/** A partial emphasis write, merged against the live document (§4.3). */
+export interface StepEmphasisPatch {
+  backdrop?: Partial<StepBackdrop> | undefined;
+  targetOutline?: Partial<TargetOutline> | undefined;
+  viewportFocus?: Partial<ViewportFocus> | undefined;
+}
+
+/** The on-page ring asked for §4.3's target kind. `token` makes it fire once. */
+export interface TargetInspectRequest {
+  stepId: string;
+  section?: string;
+  token: number;
+}
+
 export type FocusRevealTarget = 'content' | 'behavior' | 'placement' | 'popup';
 
 export interface FocusRequest {
@@ -137,6 +179,24 @@ export interface FocusRequest {
   caret?: 'start' | 'end' | number;
   propertyId?: string;
   reveal?: FocusRevealTarget;
+  token: number;
+}
+
+/**
+ * A structural change to the card, asked for from outside the card.
+ *
+ * On the overlay the card *is* a Lexical editor, and the editor holds the only
+ * live copy of its content — it reads the document once, on mount. So a surface
+ * that is not inside the editor, such as the inspector, cannot add or remove a
+ * block by writing to the document: the change would be invisible until the step
+ * changed, and the editor's next save would overwrite it.
+ *
+ * The request travels through the snapshot instead, and a plugin inside the
+ * editor performs it. `token` makes it fire once.
+ */
+export interface CardCommandRequest {
+  kind: 'add-button' | 'remove-block' | 'select-block';
+  blockId?: string;
   token: number;
 }
 
@@ -176,6 +236,7 @@ export interface AuthoringReleaseViewState {
 
 export const AUTHORING_PANEL_MODES = [
   'edit',
+  'operations',
   'appearance',
   'brand-match-review',
   'release-verification',
@@ -184,6 +245,57 @@ export const AUTHORING_PANEL_MODES = [
   'release-recovery-confirmation',
 ] as const;
 export type AuthoringPanelMode = (typeof AUTHORING_PANEL_MODES)[number];
+
+export const AUTHORING_OPERATIONS_TABS = [
+  // Author
+  'flow',
+  'storyboard',
+  'batch',
+  'templates',
+  'voice',
+  'record',
+  'diff',
+  // Look
+  'appearance',
+  'translation',
+  'narration',
+  'copy',
+  // Reach
+  'audience',
+  'experiment',
+  // Prove
+  /** Pre-publish report: contrast, layout simulation, targets, alt text (§4.6). */
+  'check',
+  'analytics',
+  // Ship
+  'release',
+  'review',
+  'recovery',
+  'collaboration',
+  'audit',
+  'share',
+] as const;
+export type AuthoringOperationsTab = (typeof AUTHORING_OPERATIONS_TABS)[number];
+
+export interface AuthoringOperationsViewState {
+  focusKey: string | null;
+  scrollTop: number;
+}
+
+/** Nav grouping. Flat entries become easier to scan in five small groups. */
+export const AUTHORING_OPERATIONS_GROUPS = [
+  { id: 'author', tabs: ['flow', 'storyboard', 'batch', 'templates', 'voice', 'record'] },
+  { id: 'look', tabs: ['appearance', 'translation', 'narration', 'copy'] },
+  { id: 'reach', tabs: ['audience', 'experiment'] },
+  { id: 'prove', tabs: ['check', 'analytics'] },
+  {
+    id: 'ship',
+    tabs: ['release', 'review', 'recovery', 'diff', 'collaboration', 'audit', 'share'],
+  },
+] as const satisfies ReadonlyArray<{
+  readonly id: string;
+  readonly tabs: readonly AuthoringOperationsTab[];
+}>;
 
 export const EDITABLE_BUTTON_VARIANT_OPTIONS = [
   { value: 'primary', label: authoringText('Primary') },
@@ -217,6 +329,8 @@ export interface AuthoringReleaseRecoveryWorkflowState {
 
 export interface AuthoringPanelWorkflowState {
   mode: AuthoringPanelMode;
+  operationsTab: AuthoringOperationsTab;
+  operationsView: AuthoringOperationsViewState;
   returnMode: AuthoringPanelMode;
   focusToken: number;
   returnFocus: 'appearance' | 'release' | null;
@@ -224,6 +338,9 @@ export interface AuthoringPanelWorkflowState {
   operation: AuthoringPanelOperation;
   brand: AuthoringBrandWorkspaceState;
   brandProposal: AuthoringBrandMatchProposal | null;
+  /** The §7.5 preview loop's state, or its idle form when assist is unavailable. */
+  assist: AiAssistState;
+  assistAvailable: boolean;
   brandDrift: AuthoringBrandDriftControllerSnapshot;
   release: AuthoringReleaseWorkflowState | null;
   releaseRecovery: AuthoringReleaseRecoveryWorkflowState;
@@ -231,15 +348,117 @@ export interface AuthoringPanelWorkflowState {
   notice: string | null;
 }
 
+/** What Operations reads. Every field is optional: absent means "not measured yet". */
+export interface ExperienceFunnelEntry {
+  readonly stepId: string;
+  readonly reached: number;
+}
+
+export interface ExperienceFormResponseSummary {
+  readonly blockId: string;
+  readonly label: string;
+  readonly answerCount: number;
+  readonly topAnswer?: string;
+}
+
+export interface ExperienceAnalyticsSnapshot {
+  /** Counts are per environment; staging and production are never merged. */
+  readonly environmentId: string;
+  readonly shown: number;
+  readonly completed: number;
+  readonly dismissed: number;
+  readonly funnel: readonly ExperienceFunnelEntry[];
+  readonly adoption?: readonly AdoptionImpact[];
+  readonly formResponses?: readonly ExperienceFormResponseSummary[];
+  readonly breakdown?: ExperienceAnalyticsBreakdown;
+}
+
+export interface PresencePeer {
+  readonly id: string;
+  readonly name: string;
+  readonly stepId: string | null;
+  readonly selection?:
+    | { readonly type: 'block'; readonly blockId: string }
+    | { readonly type: 'target'; readonly targetId: string }
+    | null;
+  readonly sameCreator?: boolean;
+  readonly holdsLock: boolean;
+  readonly canTakeover?: boolean;
+}
+
+export type StepComment = ExperienceComment;
+
+export interface DemoLinkSnapshot {
+  readonly id?: string;
+  readonly enabled: boolean;
+  readonly url: string;
+  readonly status?: 'active' | 'expired' | 'revoked';
+  readonly expiresAt?: string;
+}
+
+export interface RecordToAuthorSnapshot {
+  readonly recording: boolean;
+  readonly actionCount: number;
+  readonly segmentCount: number;
+  readonly proposal: RecordToAuthorProposal | null;
+}
+
 export interface LocalAuthoringFrameSnapshot {
   documentState: LodariqDocument;
+  /** Unmaterialized copy used by locale coverage and cross-locale QA. */
+  canonicalDocumentState?: LodariqDocument;
+  /** Tier 3 reach and proof. Populated from the control plane when available. */
+  applications?: readonly ApplicationSummary[];
+  knownEventNames?: readonly string[];
+  adaptiveEvidence?: readonly AdaptiveBehaviorEvidence[];
+  adaptivePolicy?: AdaptivePolicy;
+  experiment?: Experiment;
+  experimentResults?: ExperimentResults;
+  experienceAnalytics?: ExperienceAnalyticsSnapshot;
+  experienceSessions?: readonly ExperienceSession[];
+  presence?: {
+    readonly peers: readonly PresencePeer[];
+    readonly connection?: 'connected' | 'reconnecting';
+    readonly draftChanged?: boolean;
+  };
+  comments?: readonly StepComment[];
+  auditEvents?: readonly AuthoringAuditEvent[];
+  auditExportAvailable?: boolean;
+  commercialUsage?: WorkspaceCommercialUsage;
+  dataCatalog?: WorkspaceDataCatalog;
+  templateInstantiation?: CanonicalTemplateInstantiationResult;
+  documentVersions?: readonly AuthoringDocumentVersionSummary[];
+  semanticVersionDiff?: SemanticVersionDiff;
+  copySuggestions?: readonly ChangeAwareCopySuggestion[];
+  deploymentSchedules?: readonly DeploymentSchedule[];
+  deliveryTransitionHistory?: readonly DeliveryTransitionHistoryEntry[];
+  operationsUnavailable?: boolean;
+  demoArtifactReview?: DemoArtifactReview;
+  demoLink?: DemoLinkSnapshot;
+  demoAnalytics?: DemoAnalyticsSummary;
+  recordToAuthor?: RecordToAuthorSnapshot;
+  localeLayoutQaAvailable?: boolean;
+  localeLayoutQa?: {
+    readonly state: 'running' | 'complete' | 'error';
+    readonly report?: LocaleLayoutQaReport;
+  };
+  accessibilitySweepAvailable?: boolean;
+  accessibilitySweep?: {
+    readonly state: 'running' | 'complete' | 'error';
+    readonly result?: AccessibilitySweepResult;
+  };
+  activeStepId?: string | null;
   deliveryCapabilities: Set<AuthoringDeliveryCapability>;
   contentLocale: string;
+  /** Voices this session may offer. Empty when no narration provider is configured. */
+  narrationVoices?: readonly NarrationVoice[];
   translation: {
     available: boolean;
     state: 'idle' | 'translating' | 'error';
   };
   previewTheme?: BrandThemeSnapshot | null;
+  /** True when the workspace theme moved past the one rendered here (§6.3). */
+  themeStale: boolean;
   previewPreferences?: { prefersDark: boolean; prefersReducedMotion: boolean } | null;
   status: string;
   saveState: { state: AuthoringSaveState; label: string };
@@ -253,6 +472,15 @@ export interface LocalAuthoringFrameSnapshot {
   selectedStepIds: Set<string>;
   stepStyleClipboardAvailable: boolean;
   stepStyleRecipes: readonly AuthoringStepStyleRecipe[];
+  /**
+   * Which saved style a step was last given, by step id.
+   *
+   * WIRE_DB: the document has no `styleId` — a binding is derived by comparing
+   * content hashes, so the moment a creator nudges a colour the step matches
+   * nothing and the name it wore is lost. This remembers it for the session,
+   * which is what lets `Update “<name>”` know what to update.
+   */
+  stepStyleRecipeByStep: ReadonlyMap<string, string>;
   draftCheckpoints: readonly AuthoringDraftCheckpoint[];
   mediaAssets: readonly AuthoringMediaAssetResource[];
   dragTargetBlockId: string | null;
@@ -261,6 +489,8 @@ export interface LocalAuthoringFrameSnapshot {
   targetHealth: Map<string, AuthoringTargetHealth>;
   advancedTargetIds: Set<string>;
   focusRequest: FocusRequest | null;
+  cardCommandRequest: CardCommandRequest | null;
+  targetInspectRequest: TargetInspectRequest | null;
   release: AuthoringReleaseViewState;
   panelWorkflow: AuthoringPanelWorkflowState;
 }

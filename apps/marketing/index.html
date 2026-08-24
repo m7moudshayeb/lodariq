@@ -1,0 +1,957 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>In-app product tours &amp; onboarding, no code — Lodariq</title>
+    <meta
+      name="description"
+      content="Feature launches die in the inbox. Lodariq is in-product launch software for B2B SaaS: build in-app product tours, onboarding and announcements yourself, on your live product, with no code and no engineering ticket. Early access."
+    />
+    <link rel="canonical" href="https://lodariq.io/" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="theme-color" content="#0b0d11" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%230b0d11'/%3E%3Crect x='5' y='5' width='22' height='22' rx='7' fill='%237c8cff'/%3E%3Crect x='10' y='11' width='12' height='3.2' rx='1.6' fill='%230b0d11'/%3E%3Crect x='10' y='17.5' width='7' height='3.2' rx='1.6' fill='%230b0d11' opacity='.65'/%3E%3Ccircle cx='21' cy='19.1' r='2.1' fill='%230b0d11'/%3E%3C/svg%3E"
+    />
+
+    <meta property="og:site_name" content="Lodariq" />
+    <meta property="og:title" content="Lodariq — you shipped it, nobody noticed" />
+    <meta
+      property="og:description"
+      content="Feature launches die in the inbox. Put the walkthrough inside your product — built by the person who owns the launch, with no engineering ticket. The demo on this page is real."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lodariq.io/" />
+    <meta property="og:image" content="https://lodariq.io/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Lodariq — install once, nobody touches code again." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Lodariq — you shipped it, nobody noticed" />
+    <meta
+      name="twitter:description"
+      content="Feature launches die in the inbox. Put the walkthrough inside your product — built by the person who owns the launch, no engineering ticket."
+    />
+    <meta name="twitter:image" content="https://lodariq.io/og-image.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://lodariq.io/#organization",
+            "name": "Lodariq",
+            "url": "https://lodariq.io/",
+            "logo": "https://lodariq.io/og-image.png",
+            "email": "hello@lodariq.io",
+            "description": "Lodariq is in-product launch software for B2B SaaS teams. A developer installs one script tag once; after that the person who owns the launch builds guided tours, onboarding and announcements directly on the live product, without code."
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://lodariq.io/#website",
+            "url": "https://lodariq.io/",
+            "name": "Lodariq",
+            "publisher": {
+              "@id": "https://lodariq.io/#organization"
+            },
+            "inLanguage": "en"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://lodariq.io/#software",
+            "name": "Lodariq",
+            "applicationCategory": "BusinessApplication",
+            "applicationSubCategory": "Digital Adoption Platform",
+            "operatingSystem": "Web browser",
+            "url": "https://lodariq.io/",
+            "publisher": {
+              "@id": "https://lodariq.io/#organization"
+            },
+            "description": "In-product launch software for B2B SaaS. Product marketing builds guided tours, onboarding, upgrade prompts and change notices directly on the live product — no code after a one-time script tag install. Experiences are verified on staging and promoted unchanged to production, with one-step rollback.",
+            "featureList": [
+              "Build in-product tours without code or CSS",
+              "Point-and-click targeting that survives redesigns",
+              "Audience targeting by user attributes",
+              "Scheduling with start and end dates",
+              "Branching and conditional paths",
+              "Review and approval before publishing",
+              "Verified staging preview, then promote unchanged to production",
+              "One-step rollback to a previous version",
+              "Completion, drop-off and dismissal reporting",
+              "SAML and OIDC single sign-on",
+              "WCAG AA contrast gate before publishing"
+            ],
+            "releaseNotes": "Pre-launch early access as of August 2026. Guided tours are the shipped experience type."
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://lodariq.io/#faq",
+            "isPartOf": {
+              "@id": "https://lodariq.io/#website"
+            },
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is Lodariq?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Lodariq is in-product launch software — a digital adoption platform for B2B SaaS teams. A developer installs one script tag, once. After that, the person who owns the launch builds guided tours, walkthroughs and onboarding directly on the live product, without writing code or filing a ticket."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Do I need to know how to code?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No, and there's no hidden point where you suddenly do. You click the button you want to point at and type what you want to say. There's no CSS box, no selector to paste in, and no \"advanced mode\" that quietly requires a developer — those aren't things Lodariq can express at all."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How long does building one actually take?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Almost all of the time goes into deciding what to say — the building itself is pointing and typing. You work on the real product rather than describing it in another tool, so there's no step where you write instructions for a screen you can't see and find out later you got it wrong."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I control who sees it, and when?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Target by the attributes you already send about your users — plan, role, account age, anything you pass to Lodariq — and give it a start and end date so a time-limited announcement retires itself. You can also branch a tour so different people take different paths through it."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does someone have to approve it before it goes live?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Only if you want that. There's a review and approval workflow if your team needs sign-off, and roles that separate who can draft from who can publish. If it's just you, you publish."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What if I publish something wrong?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Fix it and republish, or put the previous version back — rollback returns to a version that already existed rather than rebuilding it, so you get exactly what was live before. You don't need a developer, and you don't need to wait for a deploy."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do I know whether it worked?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "You see completions, drop-off by step, and dismissals — so you can tell the difference between \"nobody finished\" and \"nobody wanted it in the first place.\" Staging and production are counted separately, so your own rehearsals don't end up in the number you report. Deeper analysis — funnels, cohorts, CSV export — is still being built."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What can I actually build today?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Guided tours, which covers most in-product messaging: feature walkthroughs, onboarding, upgrade prompts and change notices. They can hold rich content, branch by audience, follow a schedule, and go through review before release. Announcements, hotspots, checklists and surveys are on the way and will be included on every plan — we're not counting them as shipped until their editors are as good as the tour one."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What happens when we redesign the product?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Steps are anchored to what an element means — its role, its label, what's around it — the way you'd describe a button to a colleague, rather than to a code path that a restyle breaks. When something genuinely can't be found any more, the step is flagged for you to look at instead of silently pointing at nothing. We're not publishing a percentage for this until we can back one up with real measurement."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I use it on software we didn't build?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Lodariq needs a script tag on a product you control, so it can't be layered over third-party software your team doesn't own. If that's what you need, this is the wrong category of tool and we'd rather tell you now."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What exactly gets added to our site?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "One asynchronous script tag that renders nothing until something is published to that environment. The production runtime is framework-free — it never contains React or the editor, which live in a physically separate package, and the build fails in CI if a production module imports them."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Will it interfere with our styling?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No, in both directions. Cards render inside a shadow root, so no Lodariq CSS reaches your stylesheet and none of your CSS can break a card. Nothing a non-technical creator does can produce arbitrary CSS, JavaScript or raw HTML on your page — the document format has no way to represent them."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does it work with React, Vue, Angular or server-rendered apps?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. The runtime is framework-free and works anywhere a script tag runs. It resolves targets from the live DOM at playback time rather than from your component tree, so it doesn't care what rendered the page, and it waits for routes and lazy content to settle before attaching a step."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can a tour trap or block our users?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Only the visible card intercepts input — everything outside its bounds stays clickable, so someone can keep using your product with a tour open. Cards are real dialogs with proper focus management and keyboard operability, targets are at least 44×44 pixels, reduced-motion settings are respected, and a WCAG AA contrast check blocks publishing content that would fail it."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How does something get from staging to production?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Publishing compiles the content into an immutable, content-addressed artifact. It gets verified on staging, and then that identical artifact is promoted to production — nothing is recompiled in between, so what was approved is byte-for-byte what ships. Rollback moves a pointer to a version that already existed, and the release history is append-only."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can creators edit against our production site?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. The editor doesn't exist on production builds at all — the code isn't shipped there. On an approved development or staging origin, a signed-in creator with the right role reveals it with a keyboard shortcut. The shortcut opens the door; it isn't what grants permission."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can Lodariq see our customer data?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Only what you deliberately hand over. Lodariq has no access to your database and no mechanism to get it — it sees the traits you choose to pass in, events you choose to send, and whether the experiences it delivered were completed. Full-app session replay is permanently excluded from the product, and tenants are isolated with PostgreSQL row-level security."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Do you support SSO and role-based access?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes — SAML and OIDC single sign-on, and member, admin and owner roles that separate who can draft from who can publish. SSO isn't sold as a separate add-on tier."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How much does it cost?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "There's no published price yet, because we haven't validated one with real teams. The model is settled: you're billed on people who were actually shown something that month rather than everyone who logged in, there's a real free tier, and going over never applies retroactively."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is Lodariq available now?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Not generally. Lodariq is in pre-launch early access as of August 2026 and we're inviting teams in small batches. Join the waitlist and you'll get one email when it's your turn — nothing else."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header" data-header>
+      <div class="shell header-row">
+        <a class="wordmark" href="/" aria-label="Lodariq home">
+          <svg class="mark" viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+            <rect x="1" y="1" width="30" height="30" rx="9" fill="url(#mark-fill)" />
+            <rect x="8" y="10" width="16" height="3.4" rx="1.7" fill="#0b0d11" />
+            <rect x="8" y="17" width="9.5" height="3.4" rx="1.7" fill="#0b0d11" opacity=".62" />
+            <circle cx="21.6" cy="18.7" r="2.3" fill="#0b0d11" />
+            <defs>
+              <linearGradient id="mark-fill" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#96a3ff" />
+                <stop offset="1" stop-color="#6e7ef2" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <span>Lodariq</span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="#demo">Demo</a>
+          <a href="#use-cases">Use cases</a>
+          <a href="#how">How it works</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#faq">FAQ</a>
+        </nav>
+        <div class="header-actions">
+          <a class="button ghost" href="https://app.lodariq.io/sign-in">Sign in</a>
+          <a class="button primary" href="#waitlist">Join the waitlist</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ───────────────────────────── hero ───────────────────────────── -->
+      <section class="hero">
+        <div class="hero-glow" aria-hidden="true"></div>
+        <div class="shell hero-copy">
+          <p class="eyebrow"><i aria-hidden="true"></i>Early access · launching soon</p>
+          <h1>
+            You shipped it.<br />
+            <em>Nobody</em> noticed.
+          </h1>
+          <p class="lede">
+            Feature launches die in the inbox. Lodariq is in-app product tours and onboarding you
+            build yourself — put the walkthrough inside your product, at the moment it's relevant,
+            with no ticket and no waiting on a sprint.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary lg" href="#waitlist">Join the waitlist</a>
+            <a class="button quiet lg" href="#demo">Watch it run below&thinsp;↓</a>
+          </div>
+        </div>
+
+        <!-- The centerpiece: the real fixture host with the real SDK. -->
+        <div class="shell wide" id="demo">
+          <figure class="demo" data-demo aria-label="Live Lodariq demo">
+            <div class="demo-chrome">
+              <span class="demo-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="demo-url" aria-hidden="true">meridian.app — a product like yours</span>
+              <span class="demo-live"><i aria-hidden="true"></i>Real SDK, running now</span>
+            </div>
+            <div class="demo-stage" data-demo-stage>
+              <iframe
+                data-demo-frame
+                title="Meridian, a demo product with the Lodariq SDK installed"
+                width="1280"
+                height="832"
+              ></iframe>
+            </div>
+            <div class="demo-controls">
+              <button class="button demo-play" type="button" data-demo-play>
+                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                  <path d="M4 2.5v11l9-5.5z" fill="currentColor" />
+                </svg>
+                Play the tour
+              </button>
+              <ol class="demo-steps" aria-label="Tour progress">
+                <li data-demo-step data-state="todo"><span class="sr-only">Step 1</span></li>
+                <li data-demo-step data-state="todo"><span class="sr-only">Step 2</span></li>
+                <li data-demo-step data-state="todo"><span class="sr-only">Step 3</span></li>
+                <li data-demo-step data-state="todo"><span class="sr-only">Step 4</span></li>
+              </ol>
+              <p class="demo-status" data-demo-status aria-live="polite"></p>
+              <button class="button demo-reset" type="button" data-demo-reset>Reset</button>
+            </div>
+            <figcaption class="demo-note">
+              <strong>This isn't a video.</strong> That's a working product with Lodariq switched
+              on, and the tour you just watched is a real one, playing exactly as a customer would
+              see it. Click around while it runs — the product stays yours. (Meridian is a demo app,
+              not a real company.)
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- ─────────────────────────── problem ──────────────────────────── -->
+      <section class="problem" id="problem" data-reveal>
+        <div class="shell">
+          <p class="kicker">Sound familiar</p>
+          <h2>The launch went out. The <em>usage</em> didn't move.</h2>
+          <p class="section-lede">
+            You did everything right. The email, the changelog, the in-app banner someone built you
+            last year. And the feature still sat there.
+          </p>
+          <div class="pains">
+            <article class="pain">
+              <h3>Your best channel isn't email</h3>
+              <p>
+                The people you need are already inside the product, three clicks from the thing you
+                launched. They're just never told while they're standing next to it.
+              </p>
+            </article>
+            <article class="pain">
+              <h3>You asked for a tooltip in March</h3>
+              <p>
+                It's in the sprint after next. Every in-product message you want costs someone
+                else's roadmap, so you stop asking and go back to the inbox.
+              </p>
+            </article>
+            <article class="pain">
+              <h3>Last quarter's walkthrough is broken</h3>
+              <p>
+                The button moved in a redesign and nobody told you. It's been pointing at empty
+                space for six weeks, and you found out from a support ticket.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────── use cases ─────────────────────────── -->
+      <section class="usecases" id="use-cases" data-reveal>
+        <div class="shell">
+          <p class="kicker">What you'll launch</p>
+          <h2>Four product tours you'll ship in your <em>first month</em></h2>
+          <p class="section-lede">
+            None of these need a ticket, a designer, or a line of CSS. You write them the way you'd
+            write the announcement — except they land where the work happens.
+          </p>
+          <div class="usecase-grid">
+            <article class="usecase">
+              <span class="usecase-tag" data-hue="indigo">Feature launch</span>
+              <h3>Show the new thing to the people it's for</h3>
+              <p>
+                Walk them through it in the product, the week it ships — and only the accounts on
+                the plan that has it, so nobody gets pitched something they already pay for.
+              </p>
+            </article>
+            <article class="usecase">
+              <span class="usecase-tag" data-hue="mint">Activation</span>
+              <h3>Get new accounts to the moment it clicks</h3>
+              <p>
+                Take a first-time user to the thing that makes them stay, instead of dropping them
+                on an empty dashboard and hoping the onboarding email does the work.
+              </p>
+            </article>
+            <article class="usecase">
+              <span class="usecase-tag" data-hue="amber">Expansion</span>
+              <h3>Make the upgrade obvious, at the right second</h3>
+              <p>
+                Point out what's on the next plan the moment someone hits the ceiling of theirs —
+                when they actually feel the limit, not when your campaign happens to run.
+              </p>
+            </article>
+            <article class="usecase">
+              <span class="usecase-tag" data-hue="indigo">Change management</span>
+              <h3>Tell people before support has to</h3>
+              <p>
+                Something moving, sunsetting or migrating? Say so in the place they'll hit it, with
+                a start and end date, so it disappears on its own when it's done.
+              </p>
+            </article>
+          </div>
+          <p class="section-note">
+            Tours are the one experience type that's fully built today. Announcements, hotspots,
+            checklists and surveys are coming, and they'll be included on every plan when they land.
+          </p>
+        </div>
+      </section>
+
+      <!-- ────────────────────────── how it works ──────────────────────── -->
+      <section class="how" id="how" data-reveal>
+        <div class="shell">
+          <p class="kicker">How it works</p>
+          <h2>You own the whole thing, <em>start to finish</em></h2>
+          <ol class="steps">
+            <li>
+              <span class="step-index" data-hue="indigo">1</span>
+              <h3>Someone adds one line</h3>
+              <p>
+                A developer pastes a single script tag into your product. Once. They never touch it
+                again — not for your next tour, not for the one after that.
+              </p>
+            </li>
+            <li>
+              <span class="step-index" data-hue="mint">2</span>
+              <h3>You write it on the page</h3>
+              <p>
+                Open your own product, hit a keyboard shortcut, and the editor appears on top of it.
+                Click the button you want to point at. Type what you want to say.
+              </p>
+            </li>
+            <li>
+              <span class="step-index" data-hue="amber">3</span>
+              <h3>You check it like a customer</h3>
+              <p>
+                Watch it play on staging exactly as it will run in production — same words, same
+                styling, same behaviour. Send it to a colleague for approval if that's your process.
+              </p>
+            </li>
+            <li>
+              <span class="step-index" data-hue="indigo">4</span>
+              <h3>You publish it</h3>
+              <p>
+                What you approved is what goes live, unchanged. Wrong copy at 4pm on a Friday? Fix
+                it, or put yesterday's version back, without asking anyone.
+              </p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- ─────────────────────── the week comparison ──────────────────── -->
+      <section class="week" id="launch-week" data-reveal>
+        <div class="shell">
+          <p class="kicker">Launch week</p>
+          <h2>The same launch, <em>two ways</em></h2>
+          <div class="week-grid">
+            <div class="week-col" data-side="before">
+              <h3>How it goes now</h3>
+              <ol class="week-list">
+                <li>Write the launch email and the changelog entry</li>
+                <li>File a ticket for the in-app tooltip</li>
+                <li>Wait. It doesn't make this sprint</li>
+                <li>It ships — pointing at the wrong screen</li>
+                <li>File another ticket for the fix</li>
+                <li>Guess at whether any of it worked</li>
+              </ol>
+            </div>
+            <div class="week-col" data-side="after">
+              <h3>How it goes with Lodariq</h3>
+              <ol class="week-list">
+                <li>Open the product and write the walkthrough on it</li>
+                <li>Preview it as a customer would see it</li>
+                <li>Send it for review if someone needs to sign off</li>
+                <li>Publish it the day the feature ships</li>
+                <li>Fix the copy yourself when you spot the typo</li>
+                <li>Look at where people dropped off</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────── measurement ───────────────────────── -->
+      <section class="measure" id="measure" data-reveal>
+        <div class="shell split">
+          <div>
+            <p class="kicker">Evidence</p>
+            <h2>Find out whether it <em>actually</em> landed</h2>
+            <p class="body">
+              Not opens and clicks on an email — what happened to the people who saw the thing
+              itself. Which step lost them, how many finished, how many waved it away on sight.
+            </p>
+            <p class="body">
+              Your staging tests stay out of the production numbers, so the first figure you report
+              isn't inflated by your own team rehearsing.
+            </p>
+          </div>
+          <ul class="measure-list">
+            <li>
+              <strong>Completions</strong>
+              <span>How many people made it to the end</span>
+            </li>
+            <li>
+              <strong>Drop-off by step</strong>
+              <span>The exact step where you lost them</span>
+            </li>
+            <li>
+              <strong>Dismissals</strong>
+              <span>Who closed it before reading — a copy problem, not a product one</span>
+            </li>
+            <li data-status="soon">
+              <strong>Funnels, cohorts, export</strong>
+              <span>Being built — not available yet</span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ─────────────────────────── install ──────────────────────────── -->
+      <section class="install" id="install" data-reveal>
+        <div class="shell split">
+          <div>
+            <p class="kicker">The ask on engineering</p>
+            <h2>One line, <em>once</em></h2>
+            <p class="body">
+              This is the entire technical conversation. Send your developer this snippet; it takes
+              them about five minutes, and it's the last time they're involved. It renders nothing
+              to your users until you publish something.
+            </p>
+            <p class="body">
+              <a class="inline-link" href="#faq"
+                >Your developer has questions? They're in the FAQ →</a
+              >
+            </p>
+          </div>
+          <div class="snippet-card">
+            <div class="snippet-head">
+              <span>index.html</span>
+              <button class="button snippet-copy" type="button" data-copy-target="#install-snippet">
+                Copy
+              </button>
+            </div>
+            <pre
+              id="install-snippet"
+            ><code><span class="t">&lt;script</span> <span class="a">async</span> <span class="a">src</span>=<span class="s">"https://cdn.lodariq.io/lodariq.js"</span>
+  <span class="a">data-workspace</span>=<span class="s">"wk_your_workspace"</span>
+  <span class="a">data-env</span>=<span class="s">"production"</span><span class="t">&gt;&lt;/script&gt;</span></code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────────────── pricing ──────────────────────────── -->
+      <section class="pricing" id="pricing" data-reveal>
+        <div class="shell">
+          <p class="kicker">Pricing</p>
+          <h2>No price list yet — but you won't be billed for <em>silence</em></h2>
+          <p class="section-lede">
+            We're not publishing numbers we haven't tested with real teams, so there's no table on
+            this page. What is decided is what you'll be charged for, which is usually where these
+            deals go wrong.
+          </p>
+          <div class="pricing-grid">
+            <article class="price-card">
+              <h3>You pay for people who saw something</h3>
+              <p>
+                Not everyone who logged in that month. If a user never had a single experience shown
+                to them, they don't appear on your invoice — which is the opposite of how most of
+                this category bills.
+              </p>
+            </article>
+            <article class="price-card">
+              <h3>Going over doesn't bite you</h3>
+              <p>
+                Nothing switches off and nothing stops serving mid-launch. You get told, and any
+                change starts next cycle — never applied backwards across months you've already paid
+                for.
+              </p>
+            </article>
+            <article class="price-card">
+              <h3>The free tier is real</h3>
+              <p>
+                Not a countdown. You can run live experiences on it and find out whether this works
+                on your actual product before anybody signs anything.
+              </p>
+            </article>
+          </div>
+          <div class="never-gated">
+            <h3>Things we won't put behind a higher tier</h3>
+            <p>
+              Every company selling this eventually gets asked to. These are the ones we've decided
+              in advance to say no to, because a cheap plan whose tours quietly break is worse than
+              no plan at all.
+            </p>
+            <ul class="ticks two-col">
+              <li>Everything that keeps a tour pointing at the right thing</li>
+              <li>Point-and-click targeting — there's no "advanced" tier that needs code</li>
+              <li>Accessibility: contrast checks, keyboard support, tap-target sizes</li>
+              <li>Knowing whether it worked — completions and drop-off on every plan</li>
+              <li>Every experience type, on every plan</li>
+              <li>Single sign-on, which isn't a separate line item</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────────────────────── FAQ ────────────────────────────── -->
+      <section class="faq" id="faq" data-reveal>
+        <div class="shell">
+          <p class="kicker">Questions</p>
+          <h2>The things people <em>actually</em> ask</h2>
+
+          <h3 class="faq-group">Using it</h3>
+          <div class="faq-list">
+            <details class="faq-item">
+              <summary><h4>What is Lodariq?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  Lodariq is in-product launch software — a digital adoption platform for B2B SaaS
+                  teams. A developer installs one script tag, once. After that, the person who owns
+                  the launch builds guided tours, walkthroughs and onboarding directly on the live
+                  product, without writing code or filing a ticket.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>Do I need to know how to code?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  No, and there's no hidden point where you suddenly do. You click the button you
+                  want to point at and type what you want to say. There's no CSS box, no selector to
+                  paste in, and no "advanced mode" that quietly requires a developer — those aren't
+                  things Lodariq can express at all.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>How long does building one actually take?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  Almost all of the time goes into deciding what to say — the building itself is
+                  pointing and typing. You work on the real product rather than describing it in
+                  another tool, so there's no step where you write instructions for a screen you
+                  can't see and find out later you got it wrong.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>Can I control who sees it, and when?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  Yes. Target by the attributes you already send about your users — plan, role,
+                  account age, anything you pass to Lodariq — and give it a start and end date so a
+                  time-limited announcement retires itself. You can also branch a tour so different
+                  people take different paths through it.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>Does someone have to approve it before it goes live?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  Only if you want that. There's a review and approval workflow if your team needs
+                  sign-off, and roles that separate who can draft from who can publish. If it's just
+                  you, you publish.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>What if I publish something wrong?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  Fix it and republish, or put the previous version back — rollback returns to a
+                  version that already existed rather than rebuilding it, so you get exactly what
+                  was live before. You don't need a developer, and you don't need to wait for a
+                  deploy.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>How do I know whether it worked?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  You see completions, drop-off by step, and dismissals — so you can tell the
+                  difference between "nobody finished" and "nobody wanted it in the first place."
+                  Staging and production are counted separately, so your own rehearsals don't end up
+                  in the number you report. Deeper analysis — funnels, cohorts, CSV export — is
+                  still being built.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>What can I actually build today?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  Guided tours, which covers most in-product messaging: feature walkthroughs,
+                  onboarding, upgrade prompts and change notices. They can hold rich content, branch
+                  by audience, follow a schedule, and go through review before release.
+                  Announcements, hotspots, checklists and surveys are on the way and will be
+                  included on every plan — we're not counting them as shipped until their editors
+                  are as good as the tour one.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>What happens when we redesign the product?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  Steps are anchored to what an element means — its role, its label, what's around
+                  it — the way you'd describe a button to a colleague, rather than to a code path
+                  that a restyle breaks. When something genuinely can't be found any more, the step
+                  is flagged for you to look at instead of silently pointing at nothing. We're not
+                  publishing a percentage for this until we can back one up with real measurement.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>Can I use it on software we didn't build?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  No. Lodariq needs a script tag on a product you control, so it can't be layered
+                  over third-party software your team doesn't own. If that's what you need, this is
+                  the wrong category of tool and we'd rather tell you now.
+                </p>
+              </div>
+            </details>
+          </div>
+
+          <h3 class="faq-group">For your developer</h3>
+          <div class="faq-list">
+            <details class="faq-item">
+              <summary><h4>What exactly gets added to our site?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  One asynchronous script tag that renders nothing until something is published to
+                  that environment. The production runtime is framework-free — it never contains
+                  React or the editor, which live in a physically separate package, and the build
+                  fails in CI if a production module imports them.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>Will it interfere with our styling?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  No, in both directions. Cards render inside a shadow root, so no Lodariq CSS
+                  reaches your stylesheet and none of your CSS can break a card. Nothing a
+                  non-technical creator does can produce arbitrary CSS, JavaScript or raw HTML on
+                  your page — the document format has no way to represent them.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary>
+                <h4>Does it work with React, Vue, Angular or server-rendered apps?</h4>
+              </summary>
+              <div class="faq-answer">
+                <p>
+                  Yes. The runtime is framework-free and works anywhere a script tag runs. It
+                  resolves targets from the live DOM at playback time rather than from your
+                  component tree, so it doesn't care what rendered the page, and it waits for routes
+                  and lazy content to settle before attaching a step.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>Can a tour trap or block our users?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  No. Only the visible card intercepts input — everything outside its bounds stays
+                  clickable, so someone can keep using your product with a tour open. Cards are real
+                  dialogs with proper focus management and keyboard operability, targets are at
+                  least 44×44 pixels, reduced-motion settings are respected, and a WCAG AA contrast
+                  check blocks publishing content that would fail it.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>How does something get from staging to production?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  Publishing compiles the content into an immutable, content-addressed artifact. It
+                  gets verified on staging, and then that identical artifact is promoted to
+                  production — nothing is recompiled in between, so what was approved is
+                  byte-for-byte what ships. Rollback moves a pointer to a version that already
+                  existed, and the release history is append-only.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>Can creators edit against our production site?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  No. The editor doesn't exist on production builds at all — the code isn't shipped
+                  there. On an approved development or staging origin, a signed-in creator with the
+                  right role reveals it with a keyboard shortcut. The shortcut opens the door; it
+                  isn't what grants permission.
+                </p>
+              </div>
+            </details>
+          </div>
+
+          <h3 class="faq-group">Security, data and buying</h3>
+          <div class="faq-list">
+            <details class="faq-item">
+              <summary><h4>Can Lodariq see our customer data?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  Only what you deliberately hand over. Lodariq has no access to your database and
+                  no mechanism to get it — it sees the traits you choose to pass in, events you
+                  choose to send, and whether the experiences it delivered were completed. Full-app
+                  session replay is permanently excluded from the product, and tenants are isolated
+                  with PostgreSQL row-level security.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>Do you support SSO and role-based access?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  Yes — SAML and OIDC single sign-on, and member, admin and owner roles that
+                  separate who can draft from who can publish. SSO isn't sold as a separate add-on
+                  tier.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>How much does it cost?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  There's no published price yet, because we haven't validated one with real teams.
+                  The model is settled: you're billed on people who were actually shown something
+                  that month rather than everyone who logged in, there's a real free tier, and going
+                  over never applies retroactively.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary><h4>Is Lodariq available now?</h4></summary>
+              <div class="faq-answer">
+                <p>
+                  Not generally. Lodariq is in pre-launch early access as of August 2026 and we're
+                  inviting teams in small batches. Join the waitlist and you'll get one email when
+                  it's your turn — nothing else.
+                </p>
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────────────── waitlist ─────────────────────────── -->
+      <section class="waitlist" id="waitlist" data-reveal>
+        <div class="shell narrow waitlist-card">
+          <p class="kicker">Early access</p>
+          <h2>We're launching with a <em>small group</em> first</h2>
+          <p class="section-lede">
+            Lodariq isn't generally available yet. Leave an email and we'll invite teams in small
+            batches — one email when it's your turn, nothing else.
+          </p>
+          <form class="waitlist-form" data-waitlist novalidate>
+            <label class="sr-only" for="waitlist-email">Work email</label>
+            <input
+              id="waitlist-email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              placeholder="you@company.com"
+              required
+            />
+            <button class="button primary lg" type="submit">Request early access</button>
+            <p class="waitlist-message" data-waitlist-message aria-live="polite"></p>
+          </form>
+          <p class="waitlist-aside">
+            Already invited? <a href="https://app.lodariq.io/sign-up">Create your account</a> or
+            <a href="https://app.lodariq.io/sign-in">sign in</a>.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-row">
+        <span class="wordmark small">
+          <svg class="mark" viewBox="0 0 32 32" width="20" height="20" aria-hidden="true">
+            <rect x="1" y="1" width="30" height="30" rx="9" fill="#7c8cff" />
+            <rect x="8" y="10" width="16" height="3.4" rx="1.7" fill="#0b0d11" />
+            <rect x="8" y="17" width="9.5" height="3.4" rx="1.7" fill="#0b0d11" opacity=".62" />
+            <circle cx="21.6" cy="18.7" r="2.3" fill="#0b0d11" />
+          </svg>
+          <span>Lodariq</span>
+        </span>
+        <nav aria-label="Footer">
+          <a href="#demo">Demo</a>
+          <a href="#use-cases">Use cases</a>
+          <a href="#faq">FAQ</a>
+          <a href="https://app.lodariq.io/sign-in">Sign in</a>
+          <a href="mailto:hello@lodariq.io">hello@lodariq.io</a>
+        </nav>
+        <p class="footer-note">The SDK ships framework-free. So does this page.</p>
+      </div>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

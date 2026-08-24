@@ -98,6 +98,8 @@ describe('live Neon RLS verification script', () => {
       "policies.has('release_operations:release_operations_lifecycle_update')",
     );
     expect(source).toContain("row.cmd === 'ALL' || row.cmd === 'DELETE'");
+    expect(source).toContain("has_table_privilege(current_user, ${table}, 'UPDATE')");
+    expect(source).toContain("has_table_privilege(current_user, ${table}, 'DELETE')");
   });
 
   it('covers enterprise isolation, validator evidence, and connection-disable revocation policy', () => {
@@ -130,6 +132,11 @@ describe('live Neon RLS verification script', () => {
       expect(source).toContain(`'${policy}'`);
     }
     expect(source).toContain('const workspaceIsolationPolicyNames = new Map');
+    expect(source).toContain('const postgresIdentifierMaxLength = 63');
+    expect(source).toContain('.slice(0, postgresIdentifierMaxLength)');
+    expect(
+      'workspace_governance_capability_profile_assignments_workspace_isolation'.slice(0, 63),
+    ).toBe('workspace_governance_capability_profile_assignments_workspace_i');
   });
 
   it('activates a scratch theme only after its approved version exists', () => {

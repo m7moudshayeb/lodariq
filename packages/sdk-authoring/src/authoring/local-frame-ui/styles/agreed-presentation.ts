@@ -67,7 +67,14 @@ export const AUTHORING_AGREED_PRESENTATION_CSS = `
     background: var(--lq-popup-surface, var(--lq-tour-surface, var(--lq-color-panel)));
     color: var(--lq-popup-text, var(--lq-tour-text-color, var(--lq-color-ink)));
     font-family: var(--lq-tour-font-family, inherit);
-    padding: var(--lq-tour-composition-padding, var(--lq-tour-spacing, var(--lq-space-3)));
+    padding: var(
+        --lq-tour-composition-padding-block,
+        var(--lq-tour-composition-padding, var(--lq-tour-spacing, var(--lq-space-3)))
+      )
+      var(
+        --lq-tour-composition-padding-inline,
+        var(--lq-tour-composition-padding, var(--lq-tour-spacing, var(--lq-space-3)))
+      );
     box-shadow: var(
       --lq-tour-elevation,
       0 var(--lq-space-3) var(--lq-space-6) rgba(15, 36, 31, 0.1)

@@ -13,6 +13,7 @@ import {
   assertBrowserVerificationReport,
   normalizeReleaseApprovalReason,
   requireExactHttpOrigin,
+  assertCommercialFeature,
 } from '../repository';
 import {
   environments,
@@ -244,6 +245,10 @@ export class DrizzleRepositoryReleaseChecks extends DrizzleRepositoryActivation 
       ) {
         return toReleaseApprovalRecord(existingApproval);
       }
+      assertCommercialFeature(
+        (await this.resolveWorkspaceEntitlements(tx, input.workspaceId)).entitlements,
+        'review-approval',
+      );
       if (operation.status !== 'awaiting_approval') {
         throw new Error('release operation is not awaiting approval');
       }

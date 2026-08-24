@@ -1,11 +1,17 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  ambiguousCandidates,
   captureNeedsConfirmation,
   captureTargetEvidence,
   normalizeTargetElement,
   startTargetPicker,
 } from '@lodariq/sdk-authoring/bridge';
+import {
+  lookAlikeQuestion,
+  type LookAlikeOption,
+} from '../../../../sdk-authoring/src/bridge/targeting/disambiguation';
+import { countLookAlikes } from '../../../../sdk-authoring/src/bridge/targeting/legibility';
 import {
   validateTourPublishReadiness,
   type LodariqDocument,
@@ -37,6 +43,13 @@ function domRect({ left, top, width, height }: RectBounds): DOMRect {
 
 function renderAt(element: Element, bounds: RectBounds): void {
   vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(domRect(bounds));
+}
+
+/** `Array.prototype.at` is ES2022; this workspace compiles to ES2020. */
+function lastOption(
+  question: { options: readonly LookAlikeOption[] } | null | undefined,
+): LookAlikeOption | undefined {
+  return question?.options[question.options.length - 1];
 }
 
 function objectKeysOf(value: unknown, keys = new Set<string>()): Set<string> {
@@ -534,18 +547,60 @@ describe('Target Identity V2 authoring capture', () => {
     expect(result.evidenceFamilies).toContain('visual-topology');
   });
 
+  it('separates cards that share a shape but carry their own written name', () => {
+    const container = document.createElement('div');
+    const selected = document.createElement('section');
+    const sibling = document.createElement('section');
+    // The only difference is the name the product wrote down — no copy, no ids.
+    selected.setAttribute('aria-label', 'Median cycle time');
+    sibling.setAttribute('aria-label', 'Active projects');
+    container.append(sibling, selected);
+    document.body.appendChild(container);
+
+    renderAt(container, { left: 40, top: 40, width: 960, height: 220 });
+    renderAt(sibling, { left: 40, top: 40, width: 300, height: 160 });
+    renderAt(selected, { left: 360, top: 40, width: 300, height: 160 });
+
+    const capture = captureTargetEvidence(selected, undefined, {
+      locale: 'en',
+      requiredAction: 'anchor',
+      targetId: 'target_named_card',
+    });
+
+    // The written name settles which card was meant. It does not, on its own,
+    // widen the runner-up margin — two cards of the same shape stay close, and
+    // the layout slot remains the honest tiebreak.
+    expect(capture.identity.captureEvidence.uniqueCandidateCount).toBe(1);
+  });
+
   it('does not let geometry alone make otherwise identical controls usable', () => {
     const container = document.createElement('main');
     const selected = document.createElement('button');
     const runnerUp = document.createElement('button');
     selected.type = 'button';
     runnerUp.type = 'button';
+    // Same words too, or the name would separate them and geometry never gets asked.
     selected.textContent = 'Create project';
-    runnerUp.textContent = 'Create template';
-    container.append(selected, runnerUp);
+    runnerUp.textContent = 'Create project';
+    // One control per wrapper, so both sit at the same slot and positional
+    // evidence cannot separate them either. Geometry is then the only thing
+    // left that differs, which is the claim under test.
+    const selectedSlot = document.createElement('div');
+    const runnerUpSlot = document.createElement('div');
+    for (const [slot, control] of [
+      [selectedSlot, selected],
+      [runnerUpSlot, runnerUp],
+    ] as const) {
+      const heading = document.createElement('h2');
+      heading.textContent = 'Projects';
+      slot.append(heading, control);
+    }
+    container.append(selectedSlot, runnerUpSlot);
     document.body.appendChild(container);
 
     renderAt(container, { left: 120, top: 80, width: 960, height: 640 });
+    renderAt(selectedSlot, { left: 920, top: 120, width: 144, height: 48 });
+    renderAt(runnerUpSlot, { left: 160, top: 560, width: 144, height: 48 });
     renderAt(selected, { left: 920, top: 120, width: 144, height: 48 });
     renderAt(runnerUp, { left: 160, top: 560, width: 144, height: 48 });
 
@@ -824,6 +879,146 @@ describe('Target Identity V2 authoring capture', () => {
     expect(result.anchor).toEqual(
       expect.objectContaining({ kind: 'visual-region', interactionSafe: false }),
     );
+  });
+
+  /**
+   * Two action rows of the same shape. The slot is the same in both, so the words
+   * are the only thing that could separate the second control of one row from the
+   * second control of the other. `sharedName` takes even that away: the residual
+   * tie the disambiguation question exists for.
+   */
+  function renderWordAlikes(options: { sharedName?: boolean } = {}): {
+    selected: HTMLButtonElement;
+    twin: HTMLButtonElement;
+  } {
+    const main = document.createElement('main');
+    const heading = document.createElement('h1');
+    heading.textContent = 'Reports';
+    main.appendChild(heading);
+    renderAt(main, { left: 80, top: 60, width: 1_100, height: 700 });
+
+    const rows = [
+      ['Export CSV', 'Schedule report', 'Save report'],
+      ['Download PDF', options.sharedName ? 'Schedule report' : 'Email digest', 'Archive'],
+    ].map((labels, row) => {
+      const actions = document.createElement('div');
+      const buttons = labels.map((text, column) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset['testid'] = 'report-action';
+        button.textContent = text;
+        renderAt(button, { left: 120 + column * 150, top: 80 + row * 90, width: 140, height: 36 });
+        return button;
+      });
+      actions.append(...buttons);
+      main.appendChild(actions);
+      return buttons;
+    });
+    document.body.appendChild(main);
+    return { selected: rows[0]![1]!, twin: rows[1]![1]! };
+  }
+
+  it('marks a placement weak only for ambiguity when nothing else about it is thin', () => {
+    const { selected } = renderWordAlikes({ sharedName: true });
+    const capture = captureTargetEvidence(selected, undefined, {
+      locale: 'en',
+      requiredAction: 'observe-click',
+      targetId: 'target_schedule_report',
+    });
+    const evidence = capture.identity.captureEvidence;
+
+    expect(evidence.uniqueCandidateCount).toBeGreaterThan(1);
+    expect(evidence.quality).toBe('weak');
+    // Rich, stable, actionable evidence — the tie is the whole of the problem,
+    // which is the one weakness an author can answer for.
+    expect(evidence.ambiguityIsSoleWeakness).toBe(true);
+    expect(captureNeedsConfirmation(capture.identity)).toBe(true);
+  });
+
+  it('says nothing to ask when the name is the one thing that differs', () => {
+    const { selected } = renderWordAlikes();
+    const capture = captureTargetEvidence(selected, undefined, {
+      locale: 'en',
+      requiredAction: 'observe-click',
+      targetId: 'target_schedule_report',
+    });
+
+    // Counting by name and counting by evidence used to disagree here, which is
+    // what left the card showing a blocker with no answer on it.
+    expect(countLookAlikes(selected).total).toBe(1);
+    expect(capture.identity.captureEvidence.uniqueCandidateCount).toBe(1);
+    expect(capture.identity.captureEvidence.quality).not.toBe('weak');
+    expect(ambiguousCandidates(selected, capture.identity)).toEqual([]);
+    expect(lookAlikeQuestion(selected)).toBeNull();
+  });
+
+  it('asks which one was meant, about the elements the resolver actually ties on', () => {
+    const { selected, twin } = renderWordAlikes({ sharedName: true });
+    const capture = captureTargetEvidence(selected, undefined, {
+      locale: 'en',
+      requiredAction: 'observe-click',
+      targetId: 'target_schedule_report',
+    });
+
+    const candidates = ambiguousCandidates(selected, capture.identity);
+    expect(candidates.length).toBe(capture.identity.captureEvidence.uniqueCandidateCount);
+    expect(candidates).toContain(selected);
+    expect(candidates).toContain(twin);
+    expect([...candidates]).toEqual(
+      [...candidates].sort((left, right) =>
+        left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
+      ),
+    );
+
+    const question = lookAlikeQuestion(selected, { candidates });
+    expect(question).not.toBeNull();
+    expect(question?.headline).toContain(String(candidates.length));
+
+    // The ordinal has to count within the tied set, or it points elsewhere.
+    const ordinal = question?.options.find((option) => option.resolution === 'nth');
+    expect(ordinal?.policy).toEqual({
+      kind: 'ordinal',
+      position: candidates.indexOf(selected) + 1,
+      order: 'reading-order',
+    });
+
+    // And the answer that cannot unblock a release is last, and says so.
+    expect(lastOption(question)?.resolution).toBe('exact');
+    expect(lastOption(question)?.caveat).toBeTruthy();
+  });
+
+  it('does not invent a rival when the candidate scan hits its own cap', () => {
+    const main = document.createElement('main');
+    renderAt(main, { left: 0, top: 0, width: 1_200, height: 4_000 });
+    const selected = document.createElement('section');
+    selected.setAttribute('aria-label', 'Project workspace setup');
+    const heading = document.createElement('h2');
+    heading.textContent = 'Project workspace';
+    selected.appendChild(heading);
+    main.appendChild(selected);
+    renderAt(selected, { left: 40, top: 40, width: 1_100, height: 240 });
+    renderAt(heading, { left: 60, top: 60, width: 300, height: 32 });
+    // Past MAX_CANDIDATES, so the scan stops before it has seen the whole page.
+    // Left unmeasured on purpose: 200 more rectangle spies cost seconds.
+    for (let index = 0; index < 200; index += 1) {
+      const filler = document.createElement('div');
+      filler.textContent = `Row ${index}`;
+      main.appendChild(filler);
+    }
+    document.body.appendChild(main);
+
+    const capture = captureTargetEvidence(selected, undefined, {
+      locale: 'en',
+      requiredAction: 'anchor',
+      targetId: 'target_workspace_section',
+    });
+    const evidence = capture.identity.captureEvidence;
+
+    // The bug: a capped scan reported two candidates and an empty tied set, so
+    // the card showed a blocker with no question and no answer on it.
+    expect(evidence.uniqueCandidateCount).toBe(1);
+    expect(ambiguousCandidates(selected, capture.identity)).toEqual([]);
+    expect(captureNeedsConfirmation(capture.identity)).toBe(false);
   });
 
   it('uses an explicit layout slot to distinguish repeated presentation cards', () => {

@@ -12,9 +12,16 @@ export interface SdkInstallationSnippetInput {
 export interface PublicSdkInstallationSnippetInput {
   installationId: string;
   loaderSrc?: string;
+  /** Origin the SDK calls for bootstrap and eligibility; preconnected. */
+  apiBaseUrl?: string;
+  /** `sha384-…` digest of the loader build, when the deployment pins one. */
+  loaderIntegrity?: string;
 }
 
 const DEFAULT_RUNTIME_LOADER_SRC = 'https://cdn.lodariq.io/sdk/lodariq-loader.js';
+const DEFAULT_PUBLIC_API_BASE_URL = 'https://api.lodariq.io';
+/** Accepts the three digests browsers implement for subresource integrity. */
+const LOADER_INTEGRITY_PATTERN = /^sha(?:256|384|512)-[A-Za-z0-9+/]+={0,2}$/u;
 const DEFAULT_PUBLIC_LOADER_SRC = 'https://cdn.lodariq.io/sdk/lodariq-public-bootstrap.js';
 const DEFAULT_CREATOR_LOADER_SRC = 'https://cdn.lodariq.io/sdk/lodariq-creator.js';
 
@@ -27,12 +34,55 @@ export function renderPublicSdkInstallationSnippet(
   input: PublicSdkInstallationSnippetInput,
 ): string {
   const loaderSrc = input.loaderSrc ?? DEFAULT_PUBLIC_LOADER_SRC;
-  return [
+  const apiBaseUrl = input.apiBaseUrl ?? DEFAULT_PUBLIC_API_BASE_URL;
+  // Two preconnects, because the loader immediately talks to two origins it
+  // was not itself fetched from. Without them the eligibility check pays a
+  // fresh DNS + TLS handshake, which costs a customer's page far more
+  // milliseconds than the loader costs it bytes.
+  const lines = [
+    `<link rel="preconnect" href="${escapeHtmlAttribute(originOf(loaderSrc))}" crossorigin>`,
+    `<link rel="preconnect" href="${escapeHtmlAttribute(originOf(apiBaseUrl))}" crossorigin>`,
     `<script type="module" async crossorigin="anonymous" src="${escapeHtmlAttribute(loaderSrc)}"`,
     `  data-lodariq-loader`,
     `  data-installation="${escapeHtmlAttribute(input.installationId)}"`,
-    `></script>`,
+  ];
+  // Subresource integrity is opt-in per deployment: a pinned digest means a
+  // loader rollout requires re-issuing the snippet, which suits customers whose
+  // security review demands it and nobody else.
+  if (input.loaderIntegrity && LOADER_INTEGRITY_PATTERN.test(input.loaderIntegrity)) {
+    lines.push(`  integrity="${escapeHtmlAttribute(input.loaderIntegrity)}"`);
+  }
+  lines.push(`></script>`);
+  return lines.join('\n');
+}
+
+/**
+ * The Content-Security-Policy directives an installation needs, as a block a
+ * customer's platform team can paste into review.
+ *
+ * Deliberately minimal: no `unsafe-inline` anywhere, no `unsafe-eval`, no
+ * frame-src in production. Lodariq's own styles live in a shadow root and honor
+ * the page's nonce when one is present, so `style-src` needs nothing added
+ * beyond what the customer already allows.
+ */
+export function renderPublicSdkCspGuidance(
+  input: { apiBaseUrl?: string; loaderSrc?: string } = {},
+): string {
+  const cdnOrigin = originOf(input.loaderSrc ?? DEFAULT_PUBLIC_LOADER_SRC);
+  const apiOrigin = originOf(input.apiBaseUrl ?? DEFAULT_PUBLIC_API_BASE_URL);
+  return [
+    `script-src ${cdnOrigin};`,
+    `connect-src ${apiOrigin} ${cdnOrigin};`,
+    `img-src ${apiOrigin} data:;`,
   ].join('\n');
+}
+
+function originOf(value: string): string {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return value;
+  }
 }
 
 /** @deprecated Compatibility snippet for environment-token installations. */

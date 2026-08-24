@@ -10,11 +10,16 @@ import {
   type WorkspaceEnvironment,
 } from '../domains/environments';
 import {
+  assertCommercialFeature,
+  assertWithinCommercialLimit,
+} from '../domains/commercial-entitlements';
+import {
   type PublicSdkBootstrapGrantRecord,
   type PublicSdkInstallationOriginRecord,
   type PublicSdkInstallationRecord,
   type PublicSdkInstallationWithOrigins,
   type ResolvedPublicSdkInstallation,
+  type SetPublicSdkInstallationSuspensionInput,
 } from '../domains/sdk-authoring';
 import {
   type ConsumePublicSdkBootstrapGrantInput,
@@ -68,6 +73,12 @@ export class InMemoryRepositorySdk extends InMemoryRepositoryReleasePromotion {
     if (current.updatedAt !== expectedUpdatedAt) {
       throw new EnvironmentReleasePolicyChangedError(expectedUpdatedAt, current.updatedAt);
     }
+    if (input.requiredApprovalCount > 0) {
+      assertCommercialFeature(
+        this.resolveWorkspaceEntitlements(input.workspaceId).entitlements,
+        'required-production-approval',
+      );
+    }
     const updated: WorkspaceEnvironment = {
       ...current,
       requiredApprovalCount: input.requiredApprovalCount,
@@ -105,6 +116,8 @@ export class InMemoryRepositorySdk extends InMemoryRepositoryReleasePromotion {
       pipelinePosition: input.pipelinePosition,
       authoringEnabled: input.authoringEnabled,
       releasePolicy: clone(input.releasePolicy),
+      governanceCapabilities:
+        input.governanceCapabilities ?? current.governanceCapabilities,
       updatedAt: new Date().toISOString(),
     };
     if (input.promotionSourceEnvironmentId) {
@@ -119,6 +132,15 @@ export class InMemoryRepositorySdk extends InMemoryRepositoryReleasePromotion {
       environment.id === input.environmentId ? candidate : environment,
     );
     assertValidWorkspaceEnvironmentPolicy(input.workspaceId, candidates);
+    const entitlements = this.resolveWorkspaceEntitlements(input.workspaceId).entitlements;
+    if (input.releasePolicy.requiredApprovalCount > 0) {
+      assertCommercialFeature(entitlements, 'required-production-approval');
+    }
+    assertWithinCommercialLimit(
+      'environments',
+      configuredEnvironmentCount(candidates),
+      entitlements.environments,
+    );
     this.environments.set(key, candidate);
     return (
       normalizeWorkspaceEnvironments(candidates)
@@ -167,6 +189,7 @@ export class InMemoryRepositorySdk extends InMemoryRepositoryReleasePromotion {
       createdAt: now,
       updatedAt: now,
       revokedAt: null,
+      suspendedAt: null,
     };
     this.publicSdkInstallations.set(installation.installationId, installation);
     return clone(installation);
@@ -355,6 +378,25 @@ export class InMemoryRepositorySdk extends InMemoryRepositoryReleasePromotion {
     return clone(revokedInstallation);
   }
 
+  async setPublicSdkInstallationSuspension(
+    input: SetPublicSdkInstallationSuspensionInput,
+  ): Promise<PublicSdkInstallationRecord | null> {
+    const installation = this.publicSdkInstallations.get(input.installationId);
+    if (!installation || installation.workspaceId !== input.workspaceId || installation.revokedAt) {
+      return null;
+    }
+    const now = new Date().toISOString();
+    const updated: PublicSdkInstallationRecord = {
+      ...installation,
+      // Re-suspending keeps the original timestamp so the pause reads as one
+      // continuous incident rather than restarting on every dashboard click.
+      suspendedAt: input.suspended ? (installation.suspendedAt ?? now) : null,
+      updatedAt: now,
+    };
+    this.publicSdkInstallations.set(input.installationId, updated);
+    return clone(updated);
+  }
+
   async createPublicSdkBootstrapGrant(
     input: CreatePublicSdkBootstrapGrantInput,
   ): Promise<PublicSdkBootstrapGrantRecord> {
@@ -428,4 +470,10 @@ export class InMemoryRepositorySdk extends InMemoryRepositoryReleasePromotion {
     this.publicSdkBootstrapGrants.set(consumedGrant.id, consumedGrant);
     return clone(consumedGrant);
   }
+}
+
+function configuredEnvironmentCount(environments: readonly WorkspaceEnvironment[]): number {
+  return environments.filter(
+    (environment) => environment.enabled && environment.originAllowlist.length > 0,
+  ).length;
 }

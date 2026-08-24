@@ -128,6 +128,7 @@ export function environmentValues(environment: WorkspaceEnvironment) {
     authoringEnabled: normalized.authoringEnabled,
     promotionSourceEnvironmentId: normalized.promotionSourceEnvironmentId ?? null,
     releasePolicy: normalized.releasePolicy,
+    governanceCapabilities: [...normalized.governanceCapabilities],
     createdAt: new Date(normalized.createdAt),
     updatedAt: new Date(normalized.updatedAt),
   };
@@ -279,6 +280,7 @@ export function toPublicSdkInstallationRecord(
     createdAt: toIsoString(installation.createdAt),
     updatedAt: toIsoString(installation.updatedAt),
     revokedAt: installation.revokedAt ? toIsoString(installation.revokedAt) : null,
+    suspendedAt: installation.suspendedAt ? toIsoString(installation.suspendedAt) : null,
   };
 }
 

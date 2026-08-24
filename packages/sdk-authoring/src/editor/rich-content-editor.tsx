@@ -36,7 +36,11 @@ import {
 } from 'lexical';
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, type ReactElement } from 'react';
 import type { AuthoringMediaUploadOptions } from '../authoring/local-frame-types';
+import type { AiRewriteVerb } from '../authoring/ai/assist-contract';
+import type { ToolbarContextKind } from '../authoring/overlay/toolbar-context';
 import { authoringText } from '../i18n';
+import { CardCommandPlugin, type RichContentCardCommand } from './rich-content-card-commands';
+import { FLUSH_RICH_CONTENT_COMMAND } from './rich-content-commands';
 import { BlockHandlesPlugin } from './rich-content-block-handles';
 import { BlockInspectorPlugin } from './rich-content-block-inspector';
 import {
@@ -56,9 +60,12 @@ import {
   RichIconNode,
   RichMediaNode,
   RichStatNode,
+  RichTargetChipNode,
+  RichValidationBadgeNode,
 } from './rich-content-nodes';
 import { type RichContentMediaUploadResult } from './rich-content-media-upload';
 import { SelectionToolbarPlugin } from './rich-content-selection-toolbar';
+import { contentLocaleDirection } from '../authoring/content-locales';
 
 /** Persist after typing pauses. Leading throttle mid-keystroke re-rendered the authoring tree and stole the caret. */
 export const RICH_CONTENT_PERSIST_DEBOUNCE_MS = 300;
@@ -70,6 +77,27 @@ function inspectorOwnsFocus(
   if (!(node instanceof Node)) return false;
   if (host?.contains(node)) return true;
   return node instanceof Element && Boolean(node.closest('.storyboard-property-tray'));
+}
+
+/** Controls a creator types into, as opposed to ones they pick from. */
+const TYPED_INPUT_TYPES = new Set(['text', 'url', 'email', 'search', 'number', 'tel', 'password']);
+
+/**
+ * Whether the inspector is mid-sentence.
+ *
+ * Persisting re-renders the authoring tree, which is why the flush waits — but it
+ * waited on *focus*, and a segmented control, a swatch or a slider keeps focus
+ * inside the inspector for as long as the panel is open. Every choice made with
+ * one was held forever and never written to the document. Only a caret in a text
+ * box has anything to lose from a re-render, so only that defers.
+ */
+function inspectorIsTyping(
+  host: HTMLElement | null | undefined,
+  node: EventTarget | Node | null,
+): boolean {
+  if (!inspectorOwnsFocus(host, node)) return false;
+  if (node instanceof HTMLTextAreaElement) return true;
+  return node instanceof HTMLInputElement && TYPED_INPUT_TYPES.has(node.type);
 }
 
 export type { RichContentMediaUploadResult } from './rich-content-media-upload';
@@ -86,14 +114,34 @@ export interface RichContentEditorProps {
   ) => Promise<RichContentMediaUploadResult | null>;
   /** Opens the host Flow Map when a button block's sequence action is chosen. */
   onOpenSequence?: (blockId: string) => void;
+  /** Rewrites the current selection with one assist verb (§7.4). */
+  onRewriteSelection?: (verb: AiRewriteVerb, text: string) => void;
+  /** Opens the free-form assist prompt for this step (§7.5). */
+  onAskAssist?: () => void;
+  /** Reports what the toolbar's contextual middle is editing (§4.2a). */
+  onContextChange?: (kind: ToolbarContextKind) => void;
+  /**
+   * The language this copy is being written in, so the canvas can carry `lang`
+   * and `dir` the way the runtime already does. Without it Arabic and Hebrew are
+   * authored into a left-to-right card and only come out right once published.
+   */
+  contentLocale?: string;
   /** Host element for the persistent format/insert toolbar. When omitted, the toolbar renders above the canvas. */
   toolbarHost?: HTMLElement | null;
+  /** Host element for the pinned Insert control, when the frame owns its position. */
+  insertHost?: HTMLElement | null;
   /** Host element for the selected-block property tray. */
   inspectorHost?: HTMLElement | null;
   /** Drop the selected-block inspector so a canvas tray can own the surface. */
   suppressInspector?: boolean;
   /** Closes placement/popup trays when a content block inspector opens. */
   onInspectOpen?: () => void;
+  /**
+   * A structural change asked for from outside the editor — the inspector's
+   * button list (§4.3). See CardCommandPlugin for why it cannot be a document
+   * write.
+   */
+  cardCommand?: RichContentCardCommand | null;
   readOnly?: boolean;
 }
 
@@ -112,11 +160,17 @@ export function RichContentEditor({
   onResolveMediaPreview,
   onUploadMedia,
   onOpenSequence,
+  onRewriteSelection,
+  onAskAssist,
+  onContextChange,
   toolbarHost = null,
+  insertHost = null,
   inspectorHost = null,
   suppressInspector = false,
   onInspectOpen,
+  cardCommand = null,
   readOnly = false,
+  contentLocale,
 }: RichContentEditorProps): ReactElement {
   const metadata = useRef<RichContentMetadata>({
     blockIdByNodeKey: new Map(),
@@ -139,6 +193,8 @@ export function RichContentEditor({
         RichFormFieldNode,
         RichIconNode,
         RichMediaNode,
+        RichTargetChipNode,
+        RichValidationBadgeNode,
       ],
       theme: {
         paragraph: 'rich-content-paragraph',
@@ -182,13 +238,28 @@ export function RichContentEditor({
         <LexicalComposer initialConfig={initialConfig}>
           {!readOnly ? (
             <SelectionToolbarPlugin
+              insertHost={insertHost}
               metadata={metadata.current}
+              onAskAssist={onAskAssist}
               onChange={onChange}
+              onContextChange={onContextChange}
+              onRewriteSelection={onRewriteSelection}
               onUploadMedia={onUploadMedia}
               toolbarHost={toolbarHost}
             />
           ) : null}
-          <div className="rich-content-canvas-shell">
+          {/*
+            Direction sits on the shell rather than on the editable: Lexical owns
+            `dir` on its own root and strips the prop, but it inherits through.
+            Without this Arabic is authored into a left-to-right card and only
+            comes out right once published.
+          */}
+          <div
+            className="rich-content-canvas-shell"
+            {...(contentLocale
+              ? { lang: contentLocale, dir: contentLocaleDirection(contentLocale) }
+              : {})}
+          >
             <RichTextPlugin
               contentEditable={
                 <ContentEditable
@@ -198,12 +269,13 @@ export function RichContentEditor({
               }
               placeholder={
                 <div className="rich-content-placeholder">
-                  {authoringText('Write, or use the toolbar to add content')}
+                  {authoringText('Write, or press / to add')}
                 </div>
               }
               ErrorBoundary={LexicalErrorBoundary}
             />
           </div>
+          {!readOnly ? <CardCommandPlugin request={cardCommand} /> : null}
           <HistoryPlugin />
           <LinkPlugin />
           <ListPlugin />
@@ -245,10 +317,7 @@ function DebouncedRichContentOnChangePlugin({
   inspectorHostRef.current = host.inspectorHost;
 
   const flush = (options?: { force?: boolean }): void => {
-    if (
-      !options?.force &&
-      inspectorOwnsFocus(inspectorHostRef.current, document.activeElement)
-    ) {
+    if (!options?.force && inspectorIsTyping(inspectorHostRef.current, document.activeElement)) {
       return;
     }
     if (timer.current) {
@@ -290,7 +359,13 @@ function DebouncedRichContentOnChangePlugin({
     if (!inspectorHost) return;
     const onFocusOut = (event: FocusEvent): void => {
       if (inspectorOwnsFocus(inspectorHost, event.relatedTarget)) return;
-      flushRef.current();
+      /*
+       * Forced: the relatedTarget check above has already established that focus
+       * left the inspector, and the unforced path re-asks the same question of
+       * `document.activeElement` — which during focusout is still the control
+       * being left, so a field typed into and then left would defer again.
+       */
+      flushRef.current({ force: true });
     };
     inspectorHost.addEventListener('focusout', onFocusOut);
     return () => inspectorHost.removeEventListener('focusout', onFocusOut);
@@ -301,6 +376,20 @@ function DebouncedRichContentOnChangePlugin({
       flushRef.current({ force: true });
     },
     [],
+  );
+
+  /* An inspector that changed the card's structure asks for the handover here. */
+  useEffect(
+    () =>
+      editor.registerCommand(
+        FLUSH_RICH_CONTENT_COMMAND,
+        () => {
+          flushRef.current({ force: true });
+          return true;
+        },
+        COMMAND_PRIORITY_LOW,
+      ),
+    [editor],
   );
 
   return (

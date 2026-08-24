@@ -54,8 +54,8 @@ export const AUTHORING_POPUP_TRANSFORM_CSS = `
     background: rgba(255, 255, 255, 0.96);
     box-shadow: 0 4px 12px rgba(15, 36, 31, 0.12);
     color: var(--lq-color-ink-soft);
-    font-size: 11px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     line-height: 24px;
     padding: 0 10px;
     transform: translateX(-50%);
@@ -149,7 +149,7 @@ export const AUTHORING_POPUP_TRANSFORM_CSS = `
 
   .storyboard-tray-identity strong {
     overflow: hidden;
-    font-size: 13px;
+    font-size: var(--lq-font-md);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -157,7 +157,7 @@ export const AUTHORING_POPUP_TRANSFORM_CSS = `
   .storyboard-tray-identity small,
   .storyboard-tray-context {
     color: var(--lq-color-muted);
-    font-size: 11px;
+    font-size: var(--lq-font-sm);
   }
 
   .storyboard-placement-summary {
@@ -206,8 +206,8 @@ export const AUTHORING_POPUP_TRANSFORM_CSS = `
     background: transparent;
     color: var(--lq-color-ink-soft);
     cursor: pointer;
-    font-size: 11px;
-    font-weight: 600;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
     padding: 0 12px;
   }
 

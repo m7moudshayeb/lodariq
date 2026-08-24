@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  AUTHORING_CHROME_ACTION_REQUEST_TYPE,
   AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
   AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
   BRIDGE_PROTOCOL_VERSION,
@@ -17,6 +18,9 @@ import { LocalAuthoringFrameController } from '../../../../packages/sdk-authorin
 
 const HEAVY_FIXTURE_TEST_TIMEOUT_MS = 10_000;
 
+/** Derived, not written down: the fixture grows and these counts move with it. */
+const FIXTURE_TARGET_COUNT = (tourFixture as LodariqDocument).targets.length;
+
 async function loadFrame(): Promise<void> {
   vi.resetModules();
   document.body.innerHTML = '<div id="authoring"></div>';
@@ -30,9 +34,62 @@ async function waitForEditorReady(): Promise<void> {
     () => {
       expect(document.querySelector('[aria-label="Experience editor"]')).not.toBeNull();
       expect(document.querySelector('.canvas-editor-loading')).toBeNull();
+      // Rich Content arrives in its own chunk so that Lexical and the icon set
+      // stay off the first-paint path. Ready means it has landed, not merely
+      // that the surface around it has.
+      expect(document.querySelector('.rich-content-pending')).toBeNull();
     },
     { timeout: 5_000 },
   );
+}
+
+async function openPanelOperations(
+  peer: Window = window,
+  documentId: string = (tourFixture as LodariqDocument).id,
+  sessionId: string = LOCAL_AUTHORING_SESSION_ID,
+): Promise<void> {
+  window.dispatchEvent(
+    new MessageEvent('message', {
+      origin: window.location.origin,
+      source: peer,
+      data: {
+        protocol: BRIDGE_PROTOCOL_VERSION,
+        sessionId,
+        documentId,
+        correlationId: `open_operations_${Date.now()}`,
+        type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+        action: 'open-operations',
+      },
+    }),
+  );
+  await vi.waitFor(() => expect(document.querySelector('.operations-hub')).not.toBeNull());
+}
+
+/**
+ * Release opened from the canvas, which is a panel mode of its own and still
+ * carries the workspace footer. The Operations sheet deliberately has none, so
+ * anything asserting the footer's release chip has to start here.
+ */
+async function openPanelRelease(
+  peer: Window = window,
+  documentId: string = (tourFixture as LodariqDocument).id,
+  sessionId: string = LOCAL_AUTHORING_SESSION_ID,
+): Promise<void> {
+  window.dispatchEvent(
+    new MessageEvent('message', {
+      origin: window.location.origin,
+      source: peer,
+      data: {
+        protocol: BRIDGE_PROTOCOL_VERSION,
+        sessionId,
+        documentId,
+        correlationId: `open_release_${Date.now()}`,
+        type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+        action: 'open-release',
+      },
+    }),
+  );
+  await vi.waitFor(() => expect(document.querySelector('.panel-workspace-footer')).not.toBeNull());
 }
 
 function documentJson(): HTMLTextAreaElement {
@@ -48,17 +105,17 @@ function buttonWithText(label: string, root: ParentNode = document): HTMLButtonE
 }
 
 async function hoverRichCanvas(): Promise<void> {
-  document.dispatchEvent(
-    new MouseEvent('pointermove', { bubbles: true, clientX: 0, clientY: 0 }),
-  );
+  document.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 0, clientY: 0 }));
   await vi.waitFor(() =>
-    expect(document.querySelector('[aria-label="Add content"]')).not.toBeNull(),
+    expect(document.querySelector('[aria-label="Block options"]')).not.toBeNull(),
   );
 }
 
 async function openRichContentInsertMenu(): Promise<void> {
   await hoverRichCanvas();
-  document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
+  document
+    .querySelector<HTMLButtonElement>('.rich-content-block-handles [aria-label="Add content"]')
+    ?.click();
   await vi.waitFor(() =>
     expect(document.querySelector('.rich-content-insert-menu')).not.toBeNull(),
   );
@@ -74,7 +131,7 @@ async function openRichContentBlockSettings(): Promise<void> {
 
 async function chooseDesignedSelect(ariaLabel: string, optionLabel: string): Promise<void> {
   const trigger = document.querySelector<HTMLButtonElement>(`button[aria-label="${ariaLabel}"]`);
-  trigger?.click();
+  trigger?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
   await vi.waitFor(() =>
     expect(
       [...document.querySelectorAll<HTMLElement>('[role="option"]')].some(
@@ -88,10 +145,14 @@ async function chooseDesignedSelect(ariaLabel: string, optionLabel: string): Pro
 }
 
 function panelModeView(): HTMLElement | null {
+  /* A panel mode is the section behind its back button; the Operations sheet has
+     no back button, because Close is its way out. */
   return (
     document
       .querySelector<HTMLButtonElement>('button[aria-label="Back to authoring"]')
-      ?.closest<HTMLElement>('section') ?? null
+      ?.closest<HTMLElement>('section') ??
+    document.querySelector<HTMLElement>('.operations-hub-body') ??
+    null
   );
 }
 
@@ -336,55 +397,158 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(documentJson().value).toContain('Focus stays here');
   });
 
-  it('uses one storyboard workspace without duplicate inner chrome in panel mode', async () => {
+  it('uses overlay editor chrome in panel mode without a replica storyboard', async () => {
     window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
 
     expect(document.querySelector('.shell-panel')).toBeTruthy();
+    expect(document.querySelector('.shell-overlay')).toBeTruthy();
     expect(document.querySelector('.topbar')).toBeNull();
-    expect(document.querySelector('.tour-storyboard')).toBeTruthy();
-    expect(
-      document.querySelector(
-        '.tour-storyboard-utilities .ui-select-trigger[aria-label="Experience language"]',
-      ),
-    ).toBeTruthy();
-    expect(document.querySelector('.tour-step-inspector')).toBeTruthy();
+    expect(document.querySelector('.tour-storyboard')).toBeNull();
+    expect(document.querySelector('.tour-step-inspector')).toBeNull();
     expect(document.querySelector('.tour-sequence-rail')).toBeNull();
     expect(document.querySelector('.tour-workspace-toggle')).toBeNull();
-    expect(document.querySelector('.tour-appearance-entry')).toBeNull();
     expect(document.querySelector('.document-main')).toBeNull();
     expect(document.querySelector('.block')).toBeNull();
-    expect(document.querySelector('.tour-step-accordion')).toBeNull();
-    expect(document.querySelector('.rich-step-editor')).toBeTruthy();
-    expect(document.querySelector('.rich-step-toolbar')).toBeNull();
+    expect(document.querySelector('.overlay-step-shell')).toBeTruthy();
     expect(document.querySelector('[role="group"][aria-label="Step content editor"]')).toBeTruthy();
-    expect(document.body.textContent).not.toContain('Content');
     await vi.waitFor(() =>
-      expect(document.querySelector('.rich-step-content .rich-content-canvas')).not.toBeNull(),
+      expect(document.querySelector('.overlay-step-card .rich-content-canvas')).not.toBeNull(),
     );
     expect(document.querySelector('.rich-content-canvas[contenteditable="true"]')).not.toBeNull();
     expect(document.querySelector('.rich-step-rendered-content')).toBeNull();
-    expect(document.body.textContent).toContain('Placement');
-    expect(document.body.textContent).toContain('Popup');
     expect(document.querySelector('.tour-position-options')).toBeNull();
-    expect(document.querySelector('.tour-advance-options')).toBeNull();
-    expect(document.body.textContent).not.toContain('Step details');
-    expect(document.body.textContent).not.toContain('Advanced settings');
-    expect(document.querySelector('button[aria-label="More experience actions"]')).toBeTruthy();
-    expect(buttonWithText('Release options')).not.toBeNull();
+    expect(document.querySelector('.panel-workspace-footer')).toBeNull();
+
+    await openPanelOperations();
+    /* The sheet is the whole surface: no workspace footer, Close instead. */
+    expect(document.querySelector('.panel-workspace-footer')).toBeNull();
+    expect(document.querySelector('.operations-hub-close')).not.toBeNull();
+    expect(document.querySelector('[data-operations-tab="release"]')).not.toBeNull();
 
     window.history.replaceState(null, '', '/');
   });
 
-  it('keeps focused Flow Map, Batch Edit, and popup modes inside the existing workspace', async () => {
+  it('opens a commercial fixture directly in the requested Operations workspace', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/authoring.html?lodariqFrame=panel&scenario=commercial&plan=free&workspace=flow',
+    );
+    await loadFrame();
+
+    await vi.waitFor(() => expect(document.querySelector('.operations-hub')).not.toBeNull());
+    expect(
+      document.querySelector('[data-operations-tab="flow"]')?.getAttribute('aria-current'),
+    ).toBe('page');
+    expect(document.querySelector('.operations-hub-plan')?.textContent).toContain('Free plan');
+  });
+
+  it('runs the experiment fixture through explicit winner promotion', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/authoring.html?lodariqFrame=panel&scenario=experiment',
+    );
+    await loadFrame();
+    await openPanelOperations();
+
+    document.querySelector<HTMLButtonElement>('[data-operations-tab="experiment"]')?.click();
+    await vi.waitFor(() => expect(buttonWithText('Start the experiment')).not.toBeNull());
+    expect(document.querySelector('.operations-experiment')?.textContent).toContain(
+      'Arm B wins at 100% confidence.',
+    );
+
+    buttonWithText('Start the experiment')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.operations-experiment')?.textContent).toContain('Running'),
+    );
+    buttonWithText('Promote the winner')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.operations-experiment')?.textContent).toContain(
+        'Release it explicitly',
+      ),
+    );
+    expect(document.querySelector('.operations-experiment')?.textContent).toContain(
+      'Winner in draft',
+    );
+  });
+
+  it('renders the approach recipe as editable SDK authoring controls', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/authoring.html?lodariqFrame=panel&scenario=approach',
+    );
+    await loadFrame();
+
+    document.querySelector<HTMLButtonElement>('[aria-label="Step settings"]')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('[data-subsection="approach"]')).not.toBeNull(),
+    );
+    const section = document.querySelector<HTMLDetailsElement>('[data-subsection="approach"]');
+    expect(section).not.toBeNull();
+    section!.open = true;
+    expect(section?.textContent).toContain('Open the Import menu');
+    const replay = section?.querySelector<HTMLButtonElement>(
+      '[data-target-action="approach-replay"]',
+    );
+    const edit = section?.querySelector<HTMLButtonElement>(
+      '[data-target-action="approach-edit"]',
+    );
+    expect(replay?.disabled).toBe(false);
+    expect(edit?.disabled).toBe(false);
+
+    edit?.click();
+    await vi.waitFor(() =>
+      expect(section?.querySelector('.target-approach-legs input')).not.toBeNull(),
+    );
+    const label = section?.querySelector<HTMLInputElement>('.target-approach-legs input');
+    expect(label?.value).toBe('Open the Import menu');
+    expect(
+      section?.querySelector<HTMLButtonElement>('[aria-label="Remove approach step"]'),
+    ).not.toBeNull();
+  });
+
+  it.each([
+    ['free', false, true, true, true],
+    ['starter', false, false, true, true],
+    ['growth', false, false, false, true],
+    ['scale', false, false, false, false],
+    ['scale', true, true, true, true],
+  ] as const)(
+    'gates Assist actions for %s (credits exhausted: %s)',
+    async (planId, creditsExhausted, rewriteDisabled, askDisabled, narrationDisabled) => {
+      const credits = creditsExhausted ? '&credits=exhausted' : '';
+      window.history.replaceState(
+        null,
+        '',
+        `/authoring.html?lodariqFrame=panel&scenario=commercial&plan=${planId}${credits}`,
+      );
+      await loadFrame();
+
+      document.querySelector<HTMLButtonElement>('[aria-label="Assist"]')?.click();
+      await vi.waitFor(() => {
+        expect(document.querySelector('[data-menu-value="shorter"]')).not.toBeNull();
+        expect(
+          document.querySelector<HTMLButtonElement>('[data-menu-value="shorter"]')?.disabled,
+        ).toBe(rewriteDisabled);
+      });
+      expect(document.querySelector<HTMLButtonElement>('[data-menu-value="ask"]')?.disabled).toBe(
+        askDisabled,
+      );
+      expect(
+        document.querySelector<HTMLButtonElement>('[data-menu-value="narration"]')?.disabled,
+      ).toBe(narrationDisabled);
+    },
+  );
+
+  it('keeps focused Flow Map, Batch Edit, and popup modes inside operations', async () => {
     window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
-    document.querySelector<HTMLButtonElement>('.tour-storyboard-add')?.click();
-    await flushPreviewPatchQueue();
+    await openPanelOperations();
 
-    const flowMap = buttonWithText('Flow Map');
-    expect(flowMap).not.toBeNull();
-    flowMap?.click();
+    document.querySelector<HTMLButtonElement>('[data-operations-tab="flow"]')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('.tour-flow-map-workspace')).not.toBeNull(),
     );
@@ -395,66 +559,17 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(buttonWithText('Select')).not.toBeNull();
     expect(buttonWithText('Pan')).not.toBeNull();
     expect(document.querySelector('.tour-flow-canvas-controls')).not.toBeNull();
-    expect(document.querySelector('.tour-flow-toolbar [aria-label="Zoom out"]')).toBeNull();
     expect(document.querySelector('.tour-storyboard')).toBeNull();
-    expect(buttonWithText('Return to canvas')).not.toBeNull();
 
-    buttonWithText('Return to canvas')?.click();
-    await vi.waitFor(() => expect(document.querySelector('.tour-storyboard')).not.toBeNull());
+    document.querySelector<HTMLButtonElement>('[data-operations-tab="batch"]')?.click();
+    await vi.waitFor(() => expect(document.querySelector('.tour-batch-workspace')).not.toBeNull());
 
-    const stepButtons = document.querySelectorAll<HTMLButtonElement>('.tour-storyboard-select');
-    stepButtons[0]?.dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true }));
-    stepButtons[1]?.dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true }));
-    await vi.waitFor(() => expect(document.querySelectorAll('.tour-batch-card')).toHaveLength(2));
-    expect(document.querySelector('.tour-step-batch-toolbar')).not.toBeNull();
-    expect(buttonWithText('Reorder')).not.toBeNull();
-    expect(buttonWithText('Move to…')).not.toBeNull();
-    expect(buttonWithText('Done')).not.toBeNull();
-
-    buttonWithText('Done')?.click();
-    await vi.waitFor(() => expect(document.querySelector('.rich-step-editor')).not.toBeNull());
-    expect(document.querySelector('.tour-batch-workspace')).toBeNull();
-
-    buttonWithText('Popup')?.click();
-    await vi.waitFor(() => expect(buttonWithText('Layout')).not.toBeNull());
-    expect(buttonWithText('Appearance')).not.toBeNull();
-    expect(buttonWithText('Step presentation')).not.toBeNull();
-    expect(document.body.textContent).toContain('Content alignment');
-
-    buttonWithText('Appearance')?.click();
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Background'));
-    expect(document.body.textContent).not.toContain('Content alignment');
-    expect(
-      document
-        .querySelector('.popup-appearance-workspace .rich-step-color-field > legend')
-        ?.classList.contains('visually-hidden'),
-    ).toBe(true);
-
-    buttonWithText('Step presentation')?.click();
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Motion recipe'));
-    const canvasPopup = document.querySelector<HTMLElement>(
-      '.storyboard-editor-stage .rich-step-content',
+    document.querySelector<HTMLButtonElement>('[data-operations-tab="flow"]')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.tour-flow-map-workspace')).not.toBeNull(),
     );
-    const presentationPreview = document.querySelector<HTMLElement>(
-      '.step-presentation-preview-card',
-    );
-    expect(presentationPreview).not.toBeNull();
-    expect(presentationPreview?.dataset['lodariqContentAlign']).toBe(
-      canvasPopup?.dataset['lodariqContentAlign'],
-    );
-    expect(presentationPreview?.dataset['lodariqPopupRadius']).toBe(
-      canvasPopup?.dataset['lodariqPopupRadius'],
-    );
-    const canvasHeading = canvasPopup
-      ?.querySelector<HTMLElement>('h2, .rich-content-heading')
-      ?.textContent?.trim();
-    const canvasAction = canvasPopup
-      ?.querySelector<HTMLElement>('.rich-content-button-preview')
-      ?.textContent?.trim();
-    expect(canvasHeading).toBeTruthy();
-    expect(canvasAction).toBeTruthy();
-    expect(presentationPreview?.textContent).toContain(canvasHeading);
-    expect(presentationPreview?.textContent).toContain(canvasAction);
+    document.querySelector<HTMLButtonElement>('.operations-hub-close')?.click();
+    await vi.waitFor(() => expect(document.querySelector('.overlay-step-shell')).not.toBeNull());
 
     window.history.replaceState(null, '', '/');
   });
@@ -467,12 +582,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(buttonPreview).not.toBeNull();
     buttonPreview?.click();
     await vi.waitFor(() =>
-      expect(document.querySelector<HTMLInputElement>('[aria-label="Button label"]')).not.toBeNull(),
+      expect(document.querySelector<HTMLInputElement>('[aria-label="Label"]')).not.toBeNull(),
     );
-    expect(document.querySelector('button[aria-label="After click"]')).not.toBeNull();
+    expect(document.querySelector('button[aria-label="On click"]')).not.toBeNull();
     expect(document.querySelector('.action-context-toolbar')).toBeNull();
     expect(document.querySelector('select[aria-label="Block type"]')).toBeNull();
-    await chooseDesignedSelect('After click', 'Open page');
+    await chooseDesignedSelect('On click', 'Open page');
     await vi.waitFor(() =>
       expect(
         document.querySelector<HTMLInputElement>('[data-property-id="button.destination"] input'),
@@ -482,7 +597,8 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('.sequence-property-editor')).toBeNull();
     expect(document.body.textContent).toContain('Page URL');
 
-    buttonWithText('Flow Map')?.click();
+    await openPanelOperations();
+    document.querySelector<HTMLButtonElement>('[data-operations-tab="flow"]')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('.tour-flow-map-workspace')).not.toBeNull(),
     );
@@ -516,7 +632,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Emoji');
     expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Icon');
     expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Divider');
-    document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
+    document
+      .querySelector<HTMLButtonElement>('.rich-content-block-handles [aria-label="Add content"]')
+      ?.click();
 
     await openRichContentBlockSettings();
     const spacing = document.querySelector<HTMLInputElement>('[aria-label="Space after"]');
@@ -544,12 +662,13 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
-    document
-      .querySelector<HTMLButtonElement>('button[aria-label="More experience actions"]')
-      ?.click();
-    await vi.waitFor(() => expect(buttonWithText('Review & recovery')).not.toBeNull());
-    buttonWithText('Review & recovery')?.click();
-    await flushPreviewPatchQueue();
+    await openPanelOperations(
+      peer,
+      (tourFixture as LodariqDocument).id,
+      'session_workspace_layout',
+    );
+    document.querySelector<HTMLButtonElement>('[data-operations-tab="review"]')?.click();
+    await vi.waitFor(() => expect(document.querySelector('.tour-review-main')).not.toBeNull());
     expect(document.querySelector('.panel-advanced-title')?.textContent).toContain(
       'Review & recovery',
     );
@@ -564,11 +683,14 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.head.querySelector('style')?.textContent).toMatch(
       /\.tour-review-main \{[\s\S]*?overflow-y:\s*auto/,
     );
-    buttonWithText('Edit details')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('.panel-advanced-main .inspector')).not.toBeNull(),
-    );
-    expect(document.querySelector('.panel-advanced-main .inspector')).not.toBeNull();
+    /* "Edit details" is gone. It opened the review-and-preview aside, not the
+       step settings its label promised — preview is on the toolbar, the issue
+       list is Check, and the support package is one of Advanced's links. Review
+       keeps only the three flow-level settings. */
+    expect(buttonWithText('Edit details')).toBeNull();
+    expect(
+      [...document.querySelectorAll('.tour-review-row strong')].map((node) => node.textContent),
+    ).toEqual(['Accessibility preview', 'Draft checkpoints', 'Completion behavior']);
     const back = buttonWithText('Back to editor');
     expect(back?.querySelector('svg')).not.toBeNull();
     expect(back?.textContent?.trim()).toBe('Back to editor');
@@ -583,23 +705,26 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
   it('keeps staging release gracefully unavailable in local preview', async () => {
     document.body.innerHTML = '<div id="authoring"></div>';
+    const peer = { postMessage: vi.fn() } as unknown as Window;
     await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument: tourFixture as LodariqDocument,
       services: localFrameServices(),
       frameMode: 'panel',
       sessionId: 'session_release_local',
-      peerWindow: { postMessage: vi.fn() } as unknown as Window,
+      peerWindow: peer,
       allowedOrigins: [window.location.origin],
       targetOrigin: window.location.origin,
     });
 
+    await openPanelRelease(peer, (tourFixture as LodariqDocument).id, 'session_release_local');
     const releaseFooter = document.querySelector<HTMLElement>('[aria-label="Release status"]');
     expect(releaseFooter?.dataset['releaseStatus']).toBe('unavailable');
     // Release actions sit beside the status chip, not inside it.
     buttonWithText('Release options')?.click();
-    await vi.waitFor(() => expect(panelModeView()).not.toBeNull());
-    expect(panelModeView()?.textContent).toContain('Local preview');
+    await vi.waitFor(() => {
+      expect(panelModeView()?.textContent).toContain('Local preview');
+    });
     expect(buttonWithText('Publish to staging', panelModeView() ?? document)).toBeNull();
   });
 
@@ -678,6 +803,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
           },
         ],
       });
+    const peer = { postMessage: vi.fn() } as unknown as Window;
     await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument: tourFixture as LodariqDocument,
@@ -689,11 +815,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       },
       frameMode: 'panel',
       sessionId: 'session_release_hosted',
-      peerWindow: { postMessage: vi.fn() } as unknown as Window,
+      peerWindow: peer,
       allowedOrigins: [window.location.origin],
       targetOrigin: window.location.origin,
     });
 
+    await openPanelRelease(peer, (tourFixture as LodariqDocument).id, 'session_release_hosted');
     await vi.waitFor(() =>
       expect(
         document.querySelector<HTMLElement>('[aria-label="Release status"]')?.dataset[
@@ -743,6 +870,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
           },
         ],
       });
+    const peer = { postMessage: vi.fn() } as unknown as Window;
     await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument: tourFixture as LodariqDocument,
@@ -754,11 +882,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       },
       frameMode: 'panel',
       sessionId: 'session_release_blocked',
-      peerWindow: { postMessage: vi.fn() } as unknown as Window,
+      peerWindow: peer,
       allowedOrigins: [window.location.origin],
       targetOrigin: window.location.origin,
     });
 
+    await openPanelRelease(peer, (tourFixture as LodariqDocument).id, 'session_release_blocked');
     await vi.waitFor(() =>
       expect(
         document.querySelector<HTMLElement>('[aria-label="Release status"]')?.dataset[
@@ -792,20 +921,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
-    buttonWithText('Placement', document.querySelector('.storyboard-tool-dock')!)?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector<HTMLElement>('section[aria-label="Placement"]')).not.toBeNull(),
-    );
-    const placement = document.querySelector<HTMLElement>('section[aria-label="Placement"]');
-    expect(placement?.textContent).toContain('Where the popup appears');
-    expect(placement?.textContent).toContain('New project');
-    expect(placement?.textContent).toContain('Unverified');
-    expect(placement?.textContent).not.toContain('Behavior');
-    expect(placement?.querySelector('[aria-label^="Duplicate step"]')).toBeNull();
-    expect(placement?.querySelector('[aria-label^="Delete step"]')).toBeNull();
-    expect(
-      placement?.querySelector<HTMLButtonElement>('[aria-label="Placement New project actions"]'),
-    ).not.toBeNull();
+    expect(document.querySelector('.storyboard-tool-dock')).toBeNull();
+    expect(document.querySelector('.overlay-step-shell')).not.toBeNull();
+    expect(document.querySelector('.rich-content-canvas')).not.toBeNull();
 
     window.dispatchEvent(
       new MessageEvent('message', {
@@ -829,50 +947,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       }),
     );
     await flushPreviewPatchQueue();
-
-    expect(
-      placement?.querySelector<HTMLButtonElement>('[aria-label="Placement New project actions"]'),
-    ).not.toBeNull();
-    expect(placement?.textContent).toContain('Missing');
-
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        source: peer,
-        origin: window.location.origin,
-        data: {
-          protocol: BRIDGE_PROTOCOL_VERSION,
-          sessionId,
-          documentId: 'doc_tour_welcome',
-          correlationId: 'target_inspect_found_compact',
-          type: 'target.inspect.result',
-          blockId: 'block_step_1',
-          targetId: 'target_new_project',
-          action: 'health',
-          diagnostic: {
-            state: 'found',
-            confidence: 1,
-            candidateCount: 1,
-          },
-        },
-      }),
-    );
-    await flushPreviewPatchQueue();
-
-    expect(placement?.textContent).toContain('Placement');
-    expect(placement?.textContent).toContain('New project');
-    expect(placement?.textContent).toContain('Verified');
-    expect(placement?.textContent).not.toContain('Needs check');
-    expect(placement?.textContent).not.toContain('Missing');
-    expect(placement?.textContent).not.toContain('Healthy');
-    expect(
-      placement?.querySelector<HTMLButtonElement>('[aria-label="Placement New project actions"]'),
-    ).not.toBeNull();
-
-    buttonWithText('Placement', document.querySelector('.storyboard-tool-dock')!)?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector<HTMLElement>('section[aria-label="Placement"]')).toBeNull(),
-    );
-    expect(document.querySelector('.rich-content-canvas')).not.toBeNull();
+    expect(document.querySelector('.overlay-step-shell')).not.toBeNull();
   });
 
   it('offers one choose-element action for an unplaced compact step', async () => {
@@ -897,16 +972,13 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
-    buttonWithText('Placement', document.querySelector('.storyboard-tool-dock')!)?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector<HTMLElement>('section[aria-label="Placement"]')).not.toBeNull(),
-    );
-    const placement = document.querySelector<HTMLElement>('section[aria-label="Placement"]');
-    expect(placement?.textContent).toContain('Placement');
-    expect(placement?.textContent).toContain('Not placed yet');
-    expect(
-      placement?.querySelector<HTMLButtonElement>('[aria-label="Choose target for step 1"]'),
-    ).not.toBeNull();
+    expect(document.querySelector('.storyboard-tool-dock')).toBeNull();
+    // §4.2a: a glyph on the bar, worded in its label. The labelled pill took a
+    // third of a 420px toolbar and pushed the step's own controls out of the
+    // contextual middle, so the words live where a screen reader still reads them.
+    const chooseTarget = document.querySelector('.overlay-choose-target');
+    expect(chooseTarget).not.toBeNull();
+    expect(chooseTarget?.getAttribute('aria-label')).toBe('Choose target');
   });
 
   it('turns typed top-level text into a titled tour step and rejects content commands', async () => {
@@ -1176,7 +1248,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Divider');
     expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Button');
     expect(document.querySelector('[aria-label="Accessibility name"]')).toBeNull();
-    document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
+    document
+      .querySelector<HTMLButtonElement>('.rich-content-block-handles [aria-label="Add content"]')
+      ?.click();
     await openRichContentBlockSettings();
     expect(document.querySelector('[aria-label="Space after"]')).toBeInstanceOf(HTMLInputElement);
 
@@ -1187,10 +1261,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
 
-    const placementTool = document.querySelector<HTMLButtonElement>(
-      '.storyboard-tool-dock button[aria-label="Placement"]',
-    );
-    placementTool?.click();
+    document.querySelector<HTMLButtonElement>('.rich-content-button-preview')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('.storyboard-property-tray')).not.toBeNull(),
     );
@@ -1770,7 +1841,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await flushPreviewPatchQueue();
 
     const doc = JSON.parse(textarea!.value) as { blocks: Array<{ id: string }> };
-    expect(doc.blocks.map((block) => block.id)).toEqual(['block_step_1']);
+    expect(doc.blocks.map((block) => block.id)).toEqual(
+      (tourFixture as LodariqDocument).blocks.map((block) => block.id),
+    );
     expect(textarea?.value).not.toContain('Untitled heading');
   });
 
@@ -2028,7 +2101,10 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       window.location.origin,
     );
     await flushPreviewPatchQueue();
-    expect(document.querySelectorAll('.tour-step-row')).toHaveLength(2);
+    // One more row than the fixture ships with — Add step added exactly one.
+    expect(document.querySelectorAll('.tour-step-row')).toHaveLength(
+      (tourFixture as LodariqDocument).blocks.length + 1,
+    );
 
     window.dispatchEvent(new Event('pagehide'));
   });
@@ -2085,13 +2161,15 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await flushPreviewPatchQueue();
     expect(services.saveDocument).toHaveBeenCalledWith(
       expect.objectContaining({
-        blocks: [
+        // arrayContaining, not a literal array: the assertion is about the step
+        // that was edited, and the fixture carries four others beside it.
+        blocks: expect.arrayContaining([
           expect.objectContaining({
             children: [
               expect.objectContaining({ props: expect.objectContaining({ placement: 'top' }) }),
             ],
           }),
-        ],
+        ]),
       }),
     );
     expect(peer.postMessage).toHaveBeenCalledWith(
@@ -2111,7 +2189,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await flushPreviewPatchQueue();
     expect(services.saveDocument).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        blocks: [
+        blocks: expect.arrayContaining([
           expect.objectContaining({
             children: [
               expect.objectContaining({
@@ -2124,7 +2202,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
               }),
             ],
           }),
-        ],
+        ]),
       }),
     );
     expect(peer.postMessage).toHaveBeenCalledWith(
@@ -2142,7 +2220,8 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
     expect(document.querySelector('.panel-advanced-editor')).toBeTruthy();
-    expect(document.querySelector('.document-main')).toBeTruthy();
+    expect(document.querySelector('.operations-hub')).toBeTruthy();
+    expect(document.querySelector('.tour-review-workspace')).toBeTruthy();
 
     window.dispatchEvent(new Event('pagehide'));
   });
@@ -2194,8 +2273,11 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await flushPreviewPatchQueue();
 
     const savedDocument = JSON.parse(documentJson().value) as LodariqDocument;
-    expect(savedDocument.targets).toHaveLength(1);
-    expect(savedDocument.targets[0]).toMatchObject({
+    // Identity is kept by updating the target in place — the count must not grow.
+    expect(savedDocument.targets).toHaveLength((tourFixture as LodariqDocument).targets.length);
+    expect(
+      savedDocument.targets.find((target) => target.id === 'target_new_project'),
+    ).toMatchObject({
       id: 'target_new_project',
       lifecycle: {
         expectedRoute: '/projects',
@@ -2245,16 +2327,20 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
+    // One row per unverified target.
     expect(document.querySelector('.review-summary-copy strong')?.textContent).toBe(
-      '1 to fix before release',
+      `${FIXTURE_TARGET_COUNT} to fix before release`,
     );
     expect(document.body.textContent).not.toContain('Ready to publish');
     expect(
       document.querySelector<HTMLButtonElement>('[aria-label="Fix placement for step 1"]'),
     ).toBeNull();
-    expect(document.querySelector('.tour-step-health')?.textContent).toContain('Unverified');
-    expect(document.querySelector('.tour-health-count')?.textContent).toBe('0/1 verified');
-    expect(document.querySelector('.tour-active-step-footer')?.textContent).toContain('Unverified');
+    // §4.4: not confirmed here is `Needs context`, never a failure (audit #2).
+    expect(document.querySelector('.tour-step-health')?.textContent).toContain('Needs context');
+    expect(document.querySelector('.tour-health-count')?.textContent).toBe(`0/${FIXTURE_TARGET_COUNT} verified`);
+    expect(document.querySelector('.tour-active-step-footer')?.textContent).toContain(
+      'Needs context',
+    );
 
     window.dispatchEvent(
       new MessageEvent('message', {
@@ -2429,6 +2515,75 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(controller.getSnapshot().status).toBe('Placement verified.');
   });
 
+  it('edits and replays a target approach through the scoped host preview', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const root = document.getElementById('authoring')!;
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const baseDocument = structuredClone(tourFixture as LodariqDocument);
+    baseDocument.targets.push({
+      id: 'target_open_menu',
+      fingerprint: {
+        tagName: 'button',
+        role: 'button',
+        accessibleName: 'Open menu',
+        stableAttributes: { 'data-testid': 'open-menu' },
+      },
+    });
+    baseDocument.targets[0]!.approach = {
+      legs: [
+        {
+          act: { kind: 'activateTarget', targetId: 'target_open_menu' },
+          label: 'Open the menu',
+        },
+        {
+          act: { kind: 'observe' },
+          wait: { type: 'targetAvailable', targetId: 'target_new_project' },
+          label: 'Wait for the project action',
+        },
+      ],
+    };
+    const controller = new LocalAuthoringFrameController({
+      root,
+      baseDocument,
+      services: localFrameServices(),
+      sessionId: 'session_approach_editor',
+      peerWindow: peer,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+      now: () => 1000,
+    });
+    const internals = controller as unknown as {
+      bridge: {
+        sendWithAck: (message: BridgeMessage, options?: { timeoutMs?: number }) => Promise<void>;
+      };
+    };
+    const sendWithAck = vi.spyOn(internals.bridge, 'sendWithAck').mockResolvedValue(undefined);
+
+    controller.moveTargetApproachLeg('target_new_project', 1, 'up');
+    controller.setTargetApproachLabel('target_new_project', 0, 'Wait for project controls');
+    controller.removeTargetApproachLeg('target_new_project', 1);
+
+    expect(controller.getSnapshot().documentState.targets[0]?.approach?.legs).toEqual([
+      {
+        act: { kind: 'observe' },
+        wait: { type: 'targetAvailable', targetId: 'target_new_project' },
+        label: 'Wait for project controls',
+      },
+    ]);
+
+    controller.replayTargetApproach('block_step_1', 'target_new_project');
+    await vi.waitFor(() => expect(controller.getSnapshot().status).toBe('Approach passed'));
+    expect(sendWithAck).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'authoring.preview.request',
+        mode: 'approach',
+        stepId: 'block_step_1',
+      }),
+      { timeoutMs: 20_000 },
+    );
+    expect(controller.getSnapshot().documentState.targets[0]?.approach?.lastOutcome).toBe('pass');
+  });
+
   it('invalidates placement readiness after the host route changes', async () => {
     document.body.innerHTML = '<div id="authoring"></div>';
     const root = document.getElementById('authoring')!;
@@ -2502,7 +2657,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await flushPreviewPatchQueue();
 
     expect(document.querySelector('.tour-step-health')?.textContent).toContain('Verified');
-    expect(document.querySelector('.tour-health-count')?.textContent).toBe('1/1 verified');
+    expect(document.querySelector('.tour-health-count')?.textContent).toBe(`1/${FIXTURE_TARGET_COUNT} verified`);
 
     sendHostMessage({
       correlationId: 'page_lifecycle_projects_2',
@@ -2522,12 +2677,11 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
-    expect(document.querySelector('.tour-step-health')?.textContent).toContain(
-      'Unavailable in current context',
-    );
-    expect(document.querySelector('.tour-health-count')?.textContent).toBe('0/1 verified');
+    // The audit's modal-Close case: reachable the recorded way, absent right now.
+    expect(document.querySelector('.tour-step-health')?.textContent).toContain('Needs context');
+    expect(document.querySelector('.tour-health-count')?.textContent).toBe(`0/${FIXTURE_TARGET_COUNT} verified`);
     expect(document.querySelector('.tour-active-step-footer')?.textContent).toContain(
-      'Unavailable in current context',
+      'Needs context',
     );
     expect(document.querySelector('#status')?.textContent).toBe('Verifying placement');
     const reinspectionRequest = [...vi.mocked(peer.postMessage).mock.calls]
@@ -2555,7 +2709,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await flushPreviewPatchQueue();
 
     expect(document.querySelector('.tour-step-health')?.textContent).toContain('Verified');
-    expect(document.querySelector('.tour-health-count')?.textContent).toBe('1/1 verified');
+    expect(document.querySelector('.tour-health-count')?.textContent).toBe(`1/${FIXTURE_TARGET_COUNT} verified`);
 
     window.dispatchEvent(new Event('pagehide'));
   });
@@ -2607,7 +2761,11 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await flushPreviewPatchQueue();
     document.querySelector<HTMLButtonElement>('[data-action="target-health"]')?.click();
 
-    const request = vi.mocked(peer.postMessage).mock.calls[0]?.[0] as BridgeMessage;
+    const request = vi
+      .mocked(peer.postMessage)
+      .mock.calls.map(([message]) => message as BridgeMessage)
+      .find((message) => message.type === 'target.inspect.request');
+    if (!request) throw new Error('Target inspection request is missing');
     expect(request).toMatchObject({
       sessionId,
       type: 'target.inspect.request',
@@ -2869,9 +3027,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     setInputValue?.call(spacing, '27');
     spacing.dispatchEvent(new Event('change', { bubbles: true }));
     await flushPreviewPatchQueue();
-    expect(
-      document.querySelector('[data-lodariq-spacing-after-px="27"]'),
-    ).not.toBeNull();
+    expect(document.querySelector('[data-lodariq-spacing-after-px="27"]')).not.toBeNull();
     expect(document.querySelector('.property-chip')).toBeNull();
 
     window.history.replaceState(null, '', '/');
@@ -3254,9 +3410,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       blocks: Array<{ children: Array<{ props: Record<string, unknown> }> }>;
     };
 
-    const target = doc.targets[doc.targets.length - 1];
+    // Found through the step's own binding, not by position: this fingerprint
+    // matches a target the fixture already carries, so nothing is appended.
+    const boundId = doc.blocks[0]?.children[0]?.props.targetId;
+    const target = doc.targets.find((candidate) => candidate.id === boundId);
     expect(target?.fingerprint.accessibleName).toBe('New project');
-    expect(doc.blocks[0]?.children[0]?.props.targetId).toBe(target?.id);
+    expect(boundId).toBe(target?.id);
     expect(stepBlock?.querySelector('.block-header [data-action="target-pick"]')).toBeNull();
     expect(stepBlock?.querySelector('.block-header .target-chip')).toBeTruthy();
     expect(document.querySelector('.target-chip-label')?.textContent).toBe('New project');

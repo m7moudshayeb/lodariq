@@ -1,12 +1,12 @@
 export const AUTHORING_RICH_TEXT_CSS = `
 
-  .shell-panel,
-  .shell-panel .panel-canvas,
-  .shell-panel .document-page,
-  .shell-panel .panel-reference-workspace,
-  .shell-panel .authoring-workspace,
-  .shell-panel .tour-sequence-rail,
-  .shell-panel .tour-step-inspector {
+  .shell-panel:not(.shell-overlay):not(.shell-operations),
+  .shell-panel:not(.shell-operations) .panel-canvas,
+  .shell-panel:not(.shell-operations) .document-page,
+  .shell-panel:not(.shell-operations) .panel-reference-workspace,
+  .shell-panel:not(.shell-operations) .authoring-workspace,
+  .shell-panel:not(.shell-operations) .tour-sequence-rail,
+  .shell-panel:not(.shell-operations) .tour-step-inspector {
     background: #ffffff;
     color: var(--lq-color-ink);
   }
@@ -61,8 +61,8 @@ export const AUTHORING_RICH_TEXT_CSS = `
 
   .panel-save-status-copy strong {
     overflow: hidden;
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -88,7 +88,7 @@ export const AUTHORING_RICH_TEXT_CSS = `
     overflow: hidden;
     color: var(--lq-color-muted);
     font-size: 8px;
-    font-weight: 600;
+    font-weight: var(--lq-weight-semibold);
     line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -113,8 +113,8 @@ export const AUTHORING_RICH_TEXT_CSS = `
     background: #ffffff;
     color: var(--lq-color-primary);
     cursor: pointer;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     padding: 0 12px;
   }
 
@@ -164,13 +164,13 @@ export const AUTHORING_RICH_TEXT_CSS = `
   }
 
   .shell-panel .tour-sequence-rail.compact .compact-header > strong {
-    font-size: 14px;
-    font-weight: 700;
+    font-size: var(--lq-font-md);
+    font-weight: var(--lq-weight-bold);
   }
 
   .shell-panel .tour-sequence-rail.compact .compact-header > span {
     color: var(--lq-color-muted);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .shell-panel .tour-sequence-rail.compact .tour-step-list {
@@ -209,7 +209,7 @@ export const AUTHORING_RICH_TEXT_CSS = `
     border-color: #c8d0d6;
     background: #ffffff;
     color: var(--lq-color-ink-soft);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .shell-panel .tour-sequence-rail.compact .tour-step-row.active .tour-step-number {
@@ -220,8 +220,8 @@ export const AUTHORING_RICH_TEXT_CSS = `
 
   .shell-panel .tour-sequence-rail.compact .tour-step-copy strong {
     color: var(--lq-color-ink);
-    font-size: 12px;
-    font-weight: 600;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
   }
 
   .shell-panel .tour-sequence-rail.compact .tour-step-health {
@@ -277,7 +277,7 @@ export const AUTHORING_RICH_TEXT_CSS = `
   .live-step-header small,
   .tour-config-heading small {
     color: var(--lq-color-primary);
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-bold);
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -307,7 +307,7 @@ export const AUTHORING_RICH_TEXT_CSS = `
     border-radius: 999px;
     background: var(--lq-color-success-soft);
     color: #167553;
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-bold);
     padding: 0 var(--lq-space-2);
   }
@@ -336,7 +336,7 @@ export const AUTHORING_RICH_TEXT_CSS = `
     margin: var(--lq-space-3) var(--lq-space-4) 0;
     border: 1px solid var(--lq-color-border-soft);
     border-radius: var(--lq-radius-md);
-    background: #ffffff;
+    background: var(--lq-color-panel);
     padding: var(--lq-space-3);
     box-shadow: 0 var(--lq-space-1) var(--lq-space-3) rgba(15, 36, 31, 0.04);
   }
@@ -369,7 +369,7 @@ export const AUTHORING_RICH_TEXT_CSS = `
     border-radius: 999px;
     background: var(--lq-color-primary-soft);
     color: var(--lq-color-primary);
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-bold);
     padding: var(--lq-space-1) var(--lq-space-2);
     text-transform: uppercase;

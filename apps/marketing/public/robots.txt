@@ -1,0 +1,35 @@
+# https://lodariq.io/robots.txt
+
+# The embedded demo is a fixture product ("Meridian") used to run the SDK on
+# the homepage. It is not Lodariq content and must never be indexed as its own
+# page. The demo HTML also carries <meta name="robots" content="noindex">.
+User-agent: *
+Disallow: /demo/
+Allow: /
+
+# AI crawlers are welcome on the public marketing content.
+User-agent: GPTBot
+Disallow: /demo/
+Allow: /
+
+User-agent: ClaudeBot
+Disallow: /demo/
+Allow: /
+
+User-agent: PerplexityBot
+Disallow: /demo/
+Allow: /
+
+User-agent: Google-Extended
+Disallow: /demo/
+Allow: /
+
+User-agent: Applebot-Extended
+Disallow: /demo/
+Allow: /
+
+User-agent: cohere-ai
+Disallow: /demo/
+Allow: /
+
+Sitemap: https://lodariq.io/sitemap.xml

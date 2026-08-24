@@ -11,6 +11,7 @@ import {
 } from '@lodariq/database';
 import type { FastifyReply } from 'fastify';
 import { promoteExactVerifiedPublication } from '../../../releases/promotion';
+import { enqueueReleaseWebhookEvent } from '../../../governance-events';
 import { authRoleFromMembership } from '../../control-plane-access';
 import type { ControlPlaneRouteOptions } from '../../control-plane-context';
 import {
@@ -205,6 +206,19 @@ export async function handleReleaseApproval(
       expectedEnvironmentPolicyUpdatedAt: targetPolicyScope.environment.updatedAt,
     });
     promotion = validateProductionPromotionResult(toProductionPromotionResult(result));
+    if (promotion.ok && promotion.state === 'completed') {
+      await enqueueReleaseWebhookEvent(options.repository, {
+        workspaceId: scope.workspaceId,
+        environmentId: operation.environmentId,
+        documentId: operation.documentId,
+        operationId: promotion.releaseOperationId,
+        action: 'activated',
+        occurredAt: result.operation.completedAt ?? new Date().toISOString(),
+        generation: promotion.generation,
+        publicationId: promotion.publicationId,
+        contentHash: promotion.contentHash,
+      });
+    }
   } catch (error) {
     if (error instanceof EnvironmentReleasePolicyChangedError) {
       return reply.code(409).send({ error: error.code, message: error.message });

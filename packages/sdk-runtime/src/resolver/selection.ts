@@ -1,0 +1,250 @@
+import type { TargetCaptureEvidence, TargetSelectionPolicy } from '@lodariq/schema';
+import { parentElementAcrossOpenShadow, semanticRoleOf } from './element-evidence';
+import type { ScoredCandidate } from './types';
+
+const COLLECTION_ROLES = new Set([
+  'list',
+  'table',
+  'grid',
+  'listbox',
+  'menu',
+  'tablist',
+  'rowgroup',
+  'treegrid',
+  'feed',
+]);
+
+export interface SelectionOutcome {
+  element: Element;
+  method: string;
+}
+
+/**
+ * Author intent applied to candidates the evidence cannot separate.
+ *
+ * Everything here fails closed: when the policy cannot be satisfied against the
+ * live page the caller keeps its ambiguous result rather than guessing. That is
+ * the whole point — a wrong element is worse than an honest "needs review".
+ */
+export function applySelectionPolicy(
+  policy: TargetSelectionPolicy | undefined,
+  tied: readonly ScoredCandidate[],
+  captured: TargetCaptureEvidence,
+): SelectionOutcome | null {
+  if (!policy || policy.kind === 'only' || tied.length === 0) return null;
+  const ordered = inDocumentOrder(tied.map((candidate) => candidate.element));
+  /*
+   * Every position policy counts among the controls the author was choosing
+   * between, and those controls read alike — that is why they tied. A release
+   * that drops a differently-worded control into the tied set shifts every
+   * position by one, so "the second one" silently becomes something the author
+   * never saw. Count only the candidates whose text still matches, exactly as
+   * `any-matching` does, and fail closed when none do.
+   *
+   * "First in the list" is the same claim about position, so the collection
+   * policies count the same set. `within-container` is the exception and stays
+   * on the whole tie: it names a container rather than a rank, and it already
+   * refuses unless exactly one candidate is inside — filtering there would make
+   * it resolve *more* often, which is a different question.
+   */
+  const named = inDocumentOrder(
+    tied.filter((candidate) => matchedItsText(candidate)).map((candidate) => candidate.element),
+  );
+  if (ranksItsSet(policy) && setShrankSinceCapture(named.length, captured)) return null;
+
+  switch (policy.kind) {
+    /*
+     * "Any button that says X" is a claim about the words, and the words are
+     * exactly what durable scoring left out — that is why these candidates tied
+     * in the first place. Taking the first of the *unfiltered* set would answer
+     * a question nobody asked and land on a differently-worded control that
+     * happens to sit earlier in the document: a confident click on the wrong
+     * button, which is the one outcome worse than abstaining.
+     */
+    case 'any-matching':
+      return named[0] ? { element: named[0], method: 'selection_any_matching' } : null;
+
+    case 'first':
+      return named[0] ? { element: named[0], method: 'selection_first' } : null;
+
+    case 'last': {
+      const last = named[named.length - 1];
+      return last ? { element: last, method: 'selection_last' } : null;
+    }
+
+    case 'ordinal': {
+      const pool = policy.order === 'recency' ? orderedByDeclaredRecency(named) : named;
+      if (!pool) return null;
+      const picked = pool[policy.position - 1];
+      return picked ? { element: picked, method: 'selection_ordinal' } : null;
+    }
+
+    case 'first-in-collection': {
+      const scoped = withinCollection(named, policy.collectionLabel);
+      return scoped?.[0] ? { element: scoped[0], method: 'selection_first_in_collection' } : null;
+    }
+
+    case 'newest-in-collection': {
+      const scoped = withinCollection(named, policy.collectionLabel);
+      if (!scoped?.length) return null;
+      // Only honour "newest" where the product actually declares its ordering.
+      const pool = orderedByDeclaredRecency(scoped);
+      return pool?.[0] ? { element: pool[0], method: 'selection_newest_in_collection' } : null;
+    }
+
+    case 'within-container': {
+      const scoped = ordered.filter((element) =>
+        hasLabelledAncestor(element, policy.containerLabel),
+      );
+      return scoped.length === 1 && scoped[0]
+        ? { element: scoped[0], method: 'selection_within_container' }
+        : null;
+    }
+
+    default:
+      return null;
+  }
+}
+
+/** Whether this candidate matched the identity's own locale-scoped text. */
+function matchedItsText(candidate: ScoredCandidate): boolean {
+  return candidate.evidence.some((entry) => entry.family === 'localized-text');
+}
+
+/** Policies whose answer is a rank, and therefore only means what the set means. */
+function ranksItsSet(policy: TargetSelectionPolicy): boolean {
+  return policy.kind !== 'any-matching' && policy.kind !== 'within-container';
+}
+
+/**
+ * A look-alike the author was counting among has gone.
+ *
+ * Filtering by text fixed the case where the set *grew*; losing a member is the
+ * same hazard running backwards. Renaming one of five buttons leaves four, and
+ * every rank after the missing one now names the control that used to follow it
+ * — including, when the renamed one was the author's own, the neighbour. There
+ * is no evidence to tell those two pages apart, so re-indexing the survivors
+ * answers a question about a page the author never saw. Fail closed instead.
+ *
+ * Armed only where capture said the tie was *purely* a look-alike tie. The two
+ * counts are measured differently — capture counts candidates that scored the
+ * same, this counts candidates whose words still match — and they only mean the
+ * same set when every tied candidate read alike. That flag is what says they
+ * did, and it is also what a weak capture needs before an answer can ship at
+ * all. Absent, the tripwire stays off rather than guess against an older
+ * capture that never recorded it.
+ */
+function setShrankSinceCapture(matching: number, captured: TargetCaptureEvidence): boolean {
+  if (captured.ambiguityIsSoleWeakness !== true) return false;
+  return captured.uniqueCandidateCount >= 2 && matching < captured.uniqueCandidateCount;
+}
+
+function inDocumentOrder(elements: readonly Element[]): Element[] {
+  return [...elements].sort((a, b) => {
+    if (a === b) return 0;
+    const position = a.compareDocumentPosition(b);
+    if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+    if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+    return 0;
+  });
+}
+
+/**
+ * `aria-sort` is the one place a product states its own ordering. Without it we
+ * refuse to claim anything is "newest" — silently picking row one is exactly
+ * the failure a data-relative target exists to prevent.
+ */
+function orderedByDeclaredRecency(elements: readonly Element[]): Element[] | null {
+  const collection = sharedCollection(elements);
+  if (!collection) return null;
+  // The sort is declared on a column header, which sits outside the row group.
+  const scope = sortScopeOf(collection);
+  const sorted = scope.querySelector('[aria-sort="descending"], [aria-sort="ascending"]');
+  if (!sorted) return null;
+  const ordered = inDocumentOrder(elements);
+  return sorted.getAttribute('aria-sort') === 'ascending' ? [...ordered].reverse() : ordered;
+}
+
+function sortScopeOf(collection: Element): Element {
+  let node: Element | null = collection;
+  let hops = 0;
+  while (node && hops < 6) {
+    const role = semanticRoleOf(node);
+    const tag = node.tagName.toLowerCase();
+    if (tag === 'table' || role === 'table' || role === 'grid' || role === 'treegrid') return node;
+    node = parentElementAcrossOpenShadow(node);
+    hops += 1;
+  }
+  return collection;
+}
+
+function withinCollection(
+  elements: readonly Element[],
+  collectionLabel: string | undefined,
+): Element[] | null {
+  if (!collectionLabel) {
+    return sharedCollection(elements) ? inDocumentOrder(elements) : null;
+  }
+  const scoped = elements.filter((element) => hasLabelledAncestor(element, collectionLabel));
+  return scoped.length ? inDocumentOrder(scoped) : null;
+}
+
+/** The nearest collection every candidate shares, if they share one at all. */
+function sharedCollection(elements: readonly Element[]): Element | null {
+  const first = elements[0];
+  if (!first) return null;
+  const chain = collectionAncestors(first);
+  for (const container of chain) {
+    if (elements.every((element) => container.contains(element))) return container;
+  }
+  return null;
+}
+
+function collectionAncestors(element: Element): Element[] {
+  const out: Element[] = [];
+  let node: Element | null = parentElementAcrossOpenShadow(element);
+  let hops = 0;
+  while (node && hops < 12) {
+    if (isCollection(node)) out.push(node);
+    node = parentElementAcrossOpenShadow(node);
+    hops += 1;
+  }
+  return out;
+}
+
+function isCollection(element: Element): boolean {
+  const role = semanticRoleOf(element);
+  if (role && COLLECTION_ROLES.has(role)) return true;
+  const tag = element.tagName.toLowerCase();
+  return tag === 'ul' || tag === 'ol' || tag === 'table' || tag === 'tbody';
+}
+
+function hasLabelledAncestor(element: Element, label: string): boolean {
+  const wanted = label.trim().toLowerCase();
+  let node: Element | null = element;
+  let hops = 0;
+  while (node && hops < 12) {
+    if (containerLabelOf(node)?.toLowerCase() === wanted) return true;
+    node = parentElementAcrossOpenShadow(node);
+    hops += 1;
+  }
+  return false;
+}
+
+/** A container's own accessible name: aria-label, or the heading it owns. */
+function containerLabelOf(element: Element): string | null {
+  const aria = element.getAttribute('aria-label')?.trim();
+  if (aria) return aria;
+  const labelledBy = element.getAttribute('aria-labelledby');
+  if (labelledBy) {
+    const owner = element.ownerDocument?.getElementById(labelledBy.split(/\s+/)[0] ?? '');
+    const text = owner?.textContent?.trim();
+    if (text) return text;
+  }
+  const caption = element.querySelector(':scope > caption, :scope > legend');
+  const captionText = caption?.textContent?.trim();
+  if (captionText) return captionText;
+  const heading = element.querySelector(':scope > h1, :scope > h2, :scope > h3, :scope > header > h1, :scope > header > h2, :scope > header > h3');
+  const headingText = heading?.textContent?.trim();
+  return headingText || null;
+}

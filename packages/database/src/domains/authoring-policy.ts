@@ -7,11 +7,13 @@ import {
   BRAND_THEME_CONTRACT_VERSION,
   COMPILER_VERSION,
   DEFAULT_EXPERIENCE_APPEARANCE,
+  defaultExperienceBehavior,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   LODARIQ_EDITOR_ORIGIN,
   RENDERER_CONTRACT_VERSION,
   ReleaseMutationGuard,
   SCHEMA_VERSION,
+  patternMatchesPage,
   validate,
   type AuthoringActivationCapability,
   type AuthoringDocumentIntent,
@@ -21,6 +23,7 @@ import {
   type AuthoringSessionCapability,
   type Environment,
   type LodariqDocument,
+  type NewAuthoringDocumentIntent,
 } from '@lodariq/schema';
 import { isValidAuthoringSessionCapabilitySet } from '../authoring-session-capabilities';
 import {
@@ -87,7 +90,10 @@ export function canActivateDocumentIntent(
   if (!grant.documentIntent) return true;
   if (grant.documentIntent.kind !== requestedIntent.kind) return false;
   if (grant.documentIntent.kind === 'new-draft') {
-    return requestedIntent.kind === 'new-draft' && requestedIntent.documentType === 'tour';
+    return (
+      requestedIntent.kind === 'new-draft' &&
+      grant.documentIntent.documentType === requestedIntent.documentType
+    );
   }
   return (
     requestedIntent.kind === 'existing' &&
@@ -115,6 +121,7 @@ export function getAuthoringDocumentSessionCapabilities(
       AUTHORING_SESSION_CAPABILITIES.PROMOTE_PRODUCTION,
       AUTHORING_SESSION_CAPABILITIES.APPROVE_PRODUCTION,
       AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE,
+      AUTHORING_SESSION_CAPABILITIES.SCHEDULE_RELEASE,
       AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE,
     );
   }
@@ -131,6 +138,32 @@ export function createServerOwnedTourDraft(
   pageContext: AuthoringPageContext,
   defaultTheme?: Pick<WorkspaceThemeRecord, 'id' | 'activeVersionId'> | null,
 ): LodariqDocument {
+  return createServerOwnedExperienceDraft(
+    workspaceId,
+    environment,
+    exactOrigin,
+    pageContext,
+    'tour',
+    defaultTheme,
+  );
+}
+
+const SERVER_DRAFT_TITLES: Readonly<Record<NewAuthoringDocumentIntent['documentType'], string>> = {
+  tour: AUTHORING_TOUR_DRAFT_TITLE,
+  announcement: 'Untitled announcement',
+  hotspot: 'Untitled hotspot',
+  survey: 'Untitled survey',
+  checklist: 'Untitled checklist',
+};
+
+export function createServerOwnedExperienceDraft(
+  workspaceId: string,
+  environment: AuthoringEnvironment,
+  exactOrigin: string,
+  pageContext: AuthoringPageContext,
+  documentType: NewAuthoringDocumentIntent['documentType'],
+  defaultTheme?: Pick<WorkspaceThemeRecord, 'id' | 'activeVersionId'> | null,
+): LodariqDocument {
   const themeBinding = defaultTheme?.activeVersionId
     ? {
         policy: 'workspace-current' as const,
@@ -139,11 +172,11 @@ export function createServerOwnedTourDraft(
       }
     : null;
   return {
-    id: `doc_tour_${randomUUID()}`,
+    id: `doc_${documentType}_${randomUUID()}`,
     workspaceId,
-    type: 'tour',
+    type: documentType,
     status: 'draft',
-    title: AUTHORING_TOUR_DRAFT_TITLE,
+    title: SERVER_DRAFT_TITLES[documentType],
     schemaVersion: SCHEMA_VERSION,
     trigger: {
       type: 'urlMatch',
@@ -152,6 +185,9 @@ export function createServerOwnedTourDraft(
     audience: { environments: [environment] },
     ...(themeBinding ? { themeBinding } : {}),
     appearance: structuredClone(DEFAULT_EXPERIENCE_APPEARANCE),
+    experience: defaultExperienceBehavior(documentType),
+    ...(documentType === 'announcement' ? { surfaceForm: 'modal' as const } : {}),
+    ...(documentType === 'checklist' ? { surfaceForm: 'floating' as const } : {}),
     targets: [],
     blocks: [],
   };
@@ -283,12 +319,8 @@ export function matchesAuthoringPageContext(
   if (document.trigger.type === 'pageLoad') return true;
   if (document.trigger.type !== 'urlMatch') return false;
 
-  const candidates = [pathname, `${exactOrigin}${pathname}`];
-  const mode = document.trigger.config.mode ?? 'exact';
-  const pattern = document.trigger.config.pattern;
-  if (mode === 'prefix') return candidates.some((candidate) => candidate.startsWith(pattern));
-  if (mode === 'contains') return candidates.some((candidate) => candidate.includes(pattern));
-  return candidates.includes(pattern);
+  const { pattern, mode } = document.trigger.config;
+  return patternMatchesPage(pattern, mode ?? 'exact', { exactOrigin, pathname });
 }
 
 export function requireExactHttpOrigin(value: string): string {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { compileDocument } from '@lodariq/compiler';
+import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import {
   createInMemoryControlPlaneRepository,
   type AcknowledgeDocumentThemeInput,
@@ -162,20 +163,18 @@ function documentFixture(
   themeVersionId: string,
   bindingPolicy: 'pinned' | 'workspace-current',
 ): LodariqDocument {
+  const document = structuredClone(tourFixture) as LodariqDocument;
+  delete document.localization;
+  document.blocks = document.blocks.slice(0, 1);
+  document.targets = document.targets.slice(0, 1);
   return {
-    schemaVersion: '1',
+    ...document,
     id: `tour_ack_${bindingPolicy}`,
     workspaceId: 'wk_a',
-    type: 'tour',
     title: 'Acknowledgement',
-    status: 'draft',
     themeBinding:
       bindingPolicy === 'pinned'
         ? { policy: 'pinned', themeId, themeVersionId }
         : { policy: 'workspace-current', themeId, acknowledgedThemeVersionId: themeVersionId },
-    trigger: { type: 'manual' },
-    audience: { environments: ['staging'] },
-    targets: [],
-    blocks: [],
   };
 }

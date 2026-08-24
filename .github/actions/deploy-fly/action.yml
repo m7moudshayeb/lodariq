@@ -25,6 +25,10 @@ inputs:
   r2_secret_access_key:
     description: R2 secret access key supplied by the selected GitHub Environment
     required: true
+  pin_public_loader_integrity:
+    description: Pin issued snippets to this loader build's digest; unsafe by default, see ADR-0027
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -131,13 +135,18 @@ runs:
         CREATOR_MODULE_URL: ${{ steps.sdk_assets.outputs.creator_module_url }}
         CREATOR_MODULE_VERSION: ${{ steps.sdk_assets.outputs.creator_module_version }}
         CREATOR_MODULE_INTEGRITY: ${{ steps.sdk_assets.outputs.creator_module_integrity }}
+        # Empty unless explicitly pinned: the loader sits at a stable URL whose
+        # bytes change every deploy, so an always-on digest would break every
+        # page still carrying a previously issued snippet (ADR-0027).
+        PUBLIC_LOADER_INTEGRITY: ${{ inputs.pin_public_loader_integrity == 'true' && steps.sdk_assets.outputs.public_loader_integrity || '' }}
       run: |
         flyctl deploy --local-only --update-only --no-public-ips --skip-release-command \
           --app "$FLY_APP" \
           --config "$FLY_CONFIG" \
           --env "LODARIQ_CREATOR_MODULE_URL=$CREATOR_MODULE_URL" \
           --env "LODARIQ_CREATOR_MODULE_VERSION=$CREATOR_MODULE_VERSION" \
-          --env "LODARIQ_CREATOR_MODULE_INTEGRITY=$CREATOR_MODULE_INTEGRITY"
+          --env "LODARIQ_CREATOR_MODULE_INTEGRITY=$CREATOR_MODULE_INTEGRITY" \
+          --env "LODARIQ_PUBLIC_LOADER_INTEGRITY=$PUBLIC_LOADER_INTEGRITY"
 
     - name: Deploy dashboard
       shell: bash

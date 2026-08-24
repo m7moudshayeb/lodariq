@@ -6,6 +6,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, normalize, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, URL } from 'node:url';
+import ts from 'typescript';
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const outputPrefix = '/sdk/';
@@ -15,6 +16,8 @@ const creatorModuleCdnOrigin = canonicalCdnOrigin(
 );
 const creatorModuleSourceRoot = resolve(repoRoot, 'packages/sdk-authoring/dist');
 const creatorModuleSourceEntry = 'hosted-entry.js';
+/** The one entry a customer's page loads directly, and so the one that can be SRI-pinned. */
+const publicLoaderEntry = 'lodariq-public-bootstrap.js';
 
 const assetSets = [
   {
@@ -23,10 +26,11 @@ const assetSets = [
       'lodariq-public-bootstrap.js',
       'lodariq-loader.js',
       'lodariq-runtime.js',
+      'lodariq-demo-player.js',
       'runtime/index.js',
       'renderers/tour.js',
     ],
-    publicEntries: ['lodariq-public-bootstrap.js', 'lodariq-loader.js'],
+    publicEntries: ['lodariq-public-bootstrap.js', 'lodariq-loader.js', 'lodariq-demo-player.js'],
   },
   {
     sourceRoot: creatorModuleSourceRoot,
@@ -39,10 +43,19 @@ const manifest = {
   generatedAt: new Date().toISOString(),
   prefix: outputPrefix,
   entries: {
-    runtime: ['lodariq-public-bootstrap.js', 'lodariq-loader.js'],
+    runtime: ['lodariq-public-bootstrap.js', 'lodariq-loader.js', 'lodariq-demo-player.js'],
     authoring: ['lodariq-creator.js'],
   },
   creatorModule: null,
+  /**
+   * Identity of the public loader, so a deployment can pin it (ADR-0027).
+   *
+   * Subresource integrity needs a base64 digest, while `files[].sha256` is hex
+   * for byte-verification at upload time. Rather than widen every file entry
+   * for one consumer, the loader gets its own pointer — the same shape the
+   * creator module already uses.
+   */
+  publicLoader: null,
   files: [],
 };
 
@@ -62,6 +75,7 @@ for (const assetSet of assetSets) {
 }
 
 manifest.creatorModule = await copyContentAddressedCreatorModule();
+manifest.publicLoader = readPublicLoaderIdentity();
 
 manifest.files.sort((a, b) => a.path.localeCompare(b.path));
 await writeFile(
@@ -113,12 +127,29 @@ function readTextSync(path) {
 }
 
 function moduleSpecifiers(source) {
-  return [
-    ...source.matchAll(/import\s*(?:[^'"]+?\s*from\s*)?['"]([^'"]+)['"]/g),
-    ...source.matchAll(/import\(\s*['"]([^'"]+)'\s*\)/g),
-    ...source.matchAll(/import\(\s*"([^"]+)"\s*\)/g),
-    ...source.matchAll(/export\s*[^'"]+?\s*from\s*['"]([^'"]+)['"]/g),
-  ].map((match) => match[1]);
+  const sourceFile = ts.createSourceFile(
+    'sdk-asset.js',
+    source,
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.JS,
+  );
+  const specifiers = [];
+
+  const addSpecifier = (node) => {
+    if (node && ts.isStringLiteralLike(node)) specifiers.push(node.text);
+  };
+  const visit = (node) => {
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+      addSpecifier(node.moduleSpecifier);
+    } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      addSpecifier(node.arguments[0]);
+    }
+    ts.forEachChild(node, visit);
+  };
+
+  visit(sourceFile);
+  return specifiers;
 }
 
 async function copyContentAddressedCreatorModule() {
@@ -181,6 +212,25 @@ async function copyPublicJavaScript(sourcePath, outputPath, publicEntries) {
   await mkdir(dirname(destination), { recursive: true });
   await writeFile(destination, content, 'utf8');
   manifest.files.push(candidate);
+}
+
+/**
+ * Read the prepared loader back off disk and describe it for the deployment.
+ *
+ * Deliberately hashes the written bytes rather than reusing an in-memory value:
+ * an integrity digest that does not describe the file actually uploaded is
+ * worse than no digest, because it fails closed on the customer's page.
+ */
+function readPublicLoaderIdentity() {
+  const loaderPath = resolve(outputRoot, publicLoaderEntry);
+  if (!existsSync(loaderPath)) {
+    throw new Error(`Prepared SDK assets are missing the public loader: ${publicLoaderEntry}`);
+  }
+  const bytes = readFileSync(loaderPath);
+  return {
+    path: `${outputPrefix}${publicLoaderEntry}`,
+    integrity: `sha256-${createHash('sha256').update(bytes).digest('base64')}`,
+  };
 }
 
 function publicJavaScriptContent(source) {

@@ -8,10 +8,7 @@ import {
   readEnterpriseOidcConfiguration,
   type EnterpriseOidcConfiguration,
 } from '@lodariq/api';
-import {
-  createInMemoryControlPlaneRepository,
-  type AuthSessionRecord,
-} from '@lodariq/database';
+import { createInMemoryControlPlaneRepository, type AuthSessionRecord } from '@lodariq/database';
 
 const NOW = new Date('2026-08-15T16:00:00.000Z');
 // authenticateOwnedSession uses wall-clock expiry, not authClock.
@@ -62,9 +59,7 @@ describe('@lodariq/api enterprise identity', () => {
 
   it('requires a recent AAL2 owner session for enterprise mutations', async () => {
     const weakToken = 'lq_sess_enterprise_weak_owner';
-    const repository = enterpriseRepository([
-      session(weakToken, 'password', 'aal1'),
-    ]);
+    const repository = enterpriseRepository([session(weakToken, 'password', 'aal1')]);
     const app = enterpriseApp(repository);
     const response = await app.inject({
       method: 'POST',
@@ -106,10 +101,10 @@ describe('@lodariq/api enterprise identity', () => {
       ...session(consumerToken, 'oidc', 'aal2'),
       identityId: CONSUMER_IDENTITY_ID,
     };
-    const repository = enterpriseRepository(
-      [consumerSession],
-      { ssoRequired: true, passwordAllowed: false },
-    );
+    const repository = enterpriseRepository([consumerSession], {
+      ssoRequired: true,
+      passwordAllowed: false,
+    });
     const app = enterpriseApp(repository);
     const response = await app.inject({
       method: 'POST',
@@ -127,7 +122,7 @@ describe('@lodariq/api enterprise identity', () => {
     const app = enterpriseApp(repository);
     const collision = await app.inject({
       method: 'POST',
-      url: '/scim/v2/Users',
+      url: '/v1/scim/Users',
       headers: { authorization: `Bearer ${SCIM_TOKEN}` },
       payload: scimUser('existing-owner', 'owner@example.com'),
     });
@@ -135,7 +130,7 @@ describe('@lodariq/api enterprise identity', () => {
 
     const created = await app.inject({
       method: 'POST',
-      url: '/scim/v2/Users',
+      url: '/v1/scim/Users',
       headers: { authorization: `Bearer ${SCIM_TOKEN}` },
       payload: scimUser('managed-external-id', 'managed@example.com'),
     });
@@ -144,7 +139,7 @@ describe('@lodariq/api enterprise identity', () => {
 
     const lookup = await app.inject({
       method: 'GET',
-      url: `/scim/v2/Users?filter=${encodeURIComponent('userName eq "managed@example.com"')}`,
+      url: `/v1/scim/Users?filter=${encodeURIComponent('userName eq "managed@example.com"')}`,
       headers: { authorization: `Bearer ${SCIM_TOKEN}` },
     });
     expect(lookup.statusCode).toBe(200);
@@ -155,7 +150,7 @@ describe('@lodariq/api enterprise identity', () => {
 
     const deprovisioned = await app.inject({
       method: 'PATCH',
-      url: `/scim/v2/Users/${principalId}`,
+      url: `/v1/scim/Users/${principalId}`,
       headers: { authorization: `Bearer ${SCIM_TOKEN}` },
       payload: {
         schemas: ['urn:ietf:params:scim:api:messages:2.0:PatchOp'],
@@ -165,7 +160,7 @@ describe('@lodariq/api enterprise identity', () => {
     expect(deprovisioned.statusCode).toBe(204);
     const deprovisionedUser = await app.inject({
       method: 'GET',
-      url: `/scim/v2/Users/${principalId}`,
+      url: `/v1/scim/Users/${principalId}`,
       headers: { authorization: `Bearer ${SCIM_TOKEN}` },
     });
     expect(deprovisionedUser.json()).toMatchObject({ active: false });
@@ -178,7 +173,7 @@ describe('@lodariq/api enterprise identity', () => {
     expect(disabled.statusCode).toBe(204);
     const rejected = await app.inject({
       method: 'GET',
-      url: `/scim/v2/Users/${principalId}`,
+      url: `/v1/scim/Users/${principalId}`,
       headers: { authorization: `Bearer ${SCIM_TOKEN}` },
     });
     expect(rejected.statusCode).toBe(401);
@@ -205,16 +200,17 @@ describe('@lodariq/api enterprise identity', () => {
   });
 
   it('accepts only same-origin metadata for a reviewed Okta tenant and consumes cancellation state once', async () => {
-    const discovery = vi.fn<typeof globalThis.fetch>(async () =>
-      new Response(
-        JSON.stringify({
-          issuer: 'https://tenant.okta.com/oauth2/default',
-          authorization_endpoint: 'https://tenant.okta.com/oauth2/default/v1/authorize',
-          token_endpoint: 'https://tenant.okta.com/oauth2/default/v1/token',
-          jwks_uri: 'https://tenant.okta.com/oauth2/default/v1/keys',
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
+    const discovery = vi.fn<typeof globalThis.fetch>(
+      async () =>
+        new Response(
+          JSON.stringify({
+            issuer: 'https://tenant.okta.com/oauth2/default',
+            authorization_endpoint: 'https://tenant.okta.com/oauth2/default/v1/authorize',
+            token_endpoint: 'https://tenant.okta.com/oauth2/default/v1/token',
+            jwks_uri: 'https://tenant.okta.com/oauth2/default/v1/keys',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
     );
     vi.stubGlobal('fetch', discovery);
     const repository = enterpriseRepository();
@@ -226,8 +222,9 @@ describe('@lodariq/api enterprise identity', () => {
         payload: { connectionId: CONNECTION_ID, returnTo: '/authoring/activate' },
       });
       expect(begin.statusCode).toBe(200);
-      const state = new URL(begin.json<{ authorizationUrl: string }>().authorizationUrl)
-        .searchParams.get('state');
+      const state = new URL(
+        begin.json<{ authorizationUrl: string }>().authorizationUrl,
+      ).searchParams.get('state');
       expect(state).toMatch(/^[A-Za-z0-9_-]{43}$/u);
       const cancelled = await app.inject({
         method: 'POST',
@@ -271,8 +268,7 @@ function enterpriseOidcConfiguration(): EnterpriseOidcConfiguration {
   return readEnterpriseOidcConfiguration({
     LODARIQ_ENTERPRISE_OIDC_MODE: 'enabled',
     LODARIQ_OIDC_STATE_SECRET: 'enterprise-oidc-state-secret-at-least-thirty-two-bytes',
-    LODARIQ_ENTERPRISE_OIDC_REDIRECT_URI:
-      'https://app.lodariq.io/api/auth/enterprise/oidc/callback',
+    LODARIQ_ENTERPRISE_OIDC_REDIRECT_URI: 'https://app.lodariq.io/v1/auth/enterprise/oidc/callback',
     LODARIQ_ENTERPRISE_OIDC_CLIENT_SECRETS: JSON.stringify({
       [CONNECTION_ID]: 'enterprise-client-secret-at-least-thirty-two-bytes',
     }),

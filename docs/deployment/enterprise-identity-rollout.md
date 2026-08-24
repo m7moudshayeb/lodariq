@@ -30,9 +30,9 @@ availability claim.
 
 Register exactly one first-party callback per deployment:
 
-- Development: `https://dev-app.lodariq.io/api/auth/enterprise/oidc/callback`
-- Staging: `https://staging-app.lodariq.io/api/auth/enterprise/oidc/callback`
-- Production: `https://app.lodariq.io/api/auth/enterprise/oidc/callback`
+- Development: `https://dev-app.lodariq.io/v1/auth/enterprise/oidc/callback`
+- Staging: `https://staging-app.lodariq.io/v1/auth/enterprise/oidc/callback`
+- Production: `https://app.lodariq.io/v1/auth/enterprise/oidc/callback`
 
 Do not register wildcards, `lodariq.com`, editor/customer origins, or a callback
 from another environment. Use separate provider applications and secrets per

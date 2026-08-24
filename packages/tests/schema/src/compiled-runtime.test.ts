@@ -6,6 +6,7 @@ import {
   CompiledDocumentV2,
   CompiledDocumentV3,
   CompiledDocumentV4,
+  CompiledDocumentV5,
   DEFAULT_EXPERIENCE_APPEARANCE,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RENDERER_CONTRACT_VERSION,
@@ -13,6 +14,7 @@ import {
   type CompiledDocumentV2 as CompiledDocumentV2Type,
   type CompiledDocumentV3 as CompiledDocumentV3Type,
   type CompiledDocumentV4 as CompiledDocumentV4Type,
+  type CompiledDocumentV5 as CompiledDocumentV5Type,
 } from '@lodariq/schema';
 import {
   COMPILED_RUNTIME_SCHEMA_REFERENCES,
@@ -59,6 +61,14 @@ const v3: CompiledDocumentV3Type = {
 
 const v4: CompiledDocumentV4Type = {
   ...base,
+  artifactSchemaVersion: '4',
+  compilerVersion: '0.5.0',
+  rendererContractVersion: '4',
+  localization: { defaultLocale: 'en', defaultTitle: 'Version four tour', variants: [] },
+};
+
+const v5: CompiledDocumentV5Type = {
+  ...base,
   artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
   compilerVersion: COMPILER_VERSION,
   rendererContractVersion: RENDERER_CONTRACT_VERSION,
@@ -71,6 +81,7 @@ describe('compiled runtime artifact validation', () => {
     expect(isValidCompiledRuntimeArtifact(v2)).toBe(true);
     expect(isValidCompiledRuntimeArtifact(v3)).toBe(true);
     expect(isValidCompiledRuntimeArtifact(v4)).toBe(true);
+    expect(isValidCompiledRuntimeArtifact(v5)).toBe(true);
   });
 
   it('rejects unknown fields, unsafe theme values, and mixed-version structures', () => {
@@ -96,8 +107,58 @@ describe('compiled runtime artifact validation', () => {
     ).toBe(false);
   });
 
+  it('accepts only the closed delivery approach contract', () => {
+    const withApproach = {
+      ...v4,
+      targets: [
+        {
+          id: 'final',
+          fingerprint: { tagName: 'button', stableAttributes: {} },
+          approach: {
+            legs: [
+              {
+                act: { kind: 'activateTarget', targetId: 'opener' },
+                wait: { type: 'targetAvailable', targetId: 'final' },
+                label: 'Open the panel',
+              },
+            ],
+          },
+        },
+        {
+          id: 'opener',
+          fingerprint: { tagName: 'button', stableAttributes: {} },
+        },
+      ],
+    };
+    expect(isValidCompiledRuntimeArtifact(withApproach)).toBe(true);
+    expect(
+      isValidCompiledRuntimeArtifact({
+        ...withApproach,
+        targets: [
+          {
+            ...withApproach.targets[0],
+            approach: {
+              legs: [
+                {
+                  act: { kind: 'navigate', routePatternId: 'projects' },
+                  label: 'Navigate',
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
   it('keeps the lazy runtime reference registry complete for every artifact version', () => {
-    const roots = [CompiledDocumentV1, CompiledDocumentV2, CompiledDocumentV3, CompiledDocumentV4];
+    const roots = [
+      CompiledDocumentV1,
+      CompiledDocumentV2,
+      CompiledDocumentV3,
+      CompiledDocumentV4,
+      CompiledDocumentV5,
+    ];
     const references = new Map(
       COMPILED_RUNTIME_SCHEMA_REFERENCES.flatMap((schema) =>
         typeof schema.$id === 'string' ? [[schema.$id, schema] as const] : [],

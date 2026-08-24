@@ -3,6 +3,14 @@
 Tracks what has been implemented against `refined-lodariq-prd.md`. Section
 references like (PRD §16.0) point to that document.
 
+**Deployed environments.** Development (<https://dev-app.lodariq.io/>) and
+staging (<https://staging-app.lodariq.io/>) are deployed against shared
+databases; production is not. Because those databases exist,
+`packages/database/drizzle/0000_initial_baseline.sql` is immutable and every
+schema change is a numbered forward migration. Rows below marked "deployed
+evidence remains open" mean the named feature has not yet been exercised on
+those environments — not that Lodariq is undeployed.
+
 - Implemented phase: **Phase 0/1 codewise foundation retained; the Phase 2 local
   code milestone is complete. Product Match and atomic provenance, exact browser
   verification, Brand drift/acknowledgement, exact-artifact promotion and
@@ -36,6 +44,58 @@ references like (PRD §16.0) point to that document.
 - Last updated: 2026-08-15
 - Current execution plan:
   `docs/plans/phase-2-technical-completion.md`
+
+## 2026-08-23 Targeting accuracy measured (ADR 0029)
+
+- The semantic resolver now has numbers instead of judgement. A mutation corpus
+  (`packages/tests/targeting-accuracy/`, 662 trials over 17 host pages and 32
+  mutation classes) captures targets the way an author would, then mutates the
+  page the way a product team ships changes, and scores each trial against a
+  contract declared per mutation.
+- **`wrong` is 0 in both arms and in every class**, asserted absolutely rather
+  than ratcheted. Arm A (author never answered the disambiguation question): 368
+  trials, 346 met contract (94%). Arm B (author declared a selection policy): 294
+  trials, 0 policy violations. **The two totals are never merged** — the same
+  behaviour is a pass in one arm and a failure in the other.
+- **Near-miss is measured, and it is the honest headline.** 123 of 368 Arm A
+  trials ranked the wrong element first, and all 123 abstained; 38 cleared the
+  tie gate and were stopped only by a later veto. The claim is not "never close",
+  it is **"close often, and caught every time"**. Deriving it needed one new
+  resolver export (`setResolutionRankingObserver`), kept separate from the
+  telemetry observer because telemetry is shaped to be sent and a candidate
+  inside a customer's table row can be a person.
+- **Eight of those near-misses were stopped by the two-family quorum and nothing
+  else.** That is a binding constraint on the recall phase: uninstrumented pages
+  must be fixed by finding more durable evidence, never by lowering the quorum.
+- Fixes landed and priced: the text filter across every rank policy, the
+  set-shrink tripwire, the `evidenceContradiction` lift, 5b's
+  role-substitutes-for-tag, the **action-gated** copy-matches-nobody veto, and
+  the disabled-target rule. Two intuitively appealing proposals were killed by
+  measurement, and the planned `sibling-position` rescope was dropped outright
+  rather than deferred.
+- A committed baseline (`baseline.json`) ratchets every class in both arms.
+  **Improvements fail as loudly as regressions**, and regeneration still fails
+  the run so a person has to read the diff.
+- **Claim discipline:** these are internal engineering numbers for
+  prioritisation, drift thresholds, and design-partner conversations. The corpus
+  is self-authored, so they **do not go on the website or into marketing copy**.
+  The defensible public claim is behavioural — the resolver refuses rather than
+  guesses, and says so.
+- Known gaps recorded in ADR 0029: tie fragility (412 of 662 within half a
+  point), `unsupported_boundary` having zero producers, generated ids treated as
+  durable evidence, and `check-size.mjs` measuring only static import graphs — so
+  the resolver sits in no enforced size budget.
+
+## 2026-08-22 Milestone 4 kickoff
+
+- Milestone 4 is now authorized. The repository-owned launch packet is in
+  `docs/launch/`: it tracks gate owners, reproducible evidence, security
+  controls, commercial hypotheses, and the rule that local implementation
+  checks cannot become production, legal, SLA, support, or pricing claims.
+- Operational launch is **in progress**, not complete. Named owners, approved
+  DPA/custom terms, deployed availability/RLS evidence, staffed support,
+  onboarding/CSM material, and design-partner commercial validation remain
+  external gates.
 
 Status legend:
 
@@ -164,7 +224,7 @@ contract and completion boundary.
 | 0015 SDK-first in-product authoring entry  | §6.2.1, §7.3, §9.4, §16.4, §20   | ✅ Accepted; Phase 2 Slice 1 implementation locally verified  |
 | 0016 selector-free Target Identity V2      | §8.1–§8.6, §16.4, §18.2, §20     | ✅ Accepted; code checkpoint consolidated-verified            |
 | 0017 Lodariq-owned authentication          | §6.2.1, §11.2, §14.5, §16.4, §20 | ✅ Accepted; code milestone verified, production cutover open |
-| 0025 enterprise identity boundary           | §20                               | ✅ Accepted; code present, live provider rollout gated         |
+| 0025 enterprise identity boundary          | §20                              | ✅ Accepted; code present, live provider rollout gated        |
 
 ---
 
@@ -256,7 +316,7 @@ contract and completion boundary.
 | ----------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/api` `@lodariq/api` Fastify modular monolith                | 🟡     | `apps/api`; Fastify 5 app, health route, document, environment, token, event routes, Fly.io service config                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | TypeBox/JSON Schema at API boundary                               | 🟡     | Route schemas for params/simple bodies, SDK authoring save wrapper bodies, and event batches; canonical documents validated through `@lodariq/schema`                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| OpenAPI route discovery                                           | 🟡     | `GET /openapi.json` generated by `@fastify/swagger` from Fastify route schemas for client integration                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| OpenAPI route discovery                                           | 🟡     | `GET /v1/openapi.json` generated by `@fastify/swagger` from Fastify route schemas for client integration                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | Lodariq-owned identity/session boundary                           | ✅     | `apps/api/src/auth` uses the established `argon2` package for Argon2id (`m=65536`, `t=3`, `p=1`, 32-byte hash), equivalent dummy work, bounded hash admission, hash-stored opaque sessions, expiry/revocation/rotation, purpose-separated verification/reset challenges, generic recovery, capability gates, rate limits, and one auth-email outbox/Resend worker. Signup stores a random unusable pending credential; verification atomically installs the chosen password and session. Active runtime is Clerk-free; production enablement remains open.                                                       |
 | Dashboard owned-auth and workspace UI                             | ✅     | Same-origin BFF routes expose Editorial Air sign-in/sign-up/verification/recovery/reset, account/workspace selection and creation, sign-out, protected dashboard state, and resumable authoring activation. API and BFF enforce matching signup/recovery capability gates, and activation offers reset in a new first-party tab followed by an explicit launcher retry. Invitations/member administration remain later product work.                                                                                                                                                                             |
 | Workspace-scoped document access                                  | 🟡     | API passes `AuthContext.workspaceId`; repository rejects workspace mismatch                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -429,10 +489,12 @@ with four intentional skips, and `pnpm audit` with zero known vulnerabilities.
 This closes the local Phase 2 code milestone. Rows remain 🟡 only where later
 product scope, live/deployed proof, or operational evidence is outstanding.
 
-Because Lodariq has never been deployed, the retired development migration chain
-has been squashed into `0000_initial_baseline.sql`. No external database has been
-initialized, no shared-environment migration has run, and no deployment has
-occurred. Live Drizzle/RLS release-operation, pointer, analytics, and owned-auth
+The retired development migration chain was squashed into
+`0000_initial_baseline.sql` before any deployment. Development
+(<https://dev-app.lodariq.io/>) and staging
+(<https://staging-app.lodariq.io/>) are now deployed against shared databases,
+so the baseline is immutable and later schema changes are numbered forward
+migrations. Production is not deployed. Live Drizzle/RLS release-operation, pointer, analytics, and owned-auth
 proof; provider/flag/deployment cutover; deployed exact-verification and release
 convergence; deployed launcher/auth evidence; the B4 measurement ADR; and
 external usability evidence remain required. No production-live pointer or full

@@ -62,7 +62,7 @@ export function userFacingClientError(error: unknown, fallback: string): string 
 }
 
 export function signIn(input: SignInInput): Promise<AuthSessionSnapshot> {
-  return authMutation('/api/auth/sign-in', input);
+  return authMutation('/v1/auth/sign-in', input);
 }
 
 export async function beginOidcAuthentication(input: {
@@ -72,12 +72,13 @@ export async function beginOidcAuthentication(input: {
   workspaceName?: string;
   rememberMe?: boolean;
 }): Promise<string> {
-  const response = await jsonMutation(`/api/auth/oidc/${input.provider}/begin`, 'POST', input);
+  const response = await jsonMutation(`/v1/auth/oidc/${input.provider}/begin`, 'POST', input);
   if (!response.ok) throw await clientAuthError(response);
   const payload = (await response.json()) as { authorizationUrl?: unknown };
   if (typeof payload.authorizationUrl !== 'string') throw invalidAccountResponse();
   const authorizationUrl = new URL(payload.authorizationUrl);
-  const expectedHost = input.provider === 'google' ? 'accounts.google.com' : 'login.microsoftonline.com';
+  const expectedHost =
+    input.provider === 'google' ? 'accounts.google.com' : 'login.microsoftonline.com';
   if (authorizationUrl.protocol !== 'https:' || authorizationUrl.hostname !== expectedHost) {
     throw invalidAccountResponse();
   }
@@ -88,7 +89,7 @@ export async function beginEnterpriseOidcAuthentication(input: {
   email: string;
   returnTo: string;
 }): Promise<string> {
-  const discoveryResponse = await jsonMutation('/api/auth/enterprise/discover', 'POST', {
+  const discoveryResponse = await jsonMutation('/v1/auth/enterprise/discover', 'POST', {
     email: input.email,
   });
   if (!discoveryResponse.ok) throw await clientAuthError(discoveryResponse);
@@ -107,7 +108,7 @@ export async function beginEnterpriseOidcAuthentication(input: {
       'enterprise_sso_unavailable',
     );
   }
-  const response = await jsonMutation('/api/auth/enterprise/oidc/begin', 'POST', {
+  const response = await jsonMutation('/v1/auth/enterprise/oidc/begin', 'POST', {
     connectionId: discovery.connectionId,
     returnTo: input.returnTo,
   });
@@ -139,7 +140,7 @@ export interface PasskeySummary {
 }
 
 export async function listPasskeys(): Promise<PasskeySummary[]> {
-  const response = await sameOriginFetch('/api/auth/passkeys', { method: 'GET' });
+  const response = await sameOriginFetch('/v1/auth/passkeys', { method: 'GET' });
   if (!response.ok) throw await clientAuthError(response);
   const payload = (await response.json()) as { passkeys?: unknown };
   if (!Array.isArray(payload.passkeys)) throw invalidAccountResponse();
@@ -149,11 +150,9 @@ export async function listPasskeys(): Promise<PasskeySummary[]> {
 }
 
 export async function registerPasskey(name: string): Promise<void> {
-  const optionsResponse = await jsonMutation(
-    '/api/auth/passkeys/registration/options',
-    'POST',
-    { name },
-  );
+  const optionsResponse = await jsonMutation('/v1/auth/passkeys/registration/options', 'POST', {
+    name,
+  });
   if (!optionsResponse.ok) throw await clientAuthError(optionsResponse);
   const envelope = (await optionsResponse.json()) as {
     challengeId?: unknown;
@@ -165,11 +164,11 @@ export async function registerPasskey(name: string): Promise<void> {
   const credential = await startRegistration({
     optionsJSON: envelope.options as unknown as PublicKeyCredentialCreationOptionsJSON,
   });
-  const verification = await jsonMutation(
-    '/api/auth/passkeys/registration/verify',
-    'POST',
-    { challengeId: envelope.challengeId, name, response: credential },
-  );
+  const verification = await jsonMutation('/v1/auth/passkeys/registration/verify', 'POST', {
+    challengeId: envelope.challengeId,
+    name,
+    response: credential,
+  });
   if (!verification.ok) throw await clientAuthError(verification);
 }
 
@@ -177,11 +176,9 @@ export async function authenticateWithPasskey(
   purpose: 'sign_in' | 'step_up',
   rememberMe = false,
 ): Promise<AuthSessionSnapshot> {
-  const optionsResponse = await jsonMutation(
-    '/api/auth/passkeys/authentication/options',
-    'POST',
-    { purpose },
-  );
+  const optionsResponse = await jsonMutation('/v1/auth/passkeys/authentication/options', 'POST', {
+    purpose,
+  });
   if (!optionsResponse.ok) throw await clientAuthError(optionsResponse);
   const envelope = (await optionsResponse.json()) as {
     challengeId?: unknown;
@@ -193,7 +190,7 @@ export async function authenticateWithPasskey(
   const credential = await startAuthentication({
     optionsJSON: envelope.options as unknown as PublicKeyCredentialRequestOptionsJSON,
   });
-  const response = await jsonMutation('/api/auth/passkeys/authentication/verify', 'POST', {
+  const response = await jsonMutation('/v1/auth/passkeys/authentication/verify', 'POST', {
     challengeId: envelope.challengeId,
     purpose,
     rememberMe,
@@ -213,7 +210,7 @@ export interface RecoveryCodeStatus {
 }
 
 export async function getRecoveryCodeStatus(): Promise<RecoveryCodeStatus | null> {
-  const response = await sameOriginFetch('/api/auth/recovery-codes', { method: 'GET' });
+  const response = await sameOriginFetch('/v1/auth/recovery-codes', { method: 'GET' });
   if (!response.ok) throw await clientAuthError(response);
   const payload: unknown = await response.json();
   return payload === null ? null : parseRecoveryCodeStatus(payload);
@@ -222,7 +219,7 @@ export async function getRecoveryCodeStatus(): Promise<RecoveryCodeStatus | null
 export async function generateRecoveryCodes(
   currentPassword?: string,
 ): Promise<{ setId: string; codes: string[] }> {
-  const response = await jsonMutation('/api/auth/recovery-codes', 'POST', {
+  const response = await jsonMutation('/v1/auth/recovery-codes', 'POST', {
     ...(currentPassword ? { currentPassword } : {}),
   });
   if (!response.ok) throw await clientAuthError(response);
@@ -239,7 +236,7 @@ export async function generateRecoveryCodes(
 }
 
 export async function confirmRecoveryCodes(setId: string, code: string): Promise<void> {
-  const response = await jsonMutation('/api/auth/recovery-codes/confirm', 'POST', {
+  const response = await jsonMutation('/v1/auth/recovery-codes/confirm', 'POST', {
     setId,
     code,
   });
@@ -247,7 +244,7 @@ export async function confirmRecoveryCodes(setId: string, code: string): Promise
 }
 
 export async function revokeRecoveryCodes(): Promise<void> {
-  const response = await jsonMutation('/api/auth/recovery-codes', 'DELETE', {});
+  const response = await jsonMutation('/v1/auth/recovery-codes', 'DELETE', {});
   if (!response.ok) throw await clientAuthError(response);
 }
 
@@ -256,11 +253,11 @@ export function signInWithRecoveryCode(
   code: string,
   rememberMe: boolean,
 ): Promise<AuthSessionSnapshot> {
-  return authMutation('/api/auth/recovery-code/sign-in', { identifier, code, rememberMe });
+  return authMutation('/v1/auth/recovery-code/sign-in', { identifier, code, rememberMe });
 }
 
 export async function signUp(input: SignUpInput): Promise<EmailVerificationRequiredResponse> {
-  const response = await sameOriginFetch('/api/auth/sign-up', {
+  const response = await sameOriginFetch('/v1/auth/sign-up', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
@@ -277,7 +274,7 @@ export async function signUp(input: SignUpInput): Promise<EmailVerificationRequi
 export async function resendEmailVerification(
   email: string,
 ): Promise<EmailVerificationResendAcceptedResponse> {
-  const response = await sameOriginFetch('/api/auth/resend-verification', {
+  const response = await sameOriginFetch('/v1/auth/resend-verification', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -298,13 +295,13 @@ export function verifyEmail(
 ): Promise<AuthSessionSnapshot> {
   const input = parseVerifyEmailInput(challengeId, token, password);
   if (!input) throw new ClientAuthError(400, 'The verification link is invalid or expired.');
-  return authMutation('/api/auth/verify-email', input);
+  return authMutation('/v1/auth/verify-email', input);
 }
 
 export async function requestPasswordRecovery(
   email: string,
 ): Promise<PasswordRecoveryAcceptedResponse> {
-  const response = await sameOriginFetch('/api/auth/password-recovery', {
+  const response = await sameOriginFetch('/v1/auth/password-recovery', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -325,7 +322,7 @@ export async function setPassword(
 ): Promise<AuthSessionSnapshot> {
   const input = parseSetPasswordInput(challengeId, token, password);
   if (!input) throw new ClientAuthError(400, 'The password link is invalid or expired.');
-  const response = await sameOriginFetch('/api/auth/set-password', {
+  const response = await sameOriginFetch('/v1/auth/set-password', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
@@ -338,7 +335,7 @@ export async function setPassword(
 }
 
 export async function signOut(): Promise<void> {
-  const response = await sameOriginFetch('/api/auth/sign-out', {
+  const response = await sameOriginFetch('/v1/auth/sign-out', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: '{}',
@@ -347,7 +344,7 @@ export async function signOut(): Promise<void> {
 }
 
 export async function listAccountSessions(): Promise<AuthSessionListResponse> {
-  const response = await sameOriginFetch('/api/auth/sessions', { method: 'GET' });
+  const response = await sameOriginFetch('/v1/auth/sessions', { method: 'GET' });
   if (!response.ok) throw await clientAuthError(response);
   const sessions = parseAuthSessionListResponse(await response.json());
   if (!sessions) throw invalidAccountResponse();
@@ -356,7 +353,7 @@ export async function listAccountSessions(): Promise<AuthSessionListResponse> {
 
 export async function revokeAccountSession(sessionId: string): Promise<void> {
   const response = await jsonMutation(
-    `/api/auth/sessions/${encodeURIComponent(sessionId)}`,
+    `/v1/auth/sessions/${encodeURIComponent(sessionId)}`,
     'DELETE',
     {},
   );
@@ -364,12 +361,12 @@ export async function revokeAccountSession(sessionId: string): Promise<void> {
 }
 
 export async function signOutEverywhere(): Promise<void> {
-  const response = await jsonMutation('/api/auth/sign-out-everywhere', 'POST', {});
+  const response = await jsonMutation('/v1/auth/sign-out-everywhere', 'POST', {});
   if (!response.ok) throw await clientAuthError(response);
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
-  const response = await jsonMutation('/api/auth/change-password', 'POST', {
+  const response = await jsonMutation('/v1/auth/change-password', 'POST', {
     currentPassword,
     newPassword,
   });
@@ -377,7 +374,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
 }
 
 export async function getEmailChange(): Promise<EmailChangeSnapshot | null> {
-  const response = await sameOriginFetch('/api/auth/email-change', { method: 'GET' });
+  const response = await sameOriginFetch('/v1/auth/email-change', { method: 'GET' });
   if (!response.ok) throw await clientAuthError(response);
   const payload: unknown = await response.json();
   if (payload === null) return null;
@@ -390,7 +387,7 @@ export async function startEmailChange(
   newEmail: string,
   currentPassword: string,
 ): Promise<EmailChangeSnapshot> {
-  const response = await jsonMutation('/api/auth/email-change', 'POST', {
+  const response = await jsonMutation('/v1/auth/email-change', 'POST', {
     newEmail,
     currentPassword,
   });
@@ -407,7 +404,7 @@ export async function verifyEmailChange(
 ): Promise<
   { status: 'completed'; email: string } | { status: 'proof_recorded'; change: EmailChangeSnapshot }
 > {
-  const response = await jsonMutation('/api/auth/email-change/verify', 'POST', {
+  const response = await jsonMutation('/v1/auth/email-change/verify', 'POST', {
     challengeId,
     proof,
     token,
@@ -427,7 +424,7 @@ export async function verifyEmailChange(
 }
 
 export async function listAuthIdentities(): Promise<AuthIdentityListResponse> {
-  const response = await sameOriginFetch('/api/auth/identities', { method: 'GET' });
+  const response = await sameOriginFetch('/v1/auth/identities', { method: 'GET' });
   if (!response.ok) throw await clientAuthError(response);
   const identities = parseAuthIdentityListResponse(await response.json());
   if (!identities) throw invalidAccountResponse();
@@ -439,7 +436,7 @@ export async function unlinkAuthIdentity(
   currentPassword?: string,
 ): Promise<void> {
   const response = await jsonMutation(
-    `/api/auth/identities/${encodeURIComponent(identityId)}`,
+    `/v1/auth/identities/${encodeURIComponent(identityId)}`,
     'DELETE',
     currentPassword ? { currentPassword } : {},
   );
@@ -447,7 +444,7 @@ export async function unlinkAuthIdentity(
 }
 
 export async function exportAccount(): Promise<AccountExportResponse> {
-  const response = await sameOriginFetch('/api/auth/account-export', { method: 'GET' });
+  const response = await sameOriginFetch('/v1/auth/account-export', { method: 'GET' });
   if (!response.ok) throw await clientAuthError(response);
   const exported = parseAccountExportResponse(await response.json());
   if (!exported) throw invalidAccountResponse();
@@ -455,7 +452,7 @@ export async function exportAccount(): Promise<AccountExportResponse> {
 }
 
 export async function deleteAccount(currentPassword: string): Promise<AccountDeletionResponse> {
-  const response = await jsonMutation('/api/auth/account', 'DELETE', {
+  const response = await jsonMutation('/v1/auth/account', 'DELETE', {
     currentPassword,
     confirmation: 'DELETE',
   });
@@ -466,7 +463,7 @@ export async function deleteAccount(currentPassword: string): Promise<AccountDel
 }
 
 export async function getUsername(): Promise<string | null> {
-  const response = await sameOriginFetch('/api/auth/username', { method: 'GET' });
+  const response = await sameOriginFetch('/v1/auth/username', { method: 'GET' });
   if (!response.ok) throw await clientAuthError(response);
   const payload = (await response.json()) as { username?: unknown };
   return typeof payload.username === 'string' || payload.username === null
@@ -475,7 +472,7 @@ export async function getUsername(): Promise<string | null> {
 }
 
 export async function getOnboarding(): Promise<AuthOnboardingSnapshot | null> {
-  const response = await sameOriginFetch('/api/auth/onboarding', { method: 'GET' });
+  const response = await sameOriginFetch('/v1/auth/onboarding', { method: 'GET' });
   if (!response.ok) throw await clientAuthError(response);
   const payload: unknown = await response.json();
   if (payload === null) return null;
@@ -487,7 +484,7 @@ export async function getOnboarding(): Promise<AuthOnboardingSnapshot | null> {
 }
 
 export async function setUsername(username: string, password: string): Promise<string> {
-  const response = await sameOriginFetch('/api/auth/username', {
+  const response = await sameOriginFetch('/v1/auth/username', {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ username, password }),
@@ -501,18 +498,18 @@ export async function setUsername(username: string, password: string): Promise<s
 }
 
 export function createWorkspace(name: string): Promise<AuthSessionSnapshot> {
-  return authMutation('/api/workspaces', { name });
+  return authMutation('/v1/workspaces', { name });
 }
 
 export function selectWorkspace(workspaceId: string): Promise<AuthSessionSnapshot> {
-  return authMutation(`/api/workspaces/${encodeURIComponent(workspaceId)}/select`, undefined);
+  return authMutation(`/v1/workspaces/${encodeURIComponent(workspaceId)}/select`, undefined);
 }
 
 export async function acceptWorkspaceInvitation(
   invitationId: string,
   token: string,
 ): Promise<{ workspaceId: string; role: 'admin' | 'member' | 'viewer' }> {
-  const response = await sameOriginFetch('/api/workspace-invitations/accept', {
+  const response = await sameOriginFetch('/v1/workspace-invitations/accept', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ invitationId, token }),

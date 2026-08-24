@@ -23,10 +23,13 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { type AuthRole } from '../../../auth';
 import { createObservabilityEvent } from '../../../observability';
 import { parseExactBrowserOrigin } from '../../../sdk-origin';
-import { authRoleFromMembership, emitObservability } from '../../control-plane-access';
+import { emitObservability } from '../../control-plane-access';
 import type { ControlPlaneRouteOptions } from '../../control-plane-context';
 import { AUTHORING_SESSION_TTL_MS } from '../support';
-import { authoringSessionCapabilitiesForRole } from './authoring-membership';
+import {
+  authoringSessionCapabilitiesForGovernance,
+  authoringSessionCapabilitiesForRole,
+} from './authoring-membership';
 import {
   requireExpectedEditorOrigin,
   setCredentialResponseHeaders,
@@ -93,10 +96,9 @@ export async function createActivatedAuthoringDocumentSession(
     session.workspaceId,
     session.creatorId,
   );
-  const responseCapabilities = authoringSessionCapabilitiesForRole(
-    session.capabilities,
-    membership ? authRoleFromMembership(membership.role) : 'viewer',
-  );
+  const responseCapabilities = membership
+    ? await authoringSessionCapabilitiesForGovernance(options.repository, session)
+    : authoringSessionCapabilitiesForRole(session.capabilities, 'viewer');
   emitObservability(
     options.observability,
     createObservabilityEvent({
@@ -133,6 +135,17 @@ export async function createActivatedAuthoringDocumentSession(
       deliveryCapabilities: CURRENT_AUTHORING_DELIVERY_CAPABILITY_METADATA,
       ...(options.authoringTranslationProvider
         ? { translation: { state: 'available' as const } }
+        : {}),
+      ...(options.authoringAssistProvider ? { assist: { state: 'available' as const } } : {}),
+      ...(options.narrationProvider
+        ? {
+            narration: {
+              state: 'available' as const,
+              voices: options.narrationProvider.voices
+                .filter((voice) => !voice.cloned)
+                .map((voice) => structuredClone(voice)),
+            },
+          }
         : {}),
       expiresAt: session.expiresAt,
     },

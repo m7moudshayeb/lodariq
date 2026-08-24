@@ -404,10 +404,16 @@ function createHostedPreviewServices(
           ...(options.flowConditionContext
             ? { flowConditionContext: options.flowConditionContext }
             : {}),
+          ...(options.adaptiveContext ? { adaptiveContext: options.adaptiveContext } : {}),
           ...(options.accessibilityMode ? { accessibilityMode: options.accessibilityMode } : {}),
           ...(options.stepId ? { initialStepId: options.stepId } : {}),
           ...(options.authoringTargetOverride
             ? { authoringTargetOverride: options.authoringTargetOverride }
+            : {}),
+          ...(options.onBeforeStepChange
+            ? {
+                onBeforeStepChange: (index, step) => options.onBeforeStepChange?.(index, step.id),
+              }
             : {}),
           ...(options.onStepChange
             ? { onStepChange: (index, step) => options.onStepChange?.(index, step.id) }
@@ -433,6 +439,11 @@ function createHostedPreviewServices(
                   options.onBranchChoice?.(step.id, ruleIndex, destination),
               }
             : {}),
+          ...(options.onAdaptiveSkip
+            ? {
+                onAdaptiveSkip: (step, decision) => options.onAdaptiveSkip?.(step.id, decision),
+              }
+            : {}),
           ...(options.getAuthoringProtectedSurfaces
             ? { getAuthoringProtectedSurfaces: options.getAuthoringProtectedSurfaces }
             : {}),
@@ -452,12 +463,18 @@ function createHostedPreviewServices(
         ...(options.flowConditionContext
           ? { flowConditionContext: options.flowConditionContext }
           : {}),
+        ...(options.adaptiveContext ? { adaptiveContext: options.adaptiveContext } : {}),
         ...(options.accessibilityMode
           ? { authoringAccessibilityMode: options.accessibilityMode }
           : {}),
         ...(options.stepId ? { initialStepId: options.stepId } : {}),
         ...(options.authoringTargetOverride
           ? { authoringTargetOverride: options.authoringTargetOverride }
+          : {}),
+        ...(options.onBeforeStepChange
+          ? {
+              onBeforeStepChange: (index, step) => options.onBeforeStepChange?.(index, step.id),
+            }
           : {}),
         ...(options.onStepChange
           ? { onStepChange: (index, step) => options.onStepChange?.(index, step.id) }
@@ -481,6 +498,11 @@ function createHostedPreviewServices(
           ? {
               onBranchChoice: (step, ruleIndex, destination) =>
                 options.onBranchChoice?.(step.id, ruleIndex, destination),
+            }
+          : {}),
+        ...(options.onAdaptiveSkip
+          ? {
+              onAdaptiveSkip: (step, decision) => options.onAdaptiveSkip?.(step.id, decision),
             }
           : {}),
         ...(options.getAuthoringProtectedSurfaces
@@ -708,7 +730,11 @@ function sameDocumentIntent(
       left.focusBlockId === right.focusBlockId
     );
   }
-  return left.kind === 'new-draft' && right.kind === 'new-draft';
+  return (
+    left.kind === 'new-draft' &&
+    right.kind === 'new-draft' &&
+    left.documentType === right.documentType
+  );
 }
 
 function createSecureRequestId(cryptoApi: Crypto): string {

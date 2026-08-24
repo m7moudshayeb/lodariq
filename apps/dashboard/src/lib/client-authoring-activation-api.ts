@@ -15,7 +15,10 @@ export interface PendingActivation {
         workspace?: 'canvas' | 'flowMap' | 'reviewRecovery';
         focusBlockId?: string;
       }
-    | { kind: 'new-draft'; documentType: 'tour' };
+    | {
+        kind: 'new-draft';
+        documentType: 'tour' | 'announcement' | 'hotspot' | 'survey' | 'checklist';
+      };
 }
 
 export interface AuthorizationResult {
@@ -72,7 +75,7 @@ export async function approveAuthoringActivation(
 }
 
 async function activationRequest(body: unknown): Promise<Response> {
-  return fetch('/authoring/activate/request', {
+  return fetch('/v1/authoring/activation', {
     method: 'POST',
     credentials: 'same-origin',
     cache: 'no-store',

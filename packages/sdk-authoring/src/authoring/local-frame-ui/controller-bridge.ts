@@ -1,21 +1,26 @@
-import { ControllerPreviewFeature } from './controller-preview';
+import { ControllerChromeFeature } from './controller-chrome';
+import { AUTHORING_OPERATIONS_TABS, type AuthoringOperationsTab } from './types';
 import { authoringText } from '../../i18n';
 import {
   AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
   AUTHORING_CHROME_ACTION_REQUEST_TYPE,
   AUTHORING_PANEL_MODE_OPEN_TYPE,
   AUTHORING_SAVE_STATE_UPDATE_TYPE,
+  AUTHORING_SHELL_PRESENTATION_TYPE,
+  AUTHORING_SHELL_STEP_COMMAND_TYPE,
+  AUTHORING_SHELL_POPUP_SIZE_COMMIT_TYPE,
   BRIDGE_PROTOCOL_VERSION,
   isPresentationAnchor,
   DEFAULT_EXPERIENCE_APPEARANCE,
   resolveExperienceAppearance,
   type BridgeMessage,
+  type TargetIdentityV2,
   type TargetLocale,
   type TargetViewportClass,
 } from '@lodariq/schema';
 import { attachTargetToBlocks, hasBlock } from '../document-ops';
 import { createBridgeCorrelationId } from '../../bridge/transport';
-import { createTargetId } from '../../editor';
+import { createTargetId } from '../../editor/ids';
 import type { AuthoringPanelMode, DocumentTarget } from './types';
 import { findBlockById, targetInspectionStatus } from './utils';
 import {
@@ -25,7 +30,7 @@ import {
 } from './controller-model';
 import { authoringTargetIdentityKey } from '../target-health-ledger';
 
-export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
+export abstract class ControllerBridgeFeature extends ControllerChromeFeature {
   protected abstract handlePageLifecycleUpdate(
     route: string,
     routePatternId: string | undefined,
@@ -36,6 +41,13 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
   protected abstract handleTargetEvidenceUpdate(
     message: Extract<BridgeMessage, { type: 'target.evidence.update' }>,
   ): void;
+  protected recordSemanticTarget(_identity: TargetIdentityV2): void {}
+  protected recordSemanticLifecycle(
+    _routePatternId: string | undefined,
+    _stateId: string | undefined,
+  ): void {}
+  /** §7.5's palette ask. Implemented where the assist machine lives. */
+  protected abstract askFromChrome(prompt: string): void;
 
   protected handleBridgeMessage(message: BridgeMessage): Promise<void> | void {
     if (message.sessionId !== this.sessionId || message.documentId !== this.documentState.id) {
@@ -54,6 +66,7 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
           window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ??
           false,
       };
+      this.sendShellCapabilities();
       this.emit();
       return;
     }
@@ -120,7 +133,75 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
       if (message.action === 'preview-full') this.previewFullTour();
       if (message.action === 'open-appearance') this.openAppearanceMode();
       if (message.action === 'open-release') this.openReleaseVerificationMode();
+      if (message.action === 'open-operations') {
+        const requested = (message as { tab?: string }).tab;
+        this.openOperationsMode(
+          AUTHORING_OPERATIONS_TABS.includes(requested as AuthoringOperationsTab)
+            ? (requested as AuthoringOperationsTab)
+            : undefined,
+        );
+      }
+      if (message.action === 'close-operations') this.closeOperationsMode();
       if (message.action === 'save-and-exit') this.requestSaveAndExit();
+      if (message.action === 'switch-experience') {
+        const type = (message as { experienceType?: string }).experienceType;
+        if (type) this.switchExperienceType(type);
+      }
+      if (message.action === 'toggle-recording') this.toggleStepRecording();
+      if (message.action === 'canvas-zoom-in') this.zoomCanvas('in');
+      if (message.action === 'canvas-zoom-out') this.zoomCanvas('out');
+      if (message.action === 'canvas-zoom-reset') this.zoomCanvas('reset');
+      if (message.action === 'restart') this.restartFromFirstStep();
+      if (message.action === 'ask-lodariq') this.askFromChrome(message.prompt ?? '');
+      return;
+    }
+
+    if (message.type === AUTHORING_SHELL_PRESENTATION_TYPE) {
+      if (message.presentation === 'operations') this.openOperationsMode();
+      if (message.presentation === 'overlay' || message.presentation === 'collapsed') {
+        this.closeOperationsMode();
+      }
+      return;
+    }
+
+    if (message.type === AUTHORING_SHELL_STEP_COMMAND_TYPE) {
+      if (message.command === 'add') this.appendStepAndChooseTarget();
+      if (message.command === 'select' && message.stepId) this.activateTourStep(message.stepId);
+      if (message.command === 'collapse') return;
+      if (message.command === 'retarget' && message.stepId) this.startTargetPick(message.stepId);
+      if (message.command === 'select-target' && message.stepId) this.inspectTarget(message.stepId);
+      if (message.command === 'move-up' && message.stepId) {
+        this.moveTopLevelBlock(message.stepId, 'up');
+      }
+      if (message.command === 'move-down' && message.stepId) {
+        this.moveTopLevelBlock(message.stepId, 'down');
+      }
+      if (message.command === 'remove' && message.stepId) {
+        this.deleteTopLevelBlock(message.stepId);
+      }
+      if (message.command === 'duplicate' && message.stepId) {
+        this.duplicateTopLevelBlock(message.stepId);
+      }
+      if (message.command === 'insert-before' && message.stepId) {
+        this.insertStepBeforeAndChooseTarget(message.stepId);
+      }
+      // Filmstrip multi-select (§4.5): the selection the style menu applies to.
+      if (message.command === 'select-add' && message.stepId) {
+        this.selectTourStepForBatch(message.stepId, { additive: true });
+      }
+      if (message.command === 'select-range' && message.stepId) {
+        this.selectTourStepForBatch(message.stepId, { additive: true, range: true });
+      }
+      return;
+    }
+
+    if (message.type === AUTHORING_SHELL_POPUP_SIZE_COMMIT_TYPE) {
+      // A patch, not a replacement: an axis the drag did not drive is absent and
+      // has to stay at whatever the step already had.
+      this.setTooltipLayout(message.blockId, {
+        ...(message.widthPx === undefined ? {} : { widthPx: message.widthPx }),
+        ...(message.heightPx === undefined ? {} : { heightPx: message.heightPx }),
+      });
       return;
     }
 
@@ -135,7 +216,10 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
         return;
       }
       if (operation.kind === 'setPlacement') {
-        this.setTooltipPlacement(operation.blockId, operation.placement);
+        this.setTooltipPlacement(operation.blockId, operation.placement, {
+          ...(operation.align ? { align: operation.align } : {}),
+          ...(operation.offsetPx === undefined ? {} : { offsetPx: operation.offsetPx }),
+        });
         return;
       }
       if (operation.kind === 'setAction') {
@@ -145,11 +229,16 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
         this.setStatus(authoringText('Button action updated in preview'));
         return;
       }
-      if (operation.kind === 'openAdvanced') this.openAdvancedEditor(operation.stepId);
+      if (operation.kind === 'openAdvanced') {
+        this.openAdvancedEditor(operation.stepId);
+        if (this.isHostedInParent) this.openOperationsMode('review');
+        return;
+      }
       return;
     }
 
     if (message.type === 'page.lifecycle.update') {
+      this.recordSemanticLifecycle(message.routePatternId, message.stateId);
       this.handlePageLifecycleUpdate(
         message.route,
         message.routePatternId,
@@ -185,6 +274,7 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
       this.targetHealthLedger.recordObservation(message.targetId, message.diagnostic);
       if (message.diagnostic.state === 'found') {
         this.recordMetric('target.verification-passed', { targetId: message.targetId });
+        this.learnTargetLanguage(message.targetId, message.diagnostic.learnedLocalizedEvidence);
       }
       this.setStatus(targetInspectionStatus(message.action, message.diagnostic));
       return;
@@ -226,6 +316,7 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
     }
 
     if (message.type === 'target.evidence.update') {
+      this.recordSemanticTarget(message.identity);
       this.handleTargetEvidenceUpdate(message);
       return;
     }
@@ -253,7 +344,7 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
     const label =
       message.identity?.display.authorLabel ??
       message.fingerprint.accessibleName ??
-      message.fingerprint.stableAttributes['data-lodariq-id'] ??
+      message.fingerprint.stableAttributes?.['data-lodariq-id'] ??
       message.fingerprint.tagName;
 
     this.recordChange();
@@ -261,6 +352,9 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
     const identity = message.identity
       ? { ...structuredClone(message.identity), targetId }
       : undefined;
+    // A fresh pick replaces the previous answer; re-picking without answering
+    // clears it, so a stale policy can never outlive the target it described.
+    const selection = message.selection ?? undefined;
     const nextTarget: DocumentTarget = {
       id: targetId,
       fingerprint: message.fingerprint,
@@ -268,6 +362,8 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
         ? { lifecycle: structuredClone(previousTarget.lifecycle) }
         : {}),
       ...(identity ? { identity } : {}),
+      ...(selection ? { selection: structuredClone(selection) } : {}),
+      ...(previousTarget?.approach ? { approach: structuredClone(previousTarget.approach) } : {}),
     };
     this.documentState = {
       ...this.documentState,
@@ -304,6 +400,7 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
         targetId,
         fingerprint: message.fingerprint,
         ...(identity ? { identity } : {}),
+        ...(selection ? { selection: structuredClone(selection) } : {}),
       },
     ]);
     this.setStatus(`Placement set: ${label}. Verifying…`);
@@ -378,5 +475,6 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
     this.panelWorkflowNotice = null;
     this.panelFocusToken += 1;
     this.emit();
+    this.notifyShellPresentation(mode === 'edit' ? 'overlay' : 'operations');
   }
 }

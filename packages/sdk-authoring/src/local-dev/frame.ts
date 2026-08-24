@@ -2,6 +2,7 @@ import {
   AUTHORING_RESOURCE_LIMITS,
   type AuthoringMediaAssetKind,
   type AuthoringMediaAssetResource,
+  type GenerateNarrationResult,
   type BrandThemeSnapshot,
   type LodariqDocument,
 } from '@lodariq/schema';
@@ -20,17 +21,25 @@ import {
 import { LOCAL_AUTHORING_SESSION_ID } from '../authoring/constants';
 import {
   mountLocalAuthoringFrame,
+  type LocalAuthoringInitialWorkspace,
   type LocalAuthoringFrameServices,
 } from '../authoring/local-frame';
+import {
+  createDirectAuthoringHostServices,
+  type DirectAuthoringHostServiceHandle,
+} from '../authoring/direct-host-services';
 import {
   loadLocalMediaAssetBlob,
   loadLocalMediaAssetResources,
   saveLocalMediaAssetRecord,
 } from './local-media-store';
+import { mockAssistProposal } from './mock-assist';
+import { estimateCueMs, splitNarrationCues } from '../authoring/narration/narration-rehearsal';
 
 export interface MountLocalAuthoringDevFrameOptions {
   root: HTMLElement;
   baseDocument: LodariqDocument;
+  initialWorkspace?: LocalAuthoringInitialWorkspace;
   previewTheme?: BrandThemeSnapshot;
   frameMode?: 'standalone' | 'panel';
   sessionId?: string;
@@ -45,7 +54,9 @@ export async function mountLocalAuthoringDevFrame(
 ): Promise<void> {
   await hydrateLocalMediaAssets();
   const services = createLocalAuthoringDevFrameServices(options.services);
-  const frameContext = localFrameContextFromLocation(options.root.ownerDocument.defaultView);
+  const ownerWindow = options.root.ownerDocument.defaultView;
+  const frameContext = localFrameContextFromLocation(ownerWindow);
+  const frameMode = options.frameMode ?? frameModeFromLocation(ownerWindow);
   let contextDocument: LodariqDocument | null = null;
   if (frameContext.documentId === options.baseDocument.id) {
     contextDocument = options.baseDocument;
@@ -55,17 +66,107 @@ export async function mountLocalAuthoringDevFrame(
   if (frameContext.documentId && !contextDocument) {
     throw new Error(`Lodariq local authoring document not found: ${frameContext.documentId}`);
   }
-  await mountLocalAuthoringFrame({
-    root: options.root,
-    baseDocument: contextDocument ?? options.baseDocument,
-    ...(options.previewTheme ? { previewTheme: structuredClone(options.previewTheme) } : {}),
-    frameMode: options.frameMode ?? frameModeFromLocation(options.root.ownerDocument.defaultView),
-    sessionId: options.sessionId ?? frameContext.sessionId ?? LOCAL_AUTHORING_SESSION_ID,
-    targetOrigin: options.targetOrigin,
+  const activeDocument = contextDocument ?? options.baseDocument;
+  /*
+   * WIRE_BE: the authenticated session supplies the real provider. Without one
+   * the whole assist surface is unavailable, which makes it impossible to review
+   * — so local development gets a deterministic stand-in with the same contract.
+   */
+  if (!services.requestAiAssist) {
+    services.requestAiAssist = async (request) =>
+      mockAssistProposal(request, services.loadDocument(activeDocument.id) ?? activeDocument);
+  }
+  if (!services.generateNarration) {
+    services.generateNarration = (stepId) =>
+      generateLocalNarration(services.loadDocument(activeDocument.id) ?? activeDocument, stepId);
+  }
+  if (!services.narrationVoices?.length) {
+    services.narrationVoices = [
+      { id: 'local-neutral', name: 'Local neutral', locale: 'en-US', gender: 'neutral' },
+    ];
+  }
+  const sessionId = options.sessionId ?? frameContext.sessionId ?? LOCAL_AUTHORING_SESSION_ID;
+  const directHostServices = connectLocalPanelHostServices({
+    activeDocument,
+    frameMode,
+    ownerWindow,
     peerWindow: options.peerWindow,
-    now: options.now,
     services,
+    sessionId,
+    targetOrigin: options.targetOrigin,
   });
+  try {
+    await mountLocalAuthoringFrame({
+      root: options.root,
+      baseDocument: activeDocument,
+      ...(options.initialWorkspace ? { initialWorkspace: options.initialWorkspace } : {}),
+      ...(options.previewTheme ? { previewTheme: structuredClone(options.previewTheme) } : {}),
+      frameMode,
+      sessionId,
+      targetOrigin: options.targetOrigin,
+      peerWindow: options.peerWindow,
+      now: options.now,
+      services,
+    });
+  } catch (error) {
+    directHostServices?.stop();
+    throw error;
+  }
+}
+
+interface LocalPanelHostServiceOptions {
+  activeDocument: LodariqDocument;
+  frameMode: 'standalone' | 'panel';
+  ownerWindow: Window | null;
+  peerWindow?: Window;
+  services: LocalAuthoringFrameServices;
+  sessionId: string;
+  targetOrigin?: string;
+}
+
+function connectLocalPanelHostServices(
+  options: LocalPanelHostServiceOptions,
+): DirectAuthoringHostServiceHandle | null {
+  if (options.frameMode !== 'panel' || options.services.runLocaleLayoutQa) return null;
+  const peerWindow = options.peerWindow ?? parentWindow(options.ownerWindow);
+  const targetOrigin = options.targetOrigin ?? parentOrigin(options.ownerWindow);
+  if (!peerWindow || !targetOrigin) return null;
+
+  const handle = createDirectAuthoringHostServices({
+    peerWindow,
+    allowedOrigins: [targetOrigin],
+    targetOrigin,
+    sessionId: options.sessionId,
+    workspaceId: options.activeDocument.workspaceId,
+    documentId: options.activeDocument.id,
+    publishToStaging: false,
+    localeLayoutQa: true,
+  });
+  if (handle.services.runLocaleLayoutQa) {
+    options.services.runLocaleLayoutQa = handle.services.runLocaleLayoutQa;
+  }
+  const stop = () => handle.stop();
+  options.ownerWindow?.addEventListener('pagehide', stop, { once: true });
+  return handle;
+}
+
+function parentWindow(ownerWindow: Window | null): Window | null {
+  if (!ownerWindow || ownerWindow.parent === ownerWindow) return null;
+  return ownerWindow.parent;
+}
+
+function parentOrigin(ownerWindow: Window | null): string | null {
+  const parent = parentWindow(ownerWindow);
+  if (!parent) return null;
+  try {
+    return parent.location.origin;
+  } catch {
+    try {
+      return new URL(ownerWindow?.document.referrer ?? '').origin;
+    } catch {
+      return null;
+    }
+  }
 }
 
 interface LocalFrameContext {
@@ -210,7 +311,84 @@ async function readFileWithProgress(
 }
 
 function contentTypeForLocalAsset(kind: AuthoringMediaAssetKind): string {
+  if (kind === 'audio') return 'audio/wav';
   if (kind === 'captions') return 'text/vtt';
   if (kind === 'video') return 'video/mp4';
   return 'image/png';
+}
+
+async function generateLocalNarration(
+  document: LodariqDocument,
+  stepId: string,
+): Promise<GenerateNarrationResult> {
+  const step = document.blocks.find((block) => block.id === stepId);
+  const narration = step?.props.narration;
+  if (!narration?.script.trim()) throw new Error('Narration script is required');
+  let cursor = 0;
+  const cues = splitNarrationCues(narration.script).map((text) => {
+    const durationMs = estimateCueMs(text, narration.speed);
+    const cue = { text, startMs: cursor, durationMs };
+    cursor += durationMs;
+    return cue;
+  });
+  const durationMs = Math.max(100, cursor);
+  const bytes = silentWav(durationMs);
+  const audioBuffer = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+  const file = new File([audioBuffer], `narration-${stepId}.wav`, { type: 'audio/wav' });
+  const asset = await uploadLocalMediaAsset('audio', file, { savedToLibrary: false });
+  const source = new TextEncoder().encode(
+    JSON.stringify({
+      script: narration.script,
+      voiceId: narration.voiceId ?? null,
+      speed: narration.speed ?? 1,
+      locale: narration.localeOverride ?? null,
+      model: 'local-silence-v1',
+    }),
+  );
+  const sourceDigest = await crypto.subtle.digest('SHA-256', source);
+  const sourceHash = `sha256-${[...new Uint8Array(sourceDigest)]
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('')}`;
+  return {
+    operationId: `ttsop_${crypto.randomUUID().replace(/-/gu, '')}`,
+    replayed: false,
+    asset,
+    audio: {
+      assetId: asset.id,
+      contentHash: asset.contentHash,
+      contentType: 'audio/wav',
+      durationMs,
+      cues,
+      sourceHash,
+    },
+  };
+}
+
+function silentWav(durationMs: number): Uint8Array {
+  const sampleRate = 8_000;
+  const sampleCount = Math.max(1, Math.ceil((durationMs / 1_000) * sampleRate));
+  const bytes = new Uint8Array(44 + sampleCount);
+  const view = new DataView(bytes.buffer);
+  writeAscii(bytes, 0, 'RIFF');
+  view.setUint32(4, 36 + sampleCount, true);
+  writeAscii(bytes, 8, 'WAVEfmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate, true);
+  view.setUint16(32, 1, true);
+  view.setUint16(34, 8, true);
+  writeAscii(bytes, 36, 'data');
+  view.setUint32(40, sampleCount, true);
+  bytes.fill(128, 44);
+  return bytes;
+}
+
+function writeAscii(bytes: Uint8Array, offset: number, value: string): void {
+  for (let index = 0; index < value.length; index += 1)
+    bytes[offset + index] = value.charCodeAt(index);
 }

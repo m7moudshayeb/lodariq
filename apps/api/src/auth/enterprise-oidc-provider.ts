@@ -121,7 +121,9 @@ export class EnterpriseOidcProvider {
     const cached = this.discovery.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.value;
     const issuer = canonicalUrl(connection.issuer);
-    const discoveryUrl = new URL(`${issuer.toString().replace(/\/$/u, '')}/.well-known/openid-configuration`);
+    const discoveryUrl = new URL(
+      `${issuer.toString().replace(/\/$/u, '')}/.well-known/openid-configuration`,
+    );
     const response = await fetch(discoveryUrl, {
       headers: { accept: 'application/json' },
       redirect: 'error',
@@ -202,7 +204,9 @@ function verifiedIdentity(
     throw new Error('Enterprise OIDC token does not contain a stable external identifier');
   }
   const groups = Array.isArray(payload.groups)
-    ? payload.groups.filter((value): value is string => typeof value === 'string').slice(0, MAX_GROUPS)
+    ? payload.groups
+        .filter((value): value is string => typeof value === 'string')
+        .slice(0, MAX_GROUPS)
     : [];
   if (Array.isArray(payload.groups) && groups.length !== payload.groups.length) {
     throw new Error('Enterprise OIDC group claims are invalid or exceed the supported limit');
@@ -221,9 +225,10 @@ function verifiedIdentity(
     // is the authority for this claim. The repository still rejects an existing
     // email and never uses it to link an account.
     emailVerified: true,
-    name: typeof payload.name === 'string' && payload.name.trim()
-      ? payload.name.trim().slice(0, 120)
-      : null,
+    name:
+      typeof payload.name === 'string' && payload.name.trim()
+        ? payload.name.trim().slice(0, 120)
+        : null,
     groupIds: [...new Set(groups)],
     assuranceLevel: amr.includes('mfa') ? 'aal2' : 'aal1',
   };
@@ -253,10 +258,7 @@ function assertEnterpriseIssuer(connection: EnterpriseSsoConnectionRecord): void
   }
 }
 
-function trustedProviderEndpoint(
-  connection: EnterpriseSsoConnectionRecord,
-  rawValue: string,
-): URL {
+function trustedProviderEndpoint(connection: EnterpriseSsoConnectionRecord, rawValue: string): URL {
   const endpoint = canonicalUrl(rawValue);
   const issuer = canonicalUrl(connection.issuer);
   if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password || endpoint.port) {
@@ -274,7 +276,7 @@ function trustedProviderEndpoint(
 function exactEnterpriseRedirectUri(value: string): string {
   const url = new URL(value);
   if (
-    url.pathname !== '/api/auth/enterprise/oidc/callback' ||
+    url.pathname !== '/v1/auth/enterprise/oidc/callback' ||
     url.search ||
     url.hash ||
     (url.protocol !== 'https:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1')
@@ -329,5 +331,7 @@ function canonicalUrl(value: string): URL {
 }
 
 function firstString(...values: unknown[]): string | null {
-  return values.find((value): value is string => typeof value === 'string' && Boolean(value)) ?? null;
+  return (
+    values.find((value): value is string => typeof value === 'string' && Boolean(value)) ?? null
+  );
 }

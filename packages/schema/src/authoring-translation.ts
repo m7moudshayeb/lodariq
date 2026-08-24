@@ -5,6 +5,11 @@ import { LodariqDocument } from './document';
 /** Explicit draft-only machine-translation request from an authenticated creator. */
 export const AuthoringTranslationRequest = Type.Object(
   {
+    operationId: Type.String({
+      minLength: 25,
+      maxLength: 128,
+      pattern: '^aiop_[A-Za-z0-9_-]{20,}$',
+    }),
     document: Type.Ref(LodariqDocument),
     targetLocale: Type.Ref(ContentLocale),
     mode: Type.Literal('missing'),

@@ -96,25 +96,40 @@ export function TourSequenceRail({
           const targetLabel = targetId
             ? targetLabelOf(snapshot.documentState, targetId)
             : authoringText('No placement yet');
+          const dropPosition =
+            snapshot.dragTargetBlockId === step.id ? snapshot.dragTargetPosition : null;
           return (
             <li
               className={`tour-step-row ${active ? 'active' : ''} ${
                 active && compact ? 'expanded' : ''
-              } ${itemHealth.tone}`.trim()}
+              } ${itemHealth.tone} ${dropPosition ? `drop-${dropPosition}` : ''}`.trim()}
               data-block-id={step.id}
+              data-drop-position={dropPosition ?? undefined}
               key={step.id}
-              onDragOver={(event) => controller.handleBlockDragOver(event)}
-              onDrop={(event) => controller.handleBlockDrop(event, step.id)}
+              onDragOver={(event) =>
+                controller.handleBlockDragOver(event, {
+                  selector: '.tour-step-row[data-block-id]',
+                })
+              }
+              onDrop={(event) =>
+                controller.handleBlockDrop(event, step.id, {
+                  selector: '.tour-step-row[data-block-id]',
+                })
+              }
             >
               <div className="tour-step-row-main">
                 <button
                   type="button"
                   className="tour-step-drag-handle"
                   draggable
+                  aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
                   aria-label={authoringText('Drag step {number}', { number: index + 1 })}
                   title={authoringText('Drag to reorder step')}
                   onDragEnd={() => controller.endDraggingBlock()}
                   onDragStart={(event) => controller.startDraggingBlock(step.id, event)}
+                  onKeyDown={(event) =>
+                    controller.handleBlockReorderKeyDown(event, step.id, 'vertical')
+                  }
                 >
                   <GripVertical className="tour-step-grip" size={15} strokeWidth={2} />
                 </button>

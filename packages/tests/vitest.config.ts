@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const fromRoot = (path: string): string => resolve(repoRoot, path);
+const testsRoot = resolve(fileURLToPath(new URL('.', import.meta.url)));
 
 /**
  * Centralized test runner. Default environment is `node`; DOM-dependent suites
@@ -39,6 +40,14 @@ export default defineConfig({
         replacement: fromRoot('packages/schema/src/authoring-entry-runtime.ts'),
       },
       {
+        find: /^@lodariq\/schema\/page-eligibility$/,
+        replacement: fromRoot('packages/schema/src/page-eligibility.ts'),
+      },
+      {
+        find: /^@lodariq\/schema\/page-key$/,
+        replacement: fromRoot('packages/schema/src/page-key.ts'),
+      },
+      {
         find: /^@lodariq\/schema$/,
         replacement: fromRoot('packages/schema/src/index.ts'),
       },
@@ -69,6 +78,10 @@ export default defineConfig({
       {
         find: /^@lodariq\/sdk-runtime\/lodariq-runtime$/,
         replacement: fromRoot('packages/sdk-runtime/src/runtime/index.ts'),
+      },
+      {
+        find: /^@lodariq\/sdk-runtime\/demo-player$/,
+        replacement: fromRoot('packages/sdk-runtime/src/demo-player.ts'),
       },
       {
         find: /^@lodariq\/sdk-runtime\/lodariq-local-dev$/,
@@ -169,7 +182,19 @@ export default defineConfig({
     ],
   },
   test: {
+    // Pinned so collection does not depend on the cwd the runner was invoked
+    // from. Without it a repo-root invocation collects `.worktrees/*/packages/
+    // tests/**`, which have no `node_modules`, and reports phantom failures.
+    root: testsRoot,
     include: ['**/*.test.ts'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.worktrees/**', '**/.git/**'],
     setupFiles: [fromRoot('packages/tests/vitest.setup.ts')],
+    // Explicit rather than inherited: database and API suites provision
+    // schemas in hooks, and the default 5s reads as a failure, not a timeout.
+    testTimeout: 30_000,
+    hookTimeout: 60_000,
+    // A ceiling for direct `vitest` invocations. The package script pins
+    // `--maxWorkers=1`, which still wins, and is the deterministic CI path.
+    maxWorkers: 4,
   },
 });

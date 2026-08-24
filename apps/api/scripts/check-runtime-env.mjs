@@ -14,6 +14,25 @@ const requiredHttpsUrls = [
   'LODARIQ_AUTHORING_IFRAME_SRC',
 ];
 
+/**
+ * Secrets with no deploy-time signal when they are missing.
+ *
+ * Without `LODARIQ_WEBHOOK_SIGNING_KEY` the outbound worker is never started
+ * and `POST /v1/governance/webhooks` answers 503 — the whole webhooks feature
+ * is simply off, and nothing in the deploy says so. Without
+ * `LODARIQ_DEMO_LINK_SECRET` public demo links cannot be signed at all.
+ */
+function requireSigningSecrets(env, failures) {
+  for (const key of ['LODARIQ_WEBHOOK_SIGNING_KEY', 'LODARIQ_DEMO_LINK_SECRET']) {
+    const value = env[key]?.trim();
+    if (!value) {
+      failures.push(`${key} is required for the deployed API runtime.`);
+      continue;
+    }
+    if (value.length < 32) failures.push(`${key} must be at least 32 characters.`);
+  }
+}
+
 function main(env = process.env) {
   const failures = [];
 
@@ -29,6 +48,7 @@ function main(env = process.env) {
   requireWebAuthnConfiguration(env, failures);
   requireOidcConfiguration(env, failures);
   requireEnterpriseOidcConfiguration(env, failures);
+  requireSigningSecrets(env, failures);
 
   if (env.LODARIQ_ENTERPRISE_VALIDATION_DATABASE_URL?.trim()) {
     failures.push(
@@ -103,10 +123,7 @@ function requireDeploymentOriginTuple(env, failures) {
     failures.push('LODARIQ_WEBAUTHN_ORIGIN must use the selected deployment app origin.');
   }
   if (env.LODARIQ_OIDC_MODE?.trim() === 'enabled') {
-    for (const key of [
-      'LODARIQ_GOOGLE_OIDC_REDIRECT_URI',
-      'LODARIQ_MICROSOFT_OIDC_REDIRECT_URI',
-    ]) {
+    for (const key of ['LODARIQ_GOOGLE_OIDC_REDIRECT_URI', 'LODARIQ_MICROSOFT_OIDC_REDIRECT_URI']) {
       if (env[key]?.trim() && exactOrigin(env[key]) !== tuple.app) {
         failures.push(`${key} must use the selected deployment app origin.`);
       }
@@ -173,7 +190,7 @@ function requireOidcConfiguration(env, failures) {
     requireExactOidcRedirectUri(
       `LODARIQ_${provider}_OIDC_REDIRECT_URI`,
       redirectUri,
-      `/api/auth/oidc/${provider.toLowerCase()}/callback`,
+      `/v1/auth/oidc/${provider.toLowerCase()}/callback`,
       failures,
     );
   }
@@ -181,7 +198,9 @@ function requireOidcConfiguration(env, failures) {
   const tenant = env.LODARIQ_MICROSOFT_OIDC_TENANT?.trim() ?? '';
   if (
     env.LODARIQ_MICROSOFT_OIDC_CLIENT_ID?.trim() &&
-    !/^(?:common|organizations|consumers|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/iu.test(tenant)
+    !/^(?:common|organizations|consumers|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/iu.test(
+      tenant,
+    )
   ) {
     failures.push('LODARIQ_MICROSOFT_OIDC_TENANT is invalid.');
   }
@@ -209,7 +228,7 @@ function requireEnterpriseOidcConfiguration(env, failures) {
   requireExactOidcRedirectUri(
     'LODARIQ_ENTERPRISE_OIDC_REDIRECT_URI',
     env.LODARIQ_ENTERPRISE_OIDC_REDIRECT_URI?.trim(),
-    '/api/auth/enterprise/oidc/callback',
+    '/v1/auth/enterprise/oidc/callback',
     failures,
   );
   const rawSecrets = env.LODARIQ_ENTERPRISE_OIDC_CLIENT_SECRETS?.trim() ?? '';

@@ -1,5 +1,6 @@
 import {
   AUTHORING_ACTIVATION_CAPABILITIES,
+  isDeliverableExperienceType,
   LodariqDocument as LodariqDocumentSchema,
   validate,
   type AuthoringPageDocumentSummary,
@@ -21,7 +22,7 @@ import {
 import {
   canActivateDocumentIntent,
   createOpaqueRecordId,
-  createServerOwnedTourDraft,
+  createServerOwnedExperienceDraft,
   getAuthoringDocumentSessionCapabilities,
   hasValidFutureTtl,
   isAuthoringDocumentQueryScope,
@@ -79,18 +80,27 @@ export class InMemoryRepositoryAuthoringActivation extends InMemoryRepositoryAut
       .filter(
         (entry) =>
           entry.document.workspaceId === grant.workspaceId &&
-          entry.document.type === 'tour' &&
+          isDeliverableExperienceType(entry.document.type) &&
           (input.scope === 'workspace' ||
             matchesAuthoringPageContext(entry.document, exactOrigin, pageContext)),
       )
-      .map<AuthoringPageDocumentSummary>((entry) => ({
-        id: entry.document.id,
-        title: entry.document.title,
-        type: 'tour',
-        status: entry.document.status,
-        updatedAt: entry.updatedAt,
-        releases: this.listDocumentPublicationSummaries(grant.workspaceId, entry.document.id),
-      }))
+      .flatMap<AuthoringPageDocumentSummary>((entry) =>
+        isDeliverableExperienceType(entry.document.type)
+          ? [
+              {
+                id: entry.document.id,
+                title: entry.document.title,
+                type: entry.document.type,
+                status: entry.document.status,
+                updatedAt: entry.updatedAt,
+                releases: this.listDocumentPublicationSummaries(
+                  grant.workspaceId,
+                  entry.document.id,
+                ),
+              },
+            ]
+          : [],
+      )
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 
     return clone({ scope: input.scope, pageContext, documents });
@@ -155,7 +165,7 @@ export class InMemoryRepositoryAuthoringActivation extends InMemoryRepositoryAut
     if (input.documentIntent.kind === 'existing') {
       if (
         !existingDocument ||
-        existingDocument.document.type !== 'tour' ||
+        !isDeliverableExperienceType(existingDocument.document.type) ||
         (input.selectionScope === 'page' &&
           !matchesAuthoringPageContext(existingDocument.document, exactOrigin, { pathname }))
       ) {
@@ -168,15 +178,17 @@ export class InMemoryRepositoryAuthoringActivation extends InMemoryRepositoryAut
     const defaultTheme = [...this.themes.values()].find(
       (theme) => theme.workspaceId === grant.workspaceId && theme.isDefault,
     );
-    const document = documentCreated
-      ? createServerOwnedTourDraft(
-          grant.workspaceId,
-          grant.environment,
-          exactOrigin,
-          { pathname },
-          defaultTheme,
-        )
-      : existingDocument?.document;
+    const document =
+      input.documentIntent.kind === 'new-draft'
+        ? createServerOwnedExperienceDraft(
+            grant.workspaceId,
+            grant.environment,
+            exactOrigin,
+            { pathname },
+            input.documentIntent.documentType,
+            defaultTheme,
+          )
+        : existingDocument?.document;
     if (!document || !validate(LodariqDocumentSchema, document).valid) return null;
     const compatibility = this.resolveAuthoringSessionCompatibility(document);
     if (!compatibility) return null;

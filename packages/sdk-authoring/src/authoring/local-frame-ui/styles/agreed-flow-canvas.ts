@@ -1,6 +1,5 @@
 /** React Flow canvas controls, nodes, handles, and edges. */
 export const AUTHORING_AGREED_FLOW_CANVAS_CSS = `
-  /* React Flow-backed canvas: native viewport mechanics with Lodariq chrome. */
   .tour-flow-map-workspace {
     grid-template-rows: 52px minmax(0, 1fr);
   }
@@ -220,7 +219,7 @@ export const AUTHORING_AGREED_FLOW_CANVAS_CSS = `
 
   .react-flow__edge-text {
     fill: var(--lq-color-muted);
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-semibold);
   }
 

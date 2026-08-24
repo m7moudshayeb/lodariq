@@ -37,3 +37,16 @@ export function localizedTextSimilarity(
   if (normalizedFirst === normalizedSecond) return 1;
   return jaccardSimilarity(tokenize(normalizedFirst, locale), tokenize(normalizedSecond, locale));
 }
+
+/** Every word of a fragment present in the copy: "Delete" in "Delete (7)". */
+export function localizedTextContains(
+  actual: string | null | undefined,
+  expected: string | null | undefined,
+  locale?: string,
+): boolean {
+  if (!actual || !expected) return false;
+  const wanted = tokenize(expected, locale);
+  if (wanted.length === 0) return false;
+  const present = new Set(tokenize(actual, locale));
+  return wanted.every((token) => present.has(token));
+}

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
@@ -18,6 +19,10 @@ interface SdkAssetManifest {
     version: string;
     integrity: string;
   };
+  publicLoader: {
+    path: string;
+    integrity: string;
+  };
   files: Array<{
     path: string;
     bytes: number;
@@ -27,6 +32,23 @@ interface SdkAssetManifest {
 }
 
 describe('SDK CDN asset packaging', () => {
+  it('detects module syntax without treating bundled data as an import', () => {
+    const source = [
+      'import "./side-effect.js";',
+      'import value from "./static.js";',
+      'export { value } from "./exported.js";',
+      'const lazy = import("./dynamic.js");',
+      'const capabilityIds = ["authoring.figma-token-import", ","];',
+    ].join('\n');
+
+    expect(moduleSpecifiers(source)).toEqual([
+      './side-effect.js',
+      './static.js',
+      './exported.js',
+      './dynamic.js',
+    ]);
+  });
+
   it('prepares browser-resolvable runtime and creator assets for R2 upload', () => {
     execFileSync('node', ['scripts/prepare-sdk-assets.mjs'], {
       cwd: repoRoot,
@@ -37,10 +59,15 @@ describe('SDK CDN asset packaging', () => {
     const files = new Map(manifest.files.map((file) => [file.path, file]));
 
     expect(manifest.prefix).toBe('/sdk/');
-    expect(manifest.entries.runtime).toEqual(['lodariq-public-bootstrap.js', 'lodariq-loader.js']);
+    expect(manifest.entries.runtime).toEqual([
+      'lodariq-public-bootstrap.js',
+      'lodariq-loader.js',
+      'lodariq-demo-player.js',
+    ]);
     expect(files.get('/sdk/lodariq-public-bootstrap.js')).toMatchObject({ cache: 'short' });
     expect(manifest.entries.authoring).toEqual(['lodariq-creator.js']);
     expect(files.get('/sdk/lodariq-loader.js')).toMatchObject({ cache: 'short' });
+    expect(files.get('/sdk/lodariq-demo-player.js')).toMatchObject({ cache: 'short' });
     expect(files.get('/sdk/lodariq-creator.js')).toMatchObject({ cache: 'short' });
     expect(files.has('/sdk/runtime/index.js')).toBe(true);
     expect(files.has('/sdk/renderers/tour.js')).toBe(true);
@@ -62,6 +89,17 @@ describe('SDK CDN asset packaging', () => {
     expect(manifest.creatorModule.integrity).toBe(
       `sha256-${createHash('sha256').update(creatorModuleBytes).digest('base64')}`,
     );
+
+    // The loader digest must describe the bytes actually uploaded (ADR-0027).
+    // A pinned integrity that disagrees with the published file fails closed on
+    // the customer's page, which is strictly worse than shipping no pin at all.
+    expect(manifest.publicLoader.path).toBe('/sdk/lodariq-public-bootstrap.js');
+    expect(manifest.publicLoader.integrity).toBe(
+      `sha256-${createHash('sha256')
+        .update(readFileSync(resolve(repoRoot, 'dist/sdk-assets/sdk/lodariq-public-bootstrap.js')))
+        .digest('base64')}`,
+    );
+    expect(files.has(manifest.publicLoader.path)).toBe(true);
 
     const creatorModuleDirectory = creatorModuleUrl.pathname.slice(
       0,
@@ -170,6 +208,7 @@ function isRuntimeDeliveryAsset(path: string): boolean {
   return (
     path === '/sdk/lodariq-loader.js' ||
     path === '/sdk/lodariq-public-bootstrap.js' ||
+    path === '/sdk/lodariq-demo-player.js' ||
     path.startsWith('/sdk/runtime/') ||
     path.startsWith('/sdk/renderers/') ||
     path.startsWith('/sdk/resolver/')
@@ -181,13 +220,29 @@ function browserUnresolvableSpecifiers(source: string): string[] {
 }
 
 function moduleSpecifiers(source: string): string[] {
-  return [
-    ...source.matchAll(/import\s*(?:[^'"]+?\s*from\s*)?['"]([^'"]+)['"]/g),
-    ...source.matchAll(/import\(\s*['"]([^'"]+)['"]\s*\)/g),
-    ...source.matchAll(/export\s*[^'"]+?\s*from\s*['"]([^'"]+)['"]/g),
-  ]
-    .map((match) => match[1])
-    .filter((specifier): specifier is string => typeof specifier === 'string');
+  const sourceFile = ts.createSourceFile(
+    'sdk-asset.js',
+    source,
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.JS,
+  );
+  const specifiers: string[] = [];
+
+  const addSpecifier = (node: ts.Expression | undefined) => {
+    if (node && ts.isStringLiteralLike(node)) specifiers.push(node.text);
+  };
+  const visit = (node: ts.Node) => {
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+      addSpecifier(node.moduleSpecifier);
+    } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      addSpecifier(node.arguments[0]);
+    }
+    ts.forEachChild(node, visit);
+  };
+
+  visit(sourceFile);
+  return specifiers;
 }
 
 function readManifest(): SdkAssetManifest {

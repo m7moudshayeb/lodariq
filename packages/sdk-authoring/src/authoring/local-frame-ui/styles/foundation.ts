@@ -1,44 +1,64 @@
 import {
   AUTHORING_CONTROL_HEIGHT,
-  AUTHORING_FONT_WEIGHT,
   AUTHORING_RADIUS_SCALE,
   AUTHORING_SPACE_SCALE,
-  AUTHORING_TYPE_SCALE,
+  AUTHORING_TYPOGRAPHY_CSS_PROPERTIES,
+  CREATOR_CHROME_CONTROL_TOKENS,
   CREATOR_CHROME_FONT_STACK,
+  CREATOR_CHROME_GLASS,
+  CREATOR_CHROME_STATUS_TOKENS,
   CREATOR_CHROME_TOKENS,
 } from '../../../creator-chrome-tokens';
 
 export const AUTHORING_FOUNDATION_CSS = `
   :root {
+    ${AUTHORING_TYPOGRAPHY_CSS_PROPERTIES}
     --lq-color-ink: ${CREATOR_CHROME_TOKENS.ink};
-    --lq-color-ink-soft: #c6cbd3;
+    --lq-color-ink-strong: ${CREATOR_CHROME_TOKENS.inkStrong};
+    --lq-color-ink-soft: ${CREATOR_CHROME_TOKENS.inkSoft};
     --lq-color-muted: ${CREATOR_CHROME_TOKENS.muted};
-    --lq-color-subtle: #7a828d;
+    --lq-color-subtle: ${CREATOR_CHROME_TOKENS.subtle};
     --lq-color-page: ${CREATOR_CHROME_TOKENS.canvas};
     --lq-color-panel: ${CREATOR_CHROME_TOKENS.surface};
-    --lq-color-panel-strong: #26292f;
+    --lq-color-panel-strong: ${CREATOR_CHROME_TOKENS.surfaceStrong};
+    --lq-color-panel-recessed: ${CREATOR_CHROME_TOKENS.surfaceRecessed};
     --lq-color-border: ${CREATOR_CHROME_TOKENS.border};
-    --lq-color-border-soft: #26292f;
-    --lq-color-chrome: #101216;
+    --lq-color-border-soft: ${CREATOR_CHROME_TOKENS.borderSoft};
+    --lq-color-chrome: ${CREATOR_CHROME_TOKENS.chrome};
     --lq-color-chrome-text: ${CREATOR_CHROME_TOKENS.ink};
     --lq-color-chrome-muted: ${CREATOR_CHROME_TOKENS.muted};
     --lq-color-primary: ${CREATOR_CHROME_TOKENS.action};
     --lq-color-primary-hover: ${CREATOR_CHROME_TOKENS.actionHover};
     --lq-color-on-primary: ${CREATOR_CHROME_TOKENS.onAction};
-    --lq-color-primary-soft: rgba(61, 232, 176, 0.1);
-    --lq-color-primary-border: rgba(61, 232, 176, 0.32);
+    --lq-color-primary-soft: color-mix(in srgb, ${CREATOR_CHROME_TOKENS.action} 10%, transparent);
+    --lq-color-primary-border: color-mix(in srgb, ${CREATOR_CHROME_TOKENS.action} 32%, transparent);
     --lq-color-blue: ${CREATOR_CHROME_TOKENS.focus};
-    --lq-color-blue-soft: rgba(61, 232, 176, 0.1);
-    --lq-color-blue-border: rgba(61, 232, 176, 0.32);
-    --lq-color-success: #34c98e;
-    --lq-color-success-soft: rgba(52, 201, 142, 0.12);
-    --lq-color-success-border: rgba(52, 201, 142, 0.34);
-    --lq-color-warning: #f5b84d;
-    --lq-color-warning-soft: rgba(245, 184, 77, 0.12);
-    --lq-color-warning-border: rgba(245, 184, 77, 0.34);
-    --lq-color-danger: #f26d6d;
-    --lq-color-danger-soft: rgba(242, 109, 109, 0.12);
-    --lq-color-danger-border: rgba(242, 109, 109, 0.34);
+    --lq-color-blue-soft: color-mix(in srgb, ${CREATOR_CHROME_TOKENS.focus} 10%, transparent);
+    --lq-color-blue-border: color-mix(in srgb, ${CREATOR_CHROME_TOKENS.focus} 32%, transparent);
+    --lq-color-success: ${CREATOR_CHROME_STATUS_TOKENS.positive};
+    --lq-color-success-soft: color-mix(in srgb, ${CREATOR_CHROME_STATUS_TOKENS.positive} 12%, transparent);
+    --lq-color-success-border: color-mix(in srgb, ${CREATOR_CHROME_STATUS_TOKENS.positive} 34%, transparent);
+    --lq-color-warning: ${CREATOR_CHROME_STATUS_TOKENS.attention};
+    --lq-color-warning-soft: color-mix(in srgb, ${CREATOR_CHROME_STATUS_TOKENS.attention} 12%, transparent);
+    --lq-color-warning-border: color-mix(in srgb, ${CREATOR_CHROME_STATUS_TOKENS.attention} 34%, transparent);
+    --lq-color-danger: ${CREATOR_CHROME_STATUS_TOKENS.danger};
+    --lq-color-danger-soft: color-mix(in srgb, ${CREATOR_CHROME_STATUS_TOKENS.danger} 12%, transparent);
+    --lq-color-danger-border: color-mix(in srgb, ${CREATOR_CHROME_STATUS_TOKENS.danger} 34%, transparent);
+    --lq-color-peer: ${CREATOR_CHROME_STATUS_TOKENS.peer};
+    --lq-glyph-target: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Ccircle cx='12' cy='12' r='5'/%3E%3Ccircle cx='12' cy='12' r='1'/%3E%3C/svg%3E");
+    --lq-color-success-ink: ${CREATOR_CHROME_STATUS_TOKENS.positiveInk};
+    --lq-color-warning-ink: ${CREATOR_CHROME_STATUS_TOKENS.attentionInk};
+    --lq-color-danger-ink: ${CREATOR_CHROME_STATUS_TOKENS.dangerInk};
+    --lq-color-chrome-border: ${CREATOR_CHROME_TOKENS.border};
+    --lq-glass-bg: ${CREATOR_CHROME_GLASS.background};
+    --lq-glass-blur: ${CREATOR_CHROME_GLASS.blur};
+    --lq-shadow-chrome: ${CREATOR_CHROME_GLASS.shadow};
+    --lq-color-control: ${CREATOR_CHROME_CONTROL_TOKENS.surface};
+    --lq-color-control-hover: ${CREATOR_CHROME_CONTROL_TOKENS.hover};
+    --lq-color-control-border: ${CREATOR_CHROME_CONTROL_TOKENS.border};
+    --lq-color-control-quiet: ${CREATOR_CHROME_CONTROL_TOKENS.quiet};
+    --lq-color-menu: ${CREATOR_CHROME_CONTROL_TOKENS.menu};
+    --lq-color-menu-border: ${CREATOR_CHROME_CONTROL_TOKENS.menuBorder};
     --lq-radius-xs: ${AUTHORING_RADIUS_SCALE[0]}px;
     --lq-radius-sm: ${AUTHORING_RADIUS_SCALE[0]}px;
     --lq-radius-md: ${AUTHORING_RADIUS_SCALE[1]}px;
@@ -49,23 +69,10 @@ export const AUTHORING_FOUNDATION_CSS = `
     --lq-space-5: ${AUTHORING_SPACE_SCALE[4]}px;
     --lq-space-6: ${AUTHORING_SPACE_SCALE[5]}px;
     --lq-space-7: ${AUTHORING_SPACE_SCALE[6]}px;
-    --lq-font-2xs: ${AUTHORING_TYPE_SCALE[0]}px;
-    --lq-font-xs: ${AUTHORING_TYPE_SCALE[1]}px;
-    --lq-font-sm: ${AUTHORING_TYPE_SCALE[2]}px;
-    --lq-font-md: ${AUTHORING_TYPE_SCALE[3]}px;
-    --lq-font-lg: ${AUTHORING_TYPE_SCALE[4]}px;
-    --lq-font-xl: ${AUTHORING_TYPE_SCALE[5]}px;
-    --lq-font-2xl: ${AUTHORING_TYPE_SCALE[6]}px;
-    --lq-font-3xl: ${AUTHORING_TYPE_SCALE[7]}px;
-    --lq-font-4xl: ${AUTHORING_TYPE_SCALE[8]}px;
-    --lq-weight-regular: ${AUTHORING_FONT_WEIGHT.regular};
-    --lq-weight-medium: ${AUTHORING_FONT_WEIGHT.medium};
-    --lq-weight-semibold: ${AUTHORING_FONT_WEIGHT.semibold};
-    --lq-weight-bold: ${AUTHORING_FONT_WEIGHT.bold};
     --lq-control-sm: ${AUTHORING_CONTROL_HEIGHT.sm}px;
     --lq-control-md: ${AUTHORING_CONTROL_HEIGHT.md}px;
     --lq-control-lg: ${AUTHORING_CONTROL_HEIGHT.lg}px;
-    --lq-shadow-popover: 0 16px 40px rgba(0, 0, 0, 0.44);
+    --lq-shadow-popover: ${CREATOR_CHROME_GLASS.shadowRaised};
     font-family: ${CREATOR_CHROME_FONT_STACK};
     color: var(--lq-color-ink);
     background: var(--lq-color-page);
@@ -89,6 +96,34 @@ export const AUTHORING_FOUNDATION_CSS = `
   textarea {
     max-width: 100%;
     font: inherit;
+  }
+
+  /* Both spellings: standard for Chrome 121+ and Firefox, pseudo-elements for the rest. */
+  * {
+    scrollbar-color: var(--lq-color-border) transparent;
+    scrollbar-width: thin;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-color: var(--lq-color-border);
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--lq-color-muted);
+    background-clip: padding-box;
   }
 
   button:focus-visible,

@@ -18,6 +18,7 @@ import {
   AuthoringCodeExchangeRequest,
   AuthoringCodeExchangeResult,
   AuthoringDocumentSessionResult,
+  AuthoringDocumentIntent,
   AuthoringDocumentPayload,
   AuthoringStagingPublicationResult,
   AuthoringStagingReleaseState,
@@ -32,6 +33,7 @@ import {
   LODARIQ_AUTHORING_ACTIVATION_URL,
   LODARIQ_EDITOR_ORIGIN,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+  PUBLIC_MANIFEST_SCHEMA_VERSION,
   PublicSdkBootstrapContext,
   PublicSdkBootstrapRequest,
   QueryAuthoringDocumentsRequest,
@@ -92,7 +94,7 @@ const bootstrapBase = {
 };
 
 const activeManifest = (documentId: string, suffix: string) => ({
-  schemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
+  schemaVersion: PUBLIC_MANIFEST_SCHEMA_VERSION,
   workspaceId: 'workspace_123',
   environmentId: 'env_staging',
   documentId,
@@ -342,6 +344,24 @@ describe('permanent SDK bootstrap activation contracts', () => {
 });
 
 describe('first-party authoring authorization and exchange contracts', () => {
+  it.each(['tour', 'announcement', 'hotspot', 'survey', 'checklist'] as const)(
+    'accepts %s as a closed hosted new-draft intent',
+    (documentType) => {
+      expect(validate(AuthoringDocumentIntent, { kind: 'new-draft', documentType }).valid).toBe(
+        true,
+      );
+    },
+  );
+
+  it('keeps deferred Knowledge out of hosted new-draft intents', () => {
+    expect(
+      validate(AuthoringDocumentIntent, {
+        kind: 'new-draft',
+        documentType: 'knowledge',
+      }).valid,
+    ).toBe(false);
+  });
+
   it('accepts only S256 requests and a closed activation capability set', () => {
     const request = {
       installationId: INSTALLATION_ID,

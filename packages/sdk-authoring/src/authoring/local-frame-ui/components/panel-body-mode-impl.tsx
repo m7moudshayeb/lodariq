@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import type { AuthoringReleaseCheck, AuthoringReleaseVerification } from '../../local-frame-types';
 import type { LocalAuthoringFrameController } from '../controller';
 import {
+  AuthoringButton,
   Check,
   ChevronRight,
   CircleAlert,
@@ -14,7 +15,6 @@ import {
 } from '../design-system';
 import { canApproveAndPromote, deriveAuthoringReleasePresentation } from '../release-presentation';
 import { useOptionalPanelModeStyles } from '../optional-panel-styles';
-import { publishIssueKey } from '../publish-issue-repair';
 import type { LocalAuthoringFrameSnapshot } from '../types';
 import { AppearanceMode, BrandMatchReviewMode } from './panel-body-appearance-modes';
 import { PanelEmptyState, PanelFeedback, PanelModeShell } from './panel-mode-shell';
@@ -23,7 +23,6 @@ import {
   ReleaseHistoryPanelImplementation as ReleaseHistoryPanel,
   ReleaseRecoveryConfirmationImplementation as ReleaseRecoveryConfirmation,
 } from './release-recovery-impl';
-import { PublishIssueAction } from './publish-issue-action';
 
 export function OptionalPanelBodyMode({
   controller,
@@ -55,7 +54,11 @@ export function OptionalPanelBodyMode({
   return null;
 }
 
-function ReleaseVerificationMode({
+/**
+ * Exported because Operations renders it inside the sheet as its Release
+ * section, rather than sending the creator to a mode of its own.
+ */
+export function ReleaseVerificationMode({
   controller,
   snapshot,
 }: {
@@ -157,7 +160,8 @@ function ReleaseHistoryEntry({
   );
 }
 
-function ReleaseHistoryMode({
+/** Exported for the same reason as `ReleaseVerificationMode` above. */
+export function ReleaseHistoryMode({
   controller,
   snapshot,
 }: {
@@ -252,6 +256,14 @@ function ReleaseVerificationContent({
   verification: AuthoringReleaseVerification | null;
   verifying: boolean;
 }): ReactNode {
+  /*
+   * The count and the way to it, not the list.
+   *
+   * These are the same publish-readiness rules Check now reports, so enumerating
+   * them here made two surfaces that had to be kept in step and told a creator
+   * the same thing twice. Release states the gate; Check is where it is worked
+   * through, with every other pre-publish rule beside it.
+   */
   if (localIssues.length) {
     return (
       <section className="panel-mode-card release-blocker-card" aria-labelledby="blocker-title">
@@ -271,13 +283,16 @@ function ReleaseVerificationContent({
             </strong>
           </span>
         </div>
-        <ul className="panel-check-list">
-          {localIssues.map((issue) => (
-            <li className="failed publish-issue-row" key={publishIssueKey(issue)}>
-              <PublishIssueAction controller={controller} issue={issue} />
-            </li>
-          ))}
-        </ul>
+        {/* Body copy, not the 8px status line `panel-release-truth` draws. */}
+        <p className="release-blocker-detail">
+          {authoringText('Check lists each one with the way to fix it.')}
+        </p>
+        <AuthoringButton
+          onClick={() => controller.openOperationsMode('check')}
+          tone="primary"
+        >
+          {authoringText('Take me to Check')}
+        </AuthoringButton>
       </section>
     );
   }

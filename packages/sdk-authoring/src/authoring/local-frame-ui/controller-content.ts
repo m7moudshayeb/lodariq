@@ -2,7 +2,7 @@ import { ControllerPropertyFeature } from './controller-properties';
 import { authoringText } from '../../i18n';
 import type { LodariqBlock } from '@lodariq/schema';
 import {
-  blocksReferenceTarget,
+  documentWithBlocks,
   createContentBlock,
   createTourStep,
   duplicateStepChildBlock,
@@ -158,13 +158,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
       nextContentBlocks[0]?.id ??
       stepBlockId;
     this.recordChange();
-    this.documentState = {
-      ...this.documentState,
-      blocks,
-      targets: this.documentState.targets.filter((target) =>
-        blocksReferenceTarget(blocks, target.id),
-      ),
-    };
+    this.documentState = documentWithBlocks(this.documentState, blocks);
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
     this.selectedBlockId = nextSelection;
@@ -211,13 +205,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     const blocks = removeStepChildBlock(nextBlocks, stepBlockId, childBlockId);
     if (!blocks) return false;
     this.recordChange();
-    this.documentState = {
-      ...this.documentState,
-      blocks,
-      targets: this.documentState.targets.filter((target) =>
-        blocksReferenceTarget(blocks, target.id),
-      ),
-    };
+    this.documentState = documentWithBlocks(this.documentState, blocks);
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
     this.selectedBlockId = previousBlock.id;
@@ -349,13 +337,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     const nextSelection =
       nextContentBlocks[Math.min(currentIndex, nextContentBlocks.length - 1)]?.id ?? stepBlockId;
     this.recordChange();
-    this.documentState = {
-      ...this.documentState,
-      blocks,
-      targets: this.documentState.targets.filter((target) =>
-        blocksReferenceTarget(blocks, target.id),
-      ),
-    };
+    this.documentState = documentWithBlocks(this.documentState, blocks);
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
     this.selectedBlockId = nextSelection;

@@ -4,6 +4,9 @@
   "ignoreBinaries": ["fly", "flyctl"],
   "ignoreDependencies": ["vitest"],
   "workspaces": {
+    "apps/marketing": {
+      "ignoreDependencies": ["@lodariq/fixture-host"]
+    },
     "packages/tests": {
       "entry": ["**/*.test.ts"],
       "ignoreBinaries": ["psql"]

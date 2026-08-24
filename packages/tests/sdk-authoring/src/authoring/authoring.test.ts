@@ -2,8 +2,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { compile, compileDocument, computeBrandThemeContentHash } from '@lodariq/compiler';
 import {
-  AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
   AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
+  AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+  AUTHORING_SHELL_STEP_COMMAND_TYPE,
   AUTHORING_SAVE_STATE_UPDATE_TYPE,
   AUTHORING_THEME_PREVIEW_APPLY_TYPE,
   BridgeMessage as BridgeMessageSchema,
@@ -95,127 +96,41 @@ describe('local authoring panel (PRD §16.1)', () => {
     );
 
     const host = document.querySelector('lodariq-authoring-panel');
-    const dialog = host?.shadowRoot?.querySelector('[role="dialog"]');
+    const shell = host?.shadowRoot?.querySelector('[data-overlay-root]');
     const iframe = host?.querySelector('iframe');
 
-    expect(dialog?.getAttribute('aria-label')).toBe('Lodariq authoring');
+    expect(shell?.getAttribute('aria-label')).toBe('Lodariq authoring');
+    expect(host?.getAttribute('data-lodariq-shell')).toBe('overlay');
     expect(iframe?.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin');
     const iframeUrl = new URL(iframe?.getAttribute('src') ?? '');
     expect(iframeUrl.pathname).toBe('/lodariq-local/authoring.html');
     expect(iframeUrl.searchParams.get('lodariqFrame')).toBe('panel');
     expect(iframe?.getAttribute('slot')).toBe('authoring-frame');
     const styles = host?.shadowRoot?.querySelector('style')?.textContent ?? '';
-    expect(styles).toContain('width: min(1120px, calc(100vw - 32px))');
-    expect(styles).toContain('height: min(800px, calc(100dvh - 32px))');
-    expect(styles).toContain('height: min(480px, 72dvh)');
-    expect(styles).toContain('.authoring-bar');
-    expect(styles).toContain('.panel-drag-handle');
+    expect(styles).toContain('.overlay-filmstrip');
+    expect(styles).toContain('.overlay-drag-ring');
+    expect(styles).toContain('height: 10px');
+    expect(styles).not.toContain('inset: -8px');
     expect(styles).toContain('slot[name="authoring-frame"]');
     expect(styles).toContain('pointer-events: auto');
-    expect(styles).toContain('border-radius: 16px');
     expect(styles).toContain('[data-lodariq-target-picking="true"]');
-    expect(styles).toContain('background: #0c211c');
     expect(styles).toContain('color-scheme: light');
-    expect(host?.shadowRoot?.querySelector('.panel-drag-handle')?.getAttribute('role')).toBe(
-      'button',
-    );
-    expect(host?.getAttribute('data-lodariq-panel-layout')).toBe('standard');
-    expect(
-      host?.shadowRoot?.querySelector('.panel-resize-handle')?.getAttribute('aria-label'),
-    ).toContain('Use arrow keys to resize it');
+    expect(host?.getAttribute('data-lodariq-panel-layout')).toBeNull();
+    expect(host?.shadowRoot?.querySelector('.overlay-filmstrip')).not.toBeNull();
+    expect(host?.shadowRoot?.querySelector<HTMLElement>('.overlay-filmstrip')?.hidden).toBe(false);
+    expect(host?.shadowRoot?.querySelector('[data-filmstrip-add-step]')).not.toBeNull();
+    // Operations and Close are document-scoped, so they live in the mode pill's menu.
+    expect(host?.shadowRoot?.querySelector('[data-filmstrip-operations]')).toBeNull();
+    expect(host?.shadowRoot?.querySelector('.overlay-mode-pill')).not.toBeNull();
+    expect(host?.shadowRoot?.querySelector('[data-pill-operations]')).not.toBeNull();
+    expect(host?.shadowRoot?.querySelector('[data-pill-mode="browsing"]')).not.toBeNull();
     expect(host?.shadowRoot?.querySelector('.save-state')).toBeNull();
     expect(host?.shadowRoot?.querySelector('[data-panel-save-state-label]')).toBeNull();
-    expect(
-      host?.shadowRoot?.querySelector<HTMLInputElement>('[data-panel-document-title]')?.value,
-    ).toBe('Untitled experience');
-    expect(host?.shadowRoot?.querySelector('select.panel-zoom')).toBeNull();
-    const zoomButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-action="zoom"]',
-    );
-    expect(zoomButton?.getAttribute('role')).toBe('combobox');
-    expect(zoomButton?.getAttribute('aria-label')).toBe('Canvas zoom: 100%');
-    expect(zoomButton?.getAttribute('aria-haspopup')).toBe('listbox');
-    expect(zoomButton?.getAttribute('aria-expanded')).toBe('false');
-    expect(zoomButton?.textContent?.trim()).toBe('100%');
-    expect(zoomButton?.closest('.authoring-bar-actions')).not.toBeNull();
-    expect(zoomButton?.closest('.panel-surface')).toBeNull();
-    const zoomListbox = host?.shadowRoot?.querySelector<HTMLElement>(
-      '[role="listbox"][aria-label="Canvas zoom"]',
-    );
-    expect(zoomListbox?.hidden).toBe(true);
-    expect(zoomListbox?.querySelectorAll('[data-panel-zoom]')).toHaveLength(4);
-    zoomButton?.click();
-    expect(zoomButton?.getAttribute('aria-expanded')).toBe('true');
-    expect(
-      [...(zoomListbox?.querySelectorAll<HTMLButtonElement>('[data-panel-zoom]') ?? [])]
-        .filter((option) => !option.hidden)
-        .map((option) => option.textContent?.trim()),
-    ).toEqual(['50%', '62%', '75%']);
-    expect(styles).toMatch(/\.panel-zoom-combobox\s*\{[^}]*position:\s*relative;/s);
-    expect(iframe?.style.transform).toBe('scale(1)');
-    expect(iframe?.dataset['lodariqEditorZoom']).toBe('100');
-    const resizeIcon = host?.shadowRoot?.querySelector<SVGElement>('.panel-resize-icon');
-    const resizePath = resizeIcon?.querySelector('path');
-    expect(resizeIcon?.tagName.toLowerCase()).toBe('svg');
-    expect(resizeIcon?.getAttribute('viewBox')).toBe('0 0 18 18');
-    expect(resizeIcon?.querySelectorAll('path')).toHaveLength(1);
-    expect(resizePath?.getAttribute('d')).toBe('M3.5 15.5 15.5 3.5M8.5 15.5l7-7M13.5 15.5l2-2');
-    expect(resizePath?.getAttribute('d')?.match(/M/g)).toHaveLength(3);
-    expect(host?.shadowRoot?.querySelector('[data-panel-icon="resize"]')).toBeNull();
-    expect(host?.shadowRoot?.querySelector('[data-panel-icon="maximize"]')).toBeNull();
-    const layoutButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-action="layout"]',
-    );
-    const minimizeButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-action="minimize"]',
-    );
-    const panelCloseButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-action="close-panel"]',
-    );
-    expect(layoutButton?.getAttribute('role')).toBe('combobox');
-    expect(layoutButton?.getAttribute('aria-label')).toBe('Workspace width: Standard');
-    expect(layoutButton?.getAttribute('aria-haspopup')).toBe('listbox');
-    expect(layoutButton?.getAttribute('aria-expanded')).toBe('false');
-    expect(layoutButton?.textContent?.trim()).toBe('Standard');
-    expect(layoutButton?.querySelectorAll('svg')).toHaveLength(2);
-    expect(zoomButton?.parentElement?.nextElementSibling).toBe(layoutButton?.parentElement);
-    expect(zoomButton?.closest('.authoring-bar-actions')).toBe(
-      layoutButton?.closest('.authoring-bar-actions'),
-    );
-    const layoutListbox = host?.shadowRoot?.querySelector<HTMLElement>(
-      '[role="listbox"][aria-label="Workspace width"]',
-    );
-    expect(layoutListbox?.hidden).toBe(true);
-    layoutButton?.click();
-    expect(layoutButton?.getAttribute('aria-expanded')).toBe('true');
-    expect(layoutListbox?.hidden).toBe(false);
-    expect(
-      [...(layoutListbox?.querySelectorAll<HTMLButtonElement>('[data-panel-layout]') ?? [])]
-        .filter((option) => !option.hidden)
-        .map((option) => option.textContent?.trim()),
-    ).toEqual(['Compact', 'Focused']);
-    expect(
-      layoutListbox?.querySelectorAll<HTMLButtonElement>('[data-panel-layout] svg'),
-    ).toHaveLength(3);
-    expect(minimizeButton?.textContent?.trim()).toBe('');
-    expect(minimizeButton?.querySelector('svg')).not.toBeNull();
-    expect(minimizeButton?.getAttribute('aria-label')).toBe('Minimize authoring panel');
-    expect(minimizeButton?.classList.contains('header-action')).toBe(true);
-    expect(panelCloseButton?.classList.contains('header-action')).toBe(true);
-    expect(panelCloseButton?.textContent?.trim()).toBe('');
-    expect(panelCloseButton?.querySelector('svg')).not.toBeNull();
-    expect(panelCloseButton?.getAttribute('aria-label')).toBe('Close authoring');
-    expect(panelCloseButton?.dataset['tooltip']).toBe('Close authoring');
-    expect(panelCloseButton?.getAttribute('title')).toBe('Close authoring');
-    expect(host?.shadowRoot?.querySelector('[data-panel-action="options"]')).toBeNull();
-    expect(host?.shadowRoot?.querySelector('[data-panel-action="appearance"]')).toBeNull();
-    expect(host?.shadowRoot?.querySelector('[data-panel-action="preview"]')).toBeNull();
-    expect(host?.shadowRoot?.querySelector('[data-panel-action="release"]')).toBeNull();
-    expect(host?.shadowRoot?.querySelector('.panel-overflow')).toBeNull();
-    expect(host?.shadowRoot?.querySelector('[data-panel-action="close"]')).toBeNull();
-    expect(host?.shadowRoot?.querySelector('[role="menu"]')).toBeNull();
-    expect(styles).toContain('width: 36px');
-    expect(styles).toContain('height: 36px');
+    expect(host?.shadowRoot?.querySelector('[data-panel-document-title]')).toBeNull();
+    expect(host?.shadowRoot?.querySelector('[data-panel-action="zoom"]')).toBeNull();
+    expect(host?.shadowRoot?.querySelector('[data-panel-action="layout"]')).toBeNull();
+    expect(host?.shadowRoot?.querySelector('.panel-drag-handle')).toBeNull();
+    expect(host?.shadowRoot?.querySelector('.panel-resize-handle')).toBeNull();
     expect(host?.shadowRoot?.querySelector('style')?.nonce).toBe('nonce_authoring');
     expect(document.documentElement.hasAttribute('data-lodariq-authoring-panel-open')).toBe(true);
     const hostLayerStyles = document.getElementById('lodariq-authoring-host-layer-style');
@@ -229,7 +144,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(document.documentElement.hasAttribute('data-lodariq-authoring-panel-open')).toBe(false);
   });
 
-  it('keeps workspace controls in the header without duplicating footer actions', () => {
+  it('keeps overlay chrome on the host without duplicating iframe actions', () => {
     const panel = openLocalAuthoringPanel(
       {
         sessionId: LOCAL_AUTHORING_SESSION_ID,
@@ -241,10 +156,10 @@ describe('local authoring panel (PRD §16.1)', () => {
     );
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
     if (!host) throw new Error('authoring panel missing');
-    expect(host.shadowRoot?.querySelector('[data-panel-action="zoom"]')).not.toBeNull();
-    expect(host.shadowRoot?.querySelector('[data-panel-action="layout"]')).not.toBeNull();
-    expect(host.shadowRoot?.querySelector('[data-panel-action="minimize"]')).not.toBeNull();
-    expect(host.shadowRoot?.querySelector('[data-panel-action="close-panel"]')).not.toBeNull();
+    expect(host.shadowRoot?.querySelector('[data-pill-operations]')).not.toBeNull();
+    expect(host.shadowRoot?.querySelector('[data-filmstrip-add-step]')).not.toBeNull();
+    expect(host.shadowRoot?.querySelector('[data-panel-action="zoom"]')).toBeNull();
+    expect(host.shadowRoot?.querySelector('[data-panel-action="layout"]')).toBeNull();
     expect(host.shadowRoot?.querySelector('[data-panel-action="preview"]')).toBeNull();
     expect(host.shadowRoot?.querySelector('[data-panel-action="release"]')).toBeNull();
     expect(host.shadowRoot?.querySelector('[data-panel-action="appearance"]')).toBeNull();
@@ -279,17 +194,19 @@ describe('local authoring panel (PRD §16.1)', () => {
         children: [],
       },
     );
+    const saveDocument = vi.fn();
+    const recordMetric = vi.fn();
     const controller = new LocalAuthoringFrameController({
       root: document.body,
       baseDocument: documentWithMixedOrder,
       services: {
         loadDocument: () => structuredClone(documentWithMixedOrder),
-        saveDocument: vi.fn(),
+        saveDocument,
         exportDocument: (value) => JSON.stringify(value),
         importDocument: (value) => JSON.parse(value) as LodariqDocument,
         resetDocuments: vi.fn(),
         compilePreview: vi.fn(),
-        recordMetric: vi.fn(),
+        recordMetric,
         getMetricsSummary: vi.fn(() => ({})),
         exportMetricsReport: vi.fn(() => '{}'),
       },
@@ -308,7 +225,29 @@ describe('local authoring panel (PRD §16.1)', () => {
     } as unknown as Parameters<LocalAuthoringFrameController['handleBlockDrop']>[0];
 
     controller.startDraggingBlock('step_3');
+    controller.handleBlockDragOver({
+      ...dropEvent,
+      currentTarget: { dataset: { blockId: 'step_1' } },
+    } as unknown as Parameters<LocalAuthoringFrameController['handleBlockDragOver']>[0]);
+    expect(saveDocument).not.toHaveBeenCalled();
     controller.handleBlockDrop(dropEvent, 'step_1');
+    expect(controller.getSnapshot().documentState.blocks.map((block) => block.id)).toEqual([
+      'step_3',
+      'step_1',
+      'step_2',
+    ]);
+    expect(saveDocument).toHaveBeenCalledOnce();
+    expect(recordMetric).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'transaction.committed' }),
+    );
+
+    controller.undo();
+    expect(controller.getSnapshot().documentState.blocks.map((block) => block.id)).toEqual([
+      'step_1',
+      'step_2',
+      'step_3',
+    ]);
+    controller.redo();
     expect(controller.getSnapshot().documentState.blocks.map((block) => block.id)).toEqual([
       'step_3',
       'step_1',
@@ -379,18 +318,20 @@ describe('local authoring panel (PRD §16.1)', () => {
     await controller.translateMissingCopy();
 
     expect(controller.getSnapshot().translation.available).toBe(true);
-    expect(translateDocument).toHaveBeenCalledWith({
+    expect(translateDocument).toHaveBeenCalledWith(expect.objectContaining({
       document: expect.objectContaining({ id: baseDocument.id }),
       targetLocale: 'fr',
       mode: 'missing',
-    });
+      operationId: expect.stringMatching(/^aiop_/u),
+    }));
     expect(saveDocument).toHaveBeenCalledOnce();
     expect(controller.getSnapshot().documentState.title).toBe('Visite de bienvenue');
     expect(controller.getSnapshot().translation.state).toBe('idle');
     expect(controller.getSnapshot().status).toBe('Translated 3 items to fr');
   });
 
-  it('offers size presets and keyboard resizing without changing authoring tokens', () => {
+  it('opens operations from the mode pill without publishing', () => {
+    const peer = { postMessage: vi.fn() } as unknown as Window;
     const panel = openLocalAuthoringPanel(
       {
         sessionId: LOCAL_AUTHORING_SESSION_ID,
@@ -401,91 +342,32 @@ describe('local authoring panel (PRD §16.1)', () => {
       { iframeSrc: '/lodariq-local/authoring.html' },
     );
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
-    const layoutButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-action="layout"]',
-    );
-    const compactButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-layout="compact"]',
-    );
-    const resizeHandle = host?.shadowRoot?.querySelector<HTMLButtonElement>('.panel-resize-handle');
     const iframe = host?.querySelector('iframe');
-    const zoomButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-action="zoom"]',
+    const operations = host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-pill-operations]');
+    if (!host || !iframe || !operations) throw new Error('authoring overlay missing');
+    Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
+    iframe.dispatchEvent(new Event('load'));
+
+    operations.click();
+
+    expect(host.getAttribute('data-lodariq-shell')).toBe('operations');
+    expect(host.shadowRoot?.querySelector<HTMLElement>('.overlay-filmstrip')?.hidden).toBe(true);
+    expect(peer.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+        action: 'open-operations',
+      }),
+      window.location.origin,
     );
-    const zoom62Button =
-      host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-panel-zoom="62"]');
-    if (
-      !host ||
-      !layoutButton ||
-      !compactButton ||
-      !resizeHandle ||
-      !iframe ||
-      !zoomButton ||
-      !zoom62Button
-    )
-      throw new Error('authoring sizing controls missing');
-
-    zoomButton.click();
-    expect(zoomButton.getAttribute('aria-expanded')).toBe('true');
-    zoom62Button.click();
-    expect(iframe.style.transform).toBe('scale(0.62)');
-    expect(iframe.style.width).toBe('161.29032258064515%');
-    expect(iframe.dataset['lodariqEditorZoom']).toBe('62');
-    expect(zoomButton.getAttribute('aria-expanded')).toBe('false');
-    expect(zoomButton.getAttribute('aria-label')).toBe('Canvas zoom: 62%');
-    expect(zoomButton.textContent?.trim()).toBe('62%');
-    expect(zoom62Button.getAttribute('aria-selected')).toBe('true');
-    expect(zoom62Button.hidden).toBe(true);
-
-    layoutButton.click();
-    expect(layoutButton.getAttribute('aria-expanded')).toBe('true');
-    compactButton.click();
-    expect(host.getAttribute('data-lodariq-panel-layout')).toBe('compact');
-    expect(host.style.width).toBe('320px');
-    expect(host.style.height).toBe('520px');
-    expect(compactButton.getAttribute('aria-selected')).toBe('true');
-    expect(compactButton.hidden).toBe(true);
-    expect(layoutButton.getAttribute('aria-expanded')).toBe('false');
-    expect(layoutButton.getAttribute('aria-label')).toBe('Workspace width: Compact');
-    expect(layoutButton.textContent?.trim()).toBe('Compact');
-
-    vi.spyOn(host, 'getBoundingClientRect').mockImplementation(() => {
-      const width = Number.parseFloat(host.style.width);
-      const height = Number.parseFloat(host.style.height);
-      const left = Number.parseFloat(host.style.left);
-      const top = Number.parseFloat(host.style.top);
-      return {
-        bottom: top + height,
-        height,
-        left,
-        right: left + width,
-        top,
-        width,
-        x: left,
-        y: top,
-        toJSON: () => ({}),
-      };
-    });
-    resizeHandle.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowRight' }));
-    resizeHandle.dispatchEvent(
-      new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowDown', shiftKey: true }),
+    expect(peer.postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'authoring.publish.staging.request' }),
+      window.location.origin,
     );
-
-    expect(host.getAttribute('data-lodariq-panel-layout')).toBe('custom');
-    expect(host.style.width).toBe('328px');
-    expect(host.style.height).toBe('560px');
-    expect(layoutButton.getAttribute('aria-label')).toBe('Workspace width: Custom');
-    expect(layoutButton.textContent?.trim()).toBe('Custom');
-    const styles = host.shadowRoot?.querySelector('style')?.textContent ?? '';
-    expect(styles).toContain(`background: #0c211c`);
-    expect(styles).toContain(`color: #ffffff`);
 
     panel.close();
   });
 
-  it('restores the selected desktop workspace after a compact viewport', () => {
-    const widthDescriptor = Object.getOwnPropertyDescriptor(window, 'innerWidth');
-    const heightDescriptor = Object.getOwnPropertyDescriptor(window, 'innerHeight');
+  it('collapses the overlay editor on the first outside click', () => {
     const panel = openLocalAuthoringPanel(
       {
         sessionId: LOCAL_AUTHORING_SESSION_ID,
@@ -493,31 +375,31 @@ describe('local authoring panel (PRD §16.1)', () => {
         workspaceId: 'wk_local_dev',
         environment: 'development',
       },
-      { iframeSrc: '/lodariq-local/authoring.html' },
+      {
+        iframeSrc: '/lodariq-local/authoring.html',
+        initialDocument: structuredClone(baseDocument),
+      },
     );
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
     if (!host) throw new Error('authoring panel missing');
+    host.setAttribute('data-lodariq-shell', 'overlay');
+    const pageButton = document.createElement('button');
+    pageButton.textContent = 'Product';
+    const click = vi.fn();
+    pageButton.addEventListener('click', click);
+    document.body.append(pageButton);
 
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 844 });
-    window.dispatchEvent(new Event('resize'));
-    expect(host.style.width).toBe('320px');
+    const pointerDown = new Event('pointerdown', { bubbles: true, cancelable: true });
+    Object.defineProperty(pointerDown, 'button', { value: 0 });
+    pageButton.dispatchEvent(pointerDown);
 
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
-    window.dispatchEvent(new Event('resize'));
-    expect(host.getAttribute('data-lodariq-panel-layout')).toBe('standard');
-    expect(host.style.width).toBe(`${window.innerWidth - 32}px`);
-    expect(host.style.height).toBe(`${Math.min(800, window.innerHeight - 32)}px`);
-
+    expect(host.getAttribute('data-lodariq-shell')).toBe('collapsed');
+    expect(click).not.toHaveBeenCalled();
+    pageButton.remove();
     panel.close();
-    if (widthDescriptor) Object.defineProperty(window, 'innerWidth', widthDescriptor);
-    else delete (window as { innerWidth?: number }).innerWidth;
-    if (heightDescriptor) Object.defineProperty(window, 'innerHeight', heightDescriptor);
-    else delete (window as { innerHeight?: number }).innerHeight;
   });
 
-  it('honors a validated iframe request to expand the workspace', () => {
+  it('honors iframe operations presentation without a layout dialog', () => {
     const peer = { postMessage: vi.fn() } as unknown as Window;
     const panel = openLocalAuthoringPanel(
       {
@@ -540,31 +422,27 @@ describe('local authoring panel (PRD §16.1)', () => {
           protocol: BRIDGE_PROTOCOL_VERSION,
           sessionId: LOCAL_AUTHORING_SESSION_ID,
           documentId: 'doc_tour_welcome',
-          correlationId: 'panel_layout_focus',
-          type: 'authoring.panel-layout.request',
-          mode: 'focus',
+          correlationId: 'shell_operations',
+          type: 'authoring.shell.presentation',
+          presentation: 'operations',
         },
         origin: window.location.origin,
         source: peer,
       }),
     );
 
-    expect(host.getAttribute('data-lodariq-panel-layout')).toBe('focus');
-    expect(host.style.width).toBe(`${window.innerWidth - 32}px`);
-    expect(peer.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'ack', ackOf: 'panel_layout_focus' }),
-      window.location.origin,
-    );
+    expect(host.getAttribute('data-lodariq-shell')).toBe('operations');
+    expect(host.getAttribute('data-lodariq-panel-layout')).toBeNull();
 
     panel.close();
   });
 
-  it('discards local unsaved state from the header close button', () => {
+  it('discards local unsaved state when the overlay shell closes', () => {
     const onSave = vi
       .fn<(document: LodariqDocument) => Promise<void>>()
       .mockResolvedValue(undefined);
     const peer = { postMessage: vi.fn() } as unknown as Window;
-    openLocalAuthoringPanel(
+    const panel = openLocalAuthoringPanel(
       {
         sessionId: LOCAL_AUTHORING_SESSION_ID,
         documentId: 'doc_tour_welcome',
@@ -580,21 +458,42 @@ describe('local authoring panel (PRD §16.1)', () => {
 
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
     const iframe = host?.querySelector('iframe');
-    const panelCloseButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-action="close-panel"]',
-    );
-    if (!host || !iframe || !panelCloseButton) throw new Error('authoring panel missing');
+    if (!host || !iframe) throw new Error('authoring panel missing');
     Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
     iframe.dispatchEvent(new Event('load'));
 
-    panelCloseButton.click();
+    panel.close();
 
     expect(document.querySelector('lodariq-authoring-panel')).toBeNull();
     expect(onSave).not.toHaveBeenCalled();
     expect(outboundMessages(peer, 'authoring.save.request')).toHaveLength(0);
   });
 
-  it('edits the experience title once in the panel chrome through a semantic commit', async () => {
+  it('keeps the experience title out of step-scoped host chrome', () => {
+    const panel = openLocalAuthoringPanel(
+      {
+        sessionId: LOCAL_AUTHORING_SESSION_ID,
+        documentId: 'doc_tour_welcome',
+        workspaceId: 'wk_local_dev',
+        environment: 'development',
+      },
+      {
+        iframeSrc: '/lodariq-local/authoring.html',
+        initialDocument: structuredClone(baseDocument),
+      },
+    );
+    const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
+    if (!host) throw new Error('authoring panel missing');
+    expect(host.shadowRoot?.querySelector('[data-panel-document-title]')).toBeNull();
+    expect(host.shadowRoot?.querySelector('.overlay-filmstrip')?.textContent).not.toContain(
+      baseDocument.title,
+    );
+
+    panel.close();
+  });
+
+  it('adds a step from the filmstrip through a semantic shell command', () => {
+    const peer = { postMessage: vi.fn() } as unknown as Window;
     const panel = openLocalAuthoringPanel(
       {
         sessionId: LOCAL_AUTHORING_SESSION_ID,
@@ -609,76 +508,21 @@ describe('local authoring panel (PRD §16.1)', () => {
     );
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
     const iframe = host?.querySelector('iframe');
-    const title = host?.shadowRoot?.querySelector<HTMLInputElement>('[data-panel-document-title]');
-    if (!host || !iframe || !title) throw new Error('authoring panel missing');
-    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const addStep = host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-filmstrip-add-step]');
+    if (!host || !iframe || !addStep) throw new Error('authoring overlay missing');
     Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
     iframe.dispatchEvent(new Event('load'));
 
-    title.value = 'Customer onboarding tour';
-    title.dispatchEvent(new FocusEvent('blur'));
+    addStep.click();
 
-    const titleCommit = await waitForOutboundMessage(peer, AUTHORING_INLINE_CONTROL_COMMIT_TYPE);
-    expect(titleCommit).toMatchObject({
-      operation: { kind: 'setDocumentTitle', title: 'Customer onboarding tour' },
-    });
-    ackOutboundMessage(peer, titleCommit);
-
+    expect(peer.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: AUTHORING_SHELL_STEP_COMMAND_TYPE, command: 'add' }),
+      window.location.origin,
+    );
     panel.close();
   });
 
-  it('moves the popup only after the drag handle crosses its movement threshold', () => {
-    const panel = openLocalAuthoringPanel(
-      {
-        sessionId: LOCAL_AUTHORING_SESSION_ID,
-        documentId: 'doc_tour_welcome',
-        workspaceId: 'wk_local_dev',
-        environment: 'development',
-      },
-      { iframeSrc: '/lodariq-local/authoring.html' },
-    );
-    const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
-    const handle = host?.shadowRoot?.querySelector<HTMLElement>('.panel-drag-handle');
-    if (!host || !handle) throw new Error('draggable authoring popup missing');
-    vi.spyOn(host, 'getBoundingClientRect').mockReturnValue({
-      bottom: 666,
-      height: 584,
-      left: 100,
-      right: 436,
-      top: 82,
-      width: 336,
-      x: 100,
-      y: 82,
-      toJSON: () => ({}),
-    });
-
-    handle.dispatchEvent(
-      new MouseEvent('mousedown', {
-        bubbles: true,
-        button: 0,
-        clientX: 130,
-        clientY: 100,
-      }),
-    );
-    const initialLeft = host.style.left;
-    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 132, clientY: 102 }));
-
-    expect(host.style.left).toBe(initialLeft);
-    expect(document.querySelector('[data-lodariq-authoring-drag-shield="true"]')).toBeNull();
-
-    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 200, clientY: 160 }));
-
-    expect(host.style.left).toBe('170px');
-    expect(host.style.top).toBe('142px');
-    expect(document.querySelector('[data-lodariq-authoring-drag-shield="true"]')).not.toBeNull();
-
-    window.dispatchEvent(new MouseEvent('mouseup', { clientX: 200, clientY: 160 }));
-
-    expect(document.querySelector('[data-lodariq-authoring-drag-shield="true"]')).toBeNull();
-    panel.close();
-  });
-
-  it('minimizes without replacing the authoring iframe and restores on a second open', () => {
+  it('collapses overlay chrome without replacing the authoring iframe', () => {
     const session = {
       sessionId: LOCAL_AUTHORING_SESSION_ID,
       documentId: 'doc_tour_welcome',
@@ -691,19 +535,14 @@ describe('local authoring panel (PRD §16.1)', () => {
     });
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
     const iframe = host?.querySelector('iframe');
-    const minimizeButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-action="minimize"]',
-    );
-    if (!host || !iframe || !minimizeButton) throw new Error('authoring panel missing');
+    if (!host || !iframe) throw new Error('authoring panel missing');
 
     panel.minimize();
 
     expect(panel.isMinimized()).toBe(true);
     expect(host.hasAttribute('data-lodariq-panel-minimized')).toBe(true);
-    expect(host.style.height).toBe('44px');
-    expect(minimizeButton.getAttribute('aria-label')).toBe('Restore authoring panel');
-    expect(minimizeButton.dataset['tooltip']).toBe('Restore authoring panel');
-    expect(minimizeButton.querySelector('svg')).not.toBeNull();
+    expect(host.getAttribute('data-lodariq-shell')).toBe('collapsed');
+    expect(host.shadowRoot?.querySelector<HTMLElement>('.overlay-filmstrip')?.hidden).toBe(true);
 
     const reopenedPanel = openLocalAuthoringPanel(session, {
       iframeSrc: '/lodariq-local/authoring.html',
@@ -712,9 +551,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(reopenedPanel).toBe(panel);
     expect(panel.isMinimized()).toBe(false);
     expect(host.querySelector('iframe')).toBe(iframe);
-    expect(host.style.height).toBe(`${Math.min(800, window.innerHeight - 32)}px`);
-    expect(minimizeButton.getAttribute('aria-label')).toBe('Minimize authoring panel');
-    expect(minimizeButton.dataset['tooltip']).toBe('Minimize authoring panel');
+    expect(host.getAttribute('data-lodariq-shell')).toBe('overlay');
 
     panel.close();
   });
@@ -1666,7 +1503,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     panel.close();
   });
 
-  it('restores the exact popup geometry and focused control after target selection is canceled', async () => {
+  it('restores overlay presentation after target selection is canceled', async () => {
     const panel = openLocalAuthoringPanel(
       {
         sessionId: LOCAL_AUTHORING_SESSION_ID,
@@ -1674,25 +1511,17 @@ describe('local authoring panel (PRD §16.1)', () => {
         workspaceId: 'wk_local_dev',
         environment: 'development',
       },
-      { iframeSrc: '/lodariq-local/authoring.html' },
+      {
+        iframeSrc: '/lodariq-local/authoring.html',
+        initialDocument: structuredClone(baseDocument),
+      },
     );
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
     const iframe = host?.querySelector('iframe');
-    const layoutButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-action="layout"]',
-    );
-    if (!host || !iframe || !layoutButton) throw new Error('authoring panel missing');
+    if (!host || !iframe) throw new Error('authoring panel missing');
     const peer = { postMessage: vi.fn() } as unknown as Window;
     Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
     iframe.dispatchEvent(new Event('load'));
-    Object.assign(host.style, {
-      height: '500px',
-      left: '144px',
-      top: '112px',
-      width: '336px',
-    });
-    layoutButton.focus();
-
     window.dispatchEvent(
       new MessageEvent('message', {
         data: {
@@ -1709,6 +1538,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     );
 
     expect(host.hasAttribute('data-lodariq-target-picking')).toBe(true);
+    expect(host.getAttribute('data-lodariq-shell')).toBe('picking');
 
     window.dispatchEvent(
       new MessageEvent('message', {
@@ -1727,11 +1557,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     await new Promise((resolve) => window.setTimeout(resolve, 20));
 
     expect(host.hasAttribute('data-lodariq-target-picking')).toBe(false);
-    expect(host.style.left).toBe('144px');
-    expect(host.style.top).toBe('112px');
-    expect(host.style.width).toBe('336px');
-    expect(host.style.height).toBe('500px');
-    expect(host.shadowRoot?.activeElement).toBe(layoutButton);
+    expect(host.getAttribute('data-lodariq-shell')).not.toBe('picking');
 
     panel.close();
   });

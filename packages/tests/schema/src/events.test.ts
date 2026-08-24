@@ -63,6 +63,11 @@ describe('Phase 2 analytics contracts', () => {
       publicationId: 'pub_welcome_3',
       contentHash: CONTENT_HASH,
       pointerGeneration: 3,
+      audienceSegment: {
+        id: `audseg_${'b'.repeat(64)}`,
+        definitionVersion: 1,
+        ruleCount: 2,
+      },
       name: sdkEvent.name,
       sdkVersion: sdkEvent.sdkVersion,
       timestamp: sdkEvent.timestamp,
@@ -70,6 +75,12 @@ describe('Phase 2 analytics contracts', () => {
     expect(validate(AuthoritativeAnalyticsEvent, authoritative).valid).toBe(true);
     const { environmentId: _environmentId, ...withoutEnvironment } = authoritative;
     expect(validate(AuthoritativeAnalyticsEvent, withoutEnvironment).valid).toBe(false);
+    expect(
+      validate(AuthoritativeAnalyticsEvent, {
+        ...authoritative,
+        audienceSegment: { ...authoritative.audienceSegment, definitionVersion: 2 },
+      }).valid,
+    ).toBe(false);
   });
 
   it('makes one environment mandatory for every analytics read', () => {
@@ -77,6 +88,7 @@ describe('Phase 2 analytics contracts', () => {
       validate(AnalyticsEnvironmentQuery, {
         environmentId: 'env_staging',
         documentId: 'doc_welcome',
+        audienceSegmentId: `audseg_${'b'.repeat(64)}`,
         locale: 'de',
       }).valid,
     ).toBe(true);
@@ -103,6 +115,11 @@ describe('Phase 2 analytics contracts', () => {
       publicationId: 'pub_welcome_3',
       contentHash: CONTENT_HASH,
       pointerGeneration: 3,
+      audienceSegment: {
+        id: `audseg_${'b'.repeat(64)}`,
+        definitionVersion: 1,
+        ruleCount: 2,
+      },
       locale: 'de',
       name: 'tour_completed',
       count: 7,

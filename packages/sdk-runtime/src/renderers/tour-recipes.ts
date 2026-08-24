@@ -14,6 +14,9 @@ export interface TourCompositionRecipe {
   gap: NonNullable<TooltipLayoutProps['gap']>;
   heightPx: number | null;
   padding: NonNullable<TooltipLayoutProps['padding']>;
+  /** Per-axis overrides. Null means "follow the preset", which is the default. */
+  paddingBlockPx: number | null;
+  paddingInlinePx: number | null;
   radius: NonNullable<TooltipLayoutProps['radius']>;
   showArrow: boolean;
   widthPx: number | null;
@@ -46,6 +49,8 @@ export function resolveTourCompositionRecipe(
     gap: layout?.gap ?? 'normal',
     heightPx: layout?.heightPx ?? null,
     padding: layout?.padding ?? 'standard',
+    paddingBlockPx: layout?.paddingBlockPx ?? null,
+    paddingInlinePx: layout?.paddingInlinePx ?? null,
     radius: layout?.radius ?? 'theme',
     showArrow: layout?.showArrow ?? true,
     widthPx: layout?.widthPx ?? null,
@@ -76,6 +81,33 @@ export function tourPopupStyleVariables(
         }
       : {}),
     ...(recipe.borderColor ? { '--lq-popup-border': recipe.borderColor } : {}),
+  };
+}
+
+export const TOUR_COMPOSITION_PADDING_VARIABLES = [
+  '--lq-tour-composition-padding-block',
+  '--lq-tour-composition-padding-inline',
+] as const;
+
+/**
+ * The per-axis padding overrides, as CSS variables.
+ *
+ * An unauthored axis contributes nothing rather than a number, so the CSS
+ * fallback chain reaches the preset and the theme behind it. Shared with
+ * authoring so the card a creator composes in pads exactly like the published
+ * one — the editor used to pad on a single side, which made the control look
+ * broken and the published popup look like a different design.
+ */
+export function tourCompositionPaddingVariables(
+  recipe: TourCompositionRecipe,
+): Readonly<Partial<Record<(typeof TOUR_COMPOSITION_PADDING_VARIABLES)[number], string>>> {
+  return {
+    ...(recipe.paddingBlockPx === null
+      ? {}
+      : { '--lq-tour-composition-padding-block': `${recipe.paddingBlockPx}px` }),
+    ...(recipe.paddingInlinePx === null
+      ? {}
+      : { '--lq-tour-composition-padding-inline': `${recipe.paddingInlinePx}px` }),
   };
 }
 

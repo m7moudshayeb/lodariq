@@ -7,15 +7,17 @@ import {
 import {
   createAuthoringSessionToken,
   createEnvironmentClientToken,
-  createInMemoryControlPlaneRepository,
+  createInMemoryControlPlaneRepository as createBaseInMemoryControlPlaneRepository,
   hashAuthoringSessionToken,
   hashEnvironmentToken,
   type ControlPlaneRepository,
+  type InMemoryControlPlaneSeed,
   type IngestEventsInput,
 } from '@lodariq/database';
 import {
   BROWSER_VERIFICATION_CHECK_CODES,
   BRAND_THEME_CONTRACT_VERSION,
+  COMMERCIAL_PLAN_VERSION,
   COMPILER_VERSION,
   CompiledDocument,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
@@ -31,6 +33,51 @@ const authHeaders = {
   'x-lodariq-workspace-id': 'wk_a',
   'x-lodariq-user-id': 'user_a',
 };
+
+function createInMemoryControlPlaneRepository(
+  seed: InMemoryControlPlaneSeed = {},
+): ControlPlaneRepository {
+  const workspaceIds = new Set(['wk_a', 'wk_b', 'wk_local_dev']);
+  for (const workspace of seed.workspaces ?? []) workspaceIds.add(workspace.id);
+  for (const membership of seed.workspaceMemberships ?? []) {
+    workspaceIds.add(membership.workspaceId);
+  }
+  for (const environment of seed.environments ?? []) workspaceIds.add(environment.workspaceId);
+  for (const document of seed.documents ?? []) workspaceIds.add(document.workspaceId);
+  for (const subscription of seed.workspaceSubscriptions ?? []) {
+    workspaceIds.add(subscription.workspaceId);
+  }
+  const existingWorkspaces = new Map(
+    (seed.workspaces ?? []).map((workspace) => [workspace.id, workspace]),
+  );
+  const createdAt = '2026-06-30T00:00:00.000Z';
+  const currentPeriodEnd = '2026-07-31T00:00:00.000Z';
+  const existingSubscriptions = new Map(
+    (seed.workspaceSubscriptions ?? []).map((subscription) => [
+      subscription.workspaceId,
+      subscription,
+    ]),
+  );
+  return createBaseInMemoryControlPlaneRepository({
+    ...seed,
+    workspaces: [...existingWorkspaces.values()],
+    workspaceSubscriptions: [...workspaceIds].map(
+      (workspaceId) =>
+        existingSubscriptions.get(workspaceId) ?? {
+          workspaceId,
+          planId: 'business',
+          planVersion: COMMERCIAL_PLAN_VERSION,
+          status: 'active',
+          entitlementOverrides: {},
+          currentPeriodStart: createdAt,
+          currentPeriodEnd,
+          revision: 1,
+          createdAt,
+          updatedAt: createdAt,
+        },
+    ),
+  });
+}
 
 describe('@lodariq/api control-plane routes', () => {
   it('updates the full opaque-id environment policy behind CAS and preserves the legacy approval toggle', async () => {
@@ -196,7 +243,7 @@ describe('@lodariq/api control-plane routes', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/openapi.json',
+      url: '/v1/openapi.json',
     });
 
     expect(response.statusCode).toBe(200);
@@ -213,7 +260,14 @@ describe('@lodariq/api control-plane routes', () => {
     expect(spec.paths).toHaveProperty('/v1/documents');
     expect(spec.paths).toHaveProperty('/v1/environment-tokens/{tokenId}/revoke');
     expect(spec.paths).toHaveProperty('/v1/sdk/bootstrap');
-    expect(spec.paths).not.toHaveProperty('/openapi.json');
+    expect(spec.paths).toHaveProperty('/v1/demos/{demoId}/artifact');
+    expect(spec.paths).not.toHaveProperty('/v1/openapi.json');
+    const nonApiPaths = new Set(['/d/{demoId}', '/healthz', '/readyz']);
+    expect(
+      Object.keys(spec.paths).filter(
+        (path) => !nonApiPaths.has(path) && !/^\/v\d+(?:\/|$)/u.test(path),
+      ),
+    ).toEqual([]);
     expect(spec.components.securitySchemes).toHaveProperty('bearerAuth');
 
     await app.close();
@@ -233,7 +287,7 @@ describe('@lodariq/api control-plane routes', () => {
 
         const spec = await app.inject({
           method: 'GET',
-          url: '/openapi.json',
+          url: '/v1/openapi.json',
         });
         expect(spec.json<{ servers: Array<{ url: string }> }>().servers).toEqual([
           { url: 'https://staging-api.lodariq.io' },
@@ -463,7 +517,7 @@ describe('@lodariq/api control-plane routes', () => {
         expectedContentHash: savedBrandArtifact.contentHash,
       },
     });
-    expect(blockedRelease.statusCode).toBe(409);
+    expect(blockedRelease.statusCode, blockedRelease.body).toBe(409);
     expect(blockedRelease.json()).toMatchObject({
       error: 'theme_review_required',
       acknowledgedThemeVersionId: firstApproved.approvedVersion.id,
@@ -1576,6 +1630,8 @@ describe('@lodariq/api control-plane routes', () => {
       id: document.id,
       title: document.title,
     });
+    const creatorFrameUpdatedAt =
+      loadFromCreatorFrame.json<{ documentUpdatedAt: string }>().documentUpdatedAt;
 
     const saveWithoutAuthoringSession = await app.inject({
       method: 'POST',
@@ -1620,9 +1676,10 @@ describe('@lodariq/api control-plane routes', () => {
       headers: authoringSdkHeaders,
       payload: {
         document: { ...document, title: 'Saved from creator frame' },
+        expectedDocumentUpdatedAt: creatorFrameUpdatedAt,
       },
     });
-    expect(saveFromCreatorFrame.statusCode).toBe(200);
+    expect(saveFromCreatorFrame.statusCode, saveFromCreatorFrame.body).toBe(200);
     expect(
       saveFromCreatorFrame.json<{ artifact: { contentHash: string } }>().artifact.contentHash,
     ).toMatch(/^sha256-/);
@@ -1721,6 +1778,7 @@ describe('@lodariq/api control-plane routes', () => {
           title: 'Must not save across a compatibility change',
           themeBinding: incompatibleBinding,
         },
+        expectedDocumentUpdatedAt: creatorFrameUpdatedAt,
       },
     });
     expect(incompatibleCreatorSave.statusCode).toBe(409);

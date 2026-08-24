@@ -7,13 +7,39 @@ import {
 } from '@lodariq/i18n';
 import { AUTHORING_LOCALE_QUERY_PARAMETER } from '@lodariq/schema/authoring-entry-runtime';
 import { loadAuthoringCatalog } from './i18n-catalog-loader';
-import type { AuthoringCatalog } from './i18n-catalog-types';
+import { EMPTY_AUTHORING_CATALOG, type AuthoringCatalog } from './i18n-catalog-types';
 
 export type AuthoringMessageValues = Readonly<Record<string, string | number>>;
 
 let configuredLocale: SupportedLocale | null = null;
 let loadedCatalogLocale = currentAuthoringLocale();
-let loadedCatalog: AuthoringCatalog = await loadAuthoringCatalog(loadedCatalogLocale);
+let loadedCatalog: AuthoringCatalog = EMPTY_AUTHORING_CATALOG;
+
+/**
+ * The catalog fetch starts at module evaluation but is deliberately not awaited
+ * here.
+ *
+ * A top-level await would make this module async, and because nearly every
+ * authoring module imports `authoringText`, that asynchrony propagates: the
+ * whole graph would have to wait on one network fetch before any of it could
+ * evaluate. That put the locale catalog on the critical path ahead of the
+ * application chunk and cost a full round trip on every non-English boot.
+ *
+ * Reading a message before this settles is safe rather than wrong: a missing
+ * key already falls through to the English source. Callers that must not paint
+ * untranslated text await `configureAuthoringLocale`, which resolves once the
+ * catalog is in memory — so the download still overlaps everything else, and
+ * only the render waits.
+ */
+let catalogReady: Promise<unknown> = adoptAuthoringCatalog(loadedCatalogLocale);
+
+async function adoptAuthoringCatalog(locale: SupportedLocale): Promise<void> {
+  const catalog = await loadAuthoringCatalog(locale);
+  // A later `configureAuthoringLocale` may have superseded this load.
+  if (configuredLocale !== null && configuredLocale !== locale) return;
+  loadedCatalog = catalog;
+  loadedCatalogLocale = locale;
+}
 
 export async function configureAuthoringLocale(
   candidates: ReadonlyArray<string | null | undefined>,
@@ -30,14 +56,18 @@ export async function configureAuthoringLocalePreference(
 }
 
 async function loadConfiguredAuthoringLocale(locale: SupportedLocale): Promise<SupportedLocale> {
+  const previous = configuredLocale;
   configuredLocale = locale;
-  if (locale !== loadedCatalogLocale) {
-    const catalog = await loadAuthoringCatalog(locale);
-    if (configuredLocale === locale) {
-      loadedCatalog = catalog;
-      loadedCatalogLocale = locale;
-    }
+  // The module-level load already covers the detected locale; re-entering for
+  // the same one would fetch a catalog that is either in memory or in flight.
+  if (locale === loadedCatalogLocale && previous === null) {
+    await catalogReady;
+    return locale;
   }
+  if (locale !== loadedCatalogLocale) {
+    catalogReady = adoptAuthoringCatalog(locale);
+  }
+  await catalogReady;
   return locale;
 }
 

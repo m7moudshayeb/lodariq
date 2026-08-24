@@ -4,7 +4,6 @@ import { compileDocument } from '@lodariq/compiler';
 import {
   ReleaseRecoveryHistoryLimitExceededError,
   ReleaseRecoveryHistoryIntegrityError,
-  createInMemoryControlPlaneRepository,
   createReleaseRecoveryRequestHash,
   type ControlPlaneRepository,
   type InMemoryControlPlaneSeed,
@@ -13,6 +12,9 @@ import {
   type PersistedReleaseOperation,
   type WorkspaceEnvironment,
 } from '@lodariq/database';
+import {
+  createGrandfatheredInMemoryControlPlaneRepository as createInMemoryControlPlaneRepository,
+} from '../../fixtures/commercial.js';
 import {
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RELEASE_RECOVERY_HISTORY_MAX_ITEMS,

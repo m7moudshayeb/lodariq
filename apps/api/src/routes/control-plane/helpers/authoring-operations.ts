@@ -33,6 +33,7 @@ import {
 import { validateAuthoringStagingVerificationResult } from './authoring-auth';
 import { findEnvironment } from './authoring-membership';
 import { compileAndValidate, resolveDocumentTheme } from './document-compilation';
+import type { ControlPlaneRouteOptions } from '../../control-plane-context';
 
 export async function handleAuthoringStyleSource(
   repository: ControlPlaneRepository,
@@ -68,13 +69,19 @@ export async function handleAuthoringStyleSource(
 }
 
 export async function handleAuthoringBrandDriftCheck(
-  repository: ControlPlaneRepository,
+  options: ControlPlaneRouteOptions,
   session: AuthoringSessionRecord,
   request: BrandDriftCheckRequestType,
   reply: FastifyReply,
 ) {
   try {
-    return await checkAuthoringBrandDrift({ repository, session, request });
+    return await checkAuthoringBrandDrift({
+      repository: options.repository,
+      session,
+      request,
+      emailNotifier: options.brandDriftEmailNotifier,
+      observability: options.observability,
+    });
   } catch (error) {
     if (error instanceof BrandDriftCheckError) {
       return reply.code(error.statusCode).send({ error: error.code, message: error.message });

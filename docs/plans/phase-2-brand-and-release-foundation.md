@@ -1193,12 +1193,16 @@ Target interactions:
 
 ## Clean-Slate Database Baseline
 
-Lodariq has never been deployed and has no external database state to upgrade.
 The former `0000`–`0008` files were an undeployed development sequence; their
 current schema is squashed into the single transactional
 `packages/database/drizzle/0000_initial_baseline.sql`. Operators must not
-reconstruct or apply the retired chain, run a historical backfill, or create a
-compatibility rollback window for data that does not exist.
+reconstruct or apply the retired chain.
+
+That squash is now history, not current licence. Development
+(<https://dev-app.lodariq.io/>) and staging
+(<https://staging-app.lodariq.io/>) are deployed and hold external database
+state, so the baseline is immutable and no further squash is available. Schema
+changes are numbered forward migrations only.
 
 The baseline includes the implemented public installation/origin, authoring
 authorization/session, owned credential/session/challenge/outbox/rate-limit,

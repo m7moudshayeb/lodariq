@@ -24,6 +24,9 @@ export const ANALYTICS_RESERVED_IDENTITY_KEYS = [
   'publicationId',
   'contentHash',
   'pointerGeneration',
+  'experimentId',
+  'armId',
+  'experimentAllocationRevision',
 ] as const;
 
 /** Raw host/application data and credentials are never valid event props. */

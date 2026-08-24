@@ -188,7 +188,10 @@ describe('authoring reliability primitives', () => {
         fallback: { type: 'complete' },
       },
     };
-    const authoringFindings = deriveTourFlowMap([step]).findings;
+    // Both sides must analyse the same steps: the document validator always sees
+    // the whole document, so handing the flow map only the first one compares
+    // two different flows the moment the fixture has more than one step.
+    const authoringFindings = deriveTourFlowMap(document.blocks).findings;
     expect(authoringFindings).toContainEqual({
       code: 'non_terminating_flow',
       severity: 'blocker',
@@ -207,11 +210,10 @@ describe('authoring reliability primitives', () => {
       sequence: { ...validSequence(), transition: { type: 'stay' } },
     };
 
-    const authoringFindings = deriveTourFlowMap([step]).findings;
-    expect(authoringFindings.map((finding) => finding.code)).toEqual([
-      'non_terminating_flow',
-      'missing_terminal_completion',
-    ]);
+    const authoringFindings = deriveTourFlowMap(document.blocks).findings;
+    expect(authoringFindings.map((finding) => finding.code)).toEqual(
+      expect.arrayContaining(['non_terminating_flow', 'missing_terminal_completion']),
+    );
     expect(authoringFindings).toEqual(validateTourDocumentFlow(document));
   });
 

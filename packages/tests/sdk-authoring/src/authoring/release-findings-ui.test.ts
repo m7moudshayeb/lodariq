@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  AUTHORING_CHROME_ACTION_REQUEST_TYPE,
   BRIDGE_PROTOCOL_VERSION,
   type AuthoringReleaseFinding,
   type AuthoringStagingReleaseState,
@@ -11,6 +12,7 @@ import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import { mountLocalAuthoringFrame, type LocalAuthoringFrameServices } from '@lodariq/sdk-authoring';
 
 const SESSION_ID = 'session_release_findings_ui';
+let mountedPeer: Window | null = null;
 
 describe('authoring Release options findings', () => {
   beforeEach(() => {
@@ -42,14 +44,14 @@ describe('authoring Release options findings', () => {
     const saveDocument = vi.fn();
     await mountFrame(vi.fn().mockResolvedValue(releaseState({ findings })), { saveDocument });
 
+    const selectedStepLabel = document
+      .querySelector<HTMLElement>('.overlay-step-shell')
+      ?.getAttribute('aria-label');
     const releaseEntry = await waitForReleaseEntry('blocked');
     expect(releaseEntry.dataset['panelEntry']).toBe('release');
     expect(document.querySelector('.panel-release-summary')?.textContent).toBe(
       'Needs attention · 3 findings',
     );
-    const selectedStepLabel = document
-      .querySelector<HTMLButtonElement>('.tour-storyboard-select[aria-current="step"]')
-      ?.getAttribute('aria-label');
 
     releaseEntry.focus();
     releaseEntry.click();
@@ -68,16 +70,10 @@ describe('authoring Release options findings', () => {
 
     backToAuthoringButton().click();
     await vi.waitFor(() => {
-      const returnedEntry = document.querySelector<HTMLButtonElement>(
-        '.panel-workspace-footer [data-panel-entry="release"]',
-      );
-      expect(returnedEntry).not.toBeNull();
-      expect(document.activeElement).toBe(returnedEntry);
+      expect(document.querySelector('.overlay-step-shell')).not.toBeNull();
     });
     expect(
-      document
-        .querySelector<HTMLButtonElement>('.tour-storyboard-select[aria-current="step"]')
-        ?.getAttribute('aria-label'),
+      document.querySelector<HTMLElement>('.overlay-step-shell')?.getAttribute('aria-label'),
     ).toBe(selectedStepLabel);
     expect(saveDocument).not.toHaveBeenCalled();
   });
@@ -171,18 +167,20 @@ describe('authoring Release options findings', () => {
     expect((await waitForFindingsList()).textContent).toContain('Remote release warning');
     let localFindingCount = 0;
     await vi.waitFor(() => {
-      const localRows = document.querySelectorAll('.release-blocker-card .panel-check-list > li');
-      expect(
-        localRows.length,
-        [...localRows].map((row) => row.textContent).join(' | '),
-      ).toBeGreaterThan(4);
-      localFindingCount = localRows.length;
-      expect(document.querySelector('[aria-labelledby="blocker-title"]')?.textContent).toContain(
-        `${localFindingCount} items need attention`,
+      const blockerTitle = document.querySelector('#blocker-title')?.textContent ?? '';
+      const count = Number.parseInt(blockerTitle, 10);
+      expect(count).toBeGreaterThan(4);
+      localFindingCount = count;
+    });
+
+    buttonWithText('Take me to Check').click();
+    await vi.waitFor(() => {
+      expect(document.querySelectorAll('.operations-check .ops-list > li').length).toBeGreaterThan(
+        4,
       );
     });
 
-    backToAuthoringButton().click();
+    document.querySelector<HTMLButtonElement>('.operations-hub-close')?.click();
     await waitForReleaseEntry('ready');
     await vi.waitFor(() => {
       expect(document.querySelector('.panel-release-summary')?.textContent).toBe(
@@ -200,26 +198,28 @@ describe('authoring Release options findings', () => {
 
     const releaseEntry = await waitForReleaseEntry('ready');
     releaseEntry.click();
+    buttonWithText('Take me to Check').click();
 
     let repairButton: HTMLButtonElement | null = null;
     await vi.waitFor(() => {
       repairButton = document.querySelector<HTMLButtonElement>(
         '[data-publish-issue-code="button_missing_action"]',
       );
-      expect(repairButton?.textContent).toContain('Choose action');
+      expect(repairButton?.textContent).toContain('Take me there');
     });
     repairButton!.click();
     await vi.waitFor(() =>
       expect(
-        document.querySelector('.rich-content-button-preview-shell[data-block-id="block_button_1"]'),
+        document.querySelector(
+          '.rich-content-button-preview-shell[data-block-id="block_button_1"]',
+        ),
       ).not.toBeNull(),
     );
     document
       .querySelector<HTMLButtonElement>(
-        '[data-block-id="block_button_1"] [aria-label="Configure button"]',
+        '.rich-content-button-preview-shell[data-block-id="block_button_1"] .rich-content-button-preview',
       )
       ?.click();
-
     await vi.waitFor(() => {
       const actionControl = document.querySelector<HTMLElement>(
         '[data-property-id="button.action"]',
@@ -229,9 +229,11 @@ describe('authoring Release options findings', () => {
     });
     expect(document.querySelector('.release-blocker-card')).toBeNull();
 
-    document.querySelector<HTMLButtonElement>(
-      '.storyboard-property-tray[data-tool-mode="content"] .storyboard-tray-close',
-    )?.click();
+    document
+      .querySelector<HTMLButtonElement>(
+        '.storyboard-property-tray[data-tool-mode="content"] .storyboard-tray-close',
+      )
+      ?.click();
     await vi.waitFor(() => {
       expect(document.querySelector('[data-property-id="button.action"]')).toBeNull();
     });
@@ -246,24 +248,24 @@ describe('authoring Release options findings', () => {
 
     const releaseEntry = await waitForReleaseEntry('ready');
     releaseEntry.click();
+    buttonWithText('Take me to Check').click();
 
     let repairButton: HTMLButtonElement | null = null;
     await vi.waitFor(() => {
       repairButton = document.querySelector<HTMLButtonElement>(
         '[data-publish-issue-code="missing_step_target"]',
       );
-      expect(repairButton?.textContent).toContain('Choose target');
+      expect(repairButton?.textContent).toContain('Take me there');
     });
     repairButton!.click();
 
     await vi.waitFor(() => {
-      const placementPanel = document.querySelector<HTMLElement>(
-        '.storyboard-property-tray .placement-section',
-      );
-      const chooseTarget = placementPanel?.querySelector<HTMLButtonElement>('.tour-placement-card');
-      expect(placementPanel).not.toBeNull();
-      expect(document.activeElement).toBe(chooseTarget);
+      expect(document.querySelector('.overlay-choose-target')).not.toBeNull();
     });
+    expect(mountedPeer?.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'target.pick.start' }),
+      window.location.origin,
+    );
   });
 });
 
@@ -279,6 +281,7 @@ async function mountFrame(
     saveDocument?: LocalAuthoringFrameServices['saveDocument'];
   } = {},
 ): Promise<void> {
+  mountedPeer = peer;
   await mountLocalAuthoringFrame({
     root: document.getElementById('authoring')!,
     baseDocument,
@@ -304,6 +307,21 @@ async function mountFrame(
 }
 
 async function waitForReleaseEntry(status: string): Promise<HTMLButtonElement> {
+  if (!mountedPeer) throw new Error('authoring frame peer is missing');
+  window.dispatchEvent(
+    new MessageEvent('message', {
+      origin: window.location.origin,
+      source: mountedPeer,
+      data: {
+        protocol: BRIDGE_PROTOCOL_VERSION,
+        sessionId: SESSION_ID,
+        documentId: (tourFixture as LodariqDocument).id,
+        correlationId: `open_release_${status}`,
+        type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+        action: 'open-release',
+      },
+    }),
+  );
   await vi.waitFor(() => {
     expect(
       document.querySelector<HTMLElement>('[aria-label="Release status"]')?.dataset[
@@ -330,6 +348,14 @@ function backToAuthoringButton(): HTMLButtonElement {
     'button[aria-label="Back to authoring"]',
   );
   if (!button) throw new Error('Back to authoring button is missing');
+  return button;
+}
+
+function buttonWithText(label: string): HTMLButtonElement {
+  const button = [...document.querySelectorAll<HTMLButtonElement>('button')].find((candidate) =>
+    candidate.textContent?.includes(label),
+  );
+  if (!button) throw new Error(`Button "${label}" is missing`);
   return button;
 }
 

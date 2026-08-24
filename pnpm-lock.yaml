@@ -91,6 +91,9 @@ importers:
       jose:
         specifier: 6.2.5
         version: 6.2.5
+      undici:
+        specifier: ^8.10.0
+        version: 8.10.0
     devDependencies:
       '@types/node':
         specifier: ^24.0.0
@@ -260,6 +263,9 @@ importers:
       '@lodariq/sdk-authoring':
         specifier: workspace:*
         version: link:../../packages/sdk-authoring
+      '@lodariq/sdk-runtime':
+        specifier: workspace:*
+        version: link:../../packages/sdk-runtime
       react:
         specifier: ^19.0.0
         version: 19.2.7
@@ -267,6 +273,31 @@ importers:
         specifier: ^19.0.0
         version: 19.2.7(react@19.2.7)
     devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+
+  apps/marketing:
+    dependencies:
+      '@fontsource-variable/fraunces':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource-variable/inter':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@lodariq/compiler':
+        specifier: workspace:*
+        version: link:../../packages/compiler
+      '@lodariq/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+    devDependencies:
+      '@lodariq/fixture-host':
+        specifier: workspace:*
+        version: link:../fixture-host
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
@@ -337,6 +368,15 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/loader:
+    devDependencies:
+      tsup:
+        specifier: ^8.3.5
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.25)(tsx@4.22.4)(typescript@5.9.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/schema:
     dependencies:
       '@sinclair/typebox':
@@ -382,9 +422,6 @@ importers:
       '@radix-ui/react-popover':
         specifier: ^1.1.17
         version: 1.1.17(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@radix-ui/react-select':
-        specifier: ^2.3.1
-        version: 2.3.1(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@radix-ui/react-tabs':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -1093,6 +1130,12 @@ packages:
 
   '@floating-ui/utils@0.2.11':
     resolution: {integrity: sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==}
+
+  '@fontsource-variable/fraunces@5.3.0':
+    resolution: {integrity: sha512-9BYGySn4AHEJdgp9Z28tQ3X+laJMEOITXkQarZXeloWQZDq5oOvXJ3kDA8c7MGIfpogIaZfjrQBqmda8POOCKA==}
+
+  '@fontsource-variable/inter@5.3.0':
+    resolution: {integrity: sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA==}
 
   '@hexagon/base64@1.1.28':
     resolution: {integrity: sha512-lhqDEAvWixy3bZ+UOYbPwUbBkwBq5C1LAJ/xPC8Oi+lL54oyakv/npbA0aU2hgCsx/1NUd4IBvV03+aUBWxerw==}
@@ -4535,6 +4578,10 @@ packages:
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
+  undici@8.10.0:
+    resolution: {integrity: sha512-HvltHd7avK13QIw/oLe4qoOLyoVSoafqJ2jYOrtMRBkbYT31eiBQ8O0ehRKZiEZCMEyLFQNIADpgCWC5fALvYQ==}
+    engines: {node: '>=22.19.0'}
+
   unicorn-magic@0.4.0:
     resolution: {integrity: sha512-wH590V9VNgYH9g3lH9wWjTrUoKsjLF6sGLjhR4sH1LWpLmCOH0Zf7PukhDA8BiS7KHe4oPNkcTHqYkj7SOGUOw==}
     engines: {node: '>=20'}
@@ -5229,6 +5276,10 @@ snapshots:
       react-dom: 19.2.7(react@19.2.7)
 
   '@floating-ui/utils@0.2.11': {}
+
+  '@fontsource-variable/fraunces@5.3.0': {}
+
+  '@fontsource-variable/inter@5.3.0': {}
 
   '@hexagon/base64@1.1.28': {}
 
@@ -8556,6 +8607,8 @@ snapshots:
   unbash@4.0.10: {}
 
   undici-types@7.18.2: {}
+
+  undici@8.10.0: {}
 
   unicorn-magic@0.4.0: {}
 

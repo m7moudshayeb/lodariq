@@ -4,9 +4,11 @@ import {
   WorkspaceThemeApprovalRequiredError,
   WorkspaceThemeChangedError,
   createServerOwnedTourDraft,
-  createInMemoryControlPlaneRepository,
   type WorkspaceEnvironment,
 } from '@lodariq/database';
+import {
+  createGrandfatheredInMemoryControlPlaneRepository as createInMemoryControlPlaneRepository,
+} from '../../fixtures/commercial.js';
 import {
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RENDERER_CONTRACT_VERSION,

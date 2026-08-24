@@ -2,6 +2,8 @@ import { performance } from 'node:perf_hooks';
 import {
   type AuthoringAuthorizationRequestRecord,
   type ControlPlaneRepository,
+  deriveAnalyticsAudienceSegment,
+  hashAdaptiveVisitorKey,
 } from '@lodariq/database';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
@@ -96,21 +98,50 @@ export async function ingestAuthoritativeSdkEvents(
   scope: { workspaceId: string; environmentId: string },
   candidates: readonly unknown[],
   reply: FastifyReply,
+  assignmentKey?: string,
 ) {
   const pointerRequests = new Map<string, Promise<ResolvedAnalyticsPointer | null>>();
-  const resolved = await resolveAuthoritativeAnalyticsBatch(scope, candidates, (documentId) => {
-    let pending = pointerRequests.get(documentId);
-    if (!pending) {
-      pending = resolveAnalyticsPointer(repository, scope, documentId);
-      pointerRequests.set(documentId, pending);
-    }
-    return pending;
-  });
+  const resolved = await resolveAuthoritativeAnalyticsBatch(
+    scope,
+    candidates,
+    (documentId) => {
+      let pending = pointerRequests.get(documentId);
+      if (!pending) {
+        pending = resolveAnalyticsPointer(repository, scope, documentId);
+        pointerRequests.set(documentId, pending);
+      }
+      return pending;
+    },
+    async (pointer) => {
+      if (!assignmentKey || !pointer.experimentId) return null;
+      const assignment = await repository.findExperimentAssignment({
+        ...scope,
+        documentId: pointer.documentId,
+        experimentId: pointer.experimentId,
+        assignmentKey,
+      });
+      return assignment
+        ? {
+            experimentId: assignment.experimentId,
+            armId: assignment.armId,
+            allocationRevision: assignment.allocationRevision,
+          }
+        : null;
+    },
+  );
 
   const accepted = resolved.events.length
     ? await repository.ingestAuthoritativeEvents({
         workspaceId: scope.workspaceId,
         environmentId: scope.environmentId,
+        ...(assignmentKey
+          ? {
+              adaptiveVisitorKeyHash: hashAdaptiveVisitorKey({
+                ...scope,
+                assignmentKey,
+              }),
+            }
+          : {}),
         events: resolved.events,
       })
     : 0;
@@ -146,6 +177,9 @@ export async function resolveAnalyticsPointer(
     deployment.activePublicationId,
   );
   if (!publication) return null;
+  const compiled = publication.artifact.compiled;
+  const experimentId =
+    'experiment' in compiled && compiled.experiment ? compiled.experiment.id : undefined;
   return {
     state: 'active',
     workspaceId: publication.workspaceId,
@@ -154,6 +188,10 @@ export async function resolveAnalyticsPointer(
     generation: deployment.generation,
     publicationId: publication.id,
     contentHash: publication.contentHash,
+    ...(experimentId ? { experimentId } : {}),
+    audienceSegment: deriveAnalyticsAudienceSegment(
+      'audience' in compiled ? compiled.audience : { rules: [] },
+    ),
   };
 }
 

@@ -3,6 +3,7 @@ import * as authoringCompatibility from '@lodariq/sdk-authoring/lodariq-authorin
 import * as authoringFrame from '@lodariq/sdk-authoring/authoring-frame';
 
 const AUTHORING_FRAME_RUNTIME_EXPORTS = [
+  'AUTHORING_TYPOGRAPHY_CSS_PROPERTIES',
   'AUTHORING_RELEASE_RECOVERY_PREPARATION_FAILURES',
   'AUTHORING_STAGING_RELEASE_STATES',
   'AuthoringBrandDriftController',
@@ -18,6 +19,7 @@ const AUTHORING_FRAME_RUNTIME_EXPORTS = [
   'createAuthoringReleaseRecoveryViewModel',
   'mountLocalAuthoringFrame',
   'prepareAuthoringReleaseRecoveryRequest',
+  'prewarmLocalAuthoringFrame',
   'productionArtifactForFrame',
   'releaseWorkflowFromState',
   'requestAuthoringBrandDrift',

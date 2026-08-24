@@ -12,6 +12,7 @@ import {
   type ControlPlaneRepository,
 } from '@lodariq/database';
 import type { FastifyReply } from 'fastify';
+import { enqueueReleaseWebhookEvent } from '../../../governance-events';
 import {
   ReleaseRecoveryResponseValidationError,
   releaseRecoveryHttpStatus,
@@ -85,6 +86,23 @@ export async function handleReleaseRecoveryMutation(
     const result = await repository.recoverDocumentRelease({ ...scope, request });
     if (!result) return sendMissingReleaseRecoveryScope(request, reply);
     validated = validateReleaseRecoveryResult(result);
+    if (validated.ok) {
+      await enqueueReleaseWebhookEvent(repository, {
+        workspaceId: scope.workspaceId,
+        environmentId: scope.environmentId,
+        documentId: scope.documentId,
+        operationId: validated.releaseOperationId,
+        action: validated.action === 'rollback' ? 'rolled_back' : 'unpublished',
+        occurredAt: validated.completedAt,
+        generation: validated.generation,
+        ...(validated.action === 'rollback'
+          ? {
+              publicationId: validated.publicationId,
+              contentHash: validated.artifact.contentHash,
+            }
+          : { contentHash: validated.deactivatedArtifact.contentHash }),
+      });
+    }
   } catch (error) {
     if (!isReleaseRecoveryReadBoundaryError(error)) throw error;
     return reply

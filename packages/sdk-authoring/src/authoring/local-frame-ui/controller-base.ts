@@ -10,16 +10,20 @@ import {
   type TourStepStyleSnapshot,
   type AuthoringMediaAssetResource,
 } from '@lodariq/schema';
-import type { AuthoringDeliveryCapability } from '@lodariq/schema';
+import type { AuthoringDeliveryCapability, BrandThemeSnapshot } from '@lodariq/schema';
 import { authoringText } from '../../i18n';
 import { type BlockInsertPosition } from '../document-ops';
 import { LOCAL_AUTHORING_SESSION_ID } from '../constants';
 import { AuthoringBridge } from '../../bridge/transport';
-import { createLodariqEditor } from '../../editor';
+import { createLodariqEditor } from '../../editor/create-editor';
 import type {
+  AuthoringOperationsTab,
+  AuthoringOperationsViewState,
   AuthoringPanelMode,
   AuthoringPanelOperation,
   AuthoringReleaseViewState,
+  CardCommandRequest,
+  TargetInspectRequest,
   FocusRequest,
   LocalAuthoringFrameSnapshot,
   TargetInspectionState,
@@ -53,6 +57,26 @@ import { AuthoringStepStyleRecipeLibrary } from '../step-style-recipes';
 import { AuthoringDraftCheckpointStore } from '../draft-checkpoints';
 
 export abstract class ControllerBase {
+  protected syncStepLockForSelection(_blockId: string | null): void {
+    // Operations overrides this when the authenticated collaboration boundary exists.
+  }
+
+  protected releaseStepLockLease(): void {
+    // Operations overrides this when the authenticated collaboration boundary exists.
+  }
+
+  protected startCollaborationTransport(): void {
+    // Operations overrides this when collaboration transport is available.
+  }
+
+  protected stopCollaborationTransport(): void {
+    // Operations overrides this when collaboration transport is available.
+  }
+
+  protected syncCollaborationPresence(): void {
+    // Operations overrides this when collaboration transport is available.
+  }
+
   protected readonly interactionActor: AuthoringInteractionActor =
     createAuthoringInteractionActor();
 
@@ -61,6 +85,11 @@ export abstract class ControllerBase {
   protected readonly deliveryCapabilities: ReadonlySet<AuthoringDeliveryCapability>;
 
   protected previewTheme: LocalAuthoringFrameOptions['previewTheme'];
+  /**
+   * The theme the workspace holds, when it differs from the one this frame
+   * rendered (§6.3). Null while they agree, so silence means current.
+   */
+  protected workspaceThemeSnapshot: BrandThemeSnapshot | null = null;
 
   protected previewPreferences: LocalAuthoringFrameOptions['previewPreferences'];
 
@@ -101,6 +130,9 @@ export abstract class ControllerBase {
   protected stepStyleClipboard: TourStepStyleSnapshot | null = null;
 
   protected readonly stepStyleRecipes: AuthoringStepStyleRecipeLibrary;
+
+  /** Session memory of which saved style each step wore — see the snapshot field. */
+  protected readonly stepStyleRecipeByStep = new Map<string, string>();
 
   protected readonly draftCheckpoints: AuthoringDraftCheckpointStore;
 
@@ -187,6 +219,14 @@ export abstract class ControllerBase {
 
   protected focusToken = 0;
 
+  protected cardCommandRequest: CardCommandRequest | null = null;
+
+  protected cardCommandToken = 0;
+
+  protected targetInspectRequest: TargetInspectRequest | null = null;
+
+  protected targetInspectToken = 0;
+
   protected release: AuthoringReleaseViewState;
 
   protected saveState: { state: AuthoringSaveState; label: string } = {
@@ -201,6 +241,13 @@ export abstract class ControllerBase {
   protected pendingPublicationRequest: AuthoringStagingPublicationRequest | null = null;
 
   protected panelMode: AuthoringPanelMode = 'edit';
+
+  protected operationsTab: AuthoringOperationsTab = 'flow';
+
+  protected readonly operationsViews = new Map<
+    AuthoringOperationsTab,
+    AuthoringOperationsViewState
+  >();
 
   protected panelReturnMode: AuthoringPanelMode = 'edit';
 
@@ -323,4 +370,6 @@ export abstract class ControllerBase {
   protected abstract makeSnapshot(): LocalAuthoringFrameSnapshot;
   protected abstract normalizeDocument(doc: LodariqDocument): LodariqDocument;
   protected abstract renderMetrics(): void;
+  /** Asks the host to resolve the selected step's target, so §4.4's state is real. */
+  protected abstract verifyActiveTarget(): void;
 }

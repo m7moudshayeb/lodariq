@@ -1,6 +1,5 @@
 /** Approved target placement inspector layout. */
 export const AUTHORING_AGREED_PLACEMENT_CSS = `
-  /* Placement stays a compact inspector under the canvas, sized to its controls. */
   .storyboard-canvas .rich-step-editor:has(.storyboard-property-tray[data-tool-mode='placement']) {
     grid-template-rows: auto minmax(0, 1fr) minmax(168px, auto);
   }

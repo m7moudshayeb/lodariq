@@ -20,6 +20,7 @@ import {
   loadWorkspaceEnvironments,
   loadDocumentDebug,
   revokePublicSdkInstallation,
+  setPublicSdkInstallationSuspension,
   revokeEnvironmentToken,
   setDefaultWorkspaceTheme,
   setDocumentThemeBinding,
@@ -528,6 +529,63 @@ export async function revokePublicSdkInstallationAction(
       error: await dashboardActionErrorMessage(
         error,
         DASHBOARD_ACTION_MESSAGES.revokeInstallationFailed,
+      ),
+    };
+  }
+}
+
+/**
+ * Engage or release the SDK kill switch for one installation (ADR-0027).
+ *
+ * `suspended` arrives as a form value rather than being derived from current
+ * state so the control is idempotent: two clicks racing on a slow connection
+ * settle on what the user asked for, not on whatever they toggled past.
+ */
+export async function setPublicSdkInstallationSuspensionAction(
+  _state: SdkInstallationActionState,
+  formData: FormData,
+): Promise<SdkInstallationActionState> {
+  const installationId = readRequiredFormValue(formData, 'installationId');
+  if (!installationId) {
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.chooseInstallation),
+    };
+  }
+  const suspended = formData.get('suspended') === 'true';
+
+  try {
+    const context = await requireDashboardActionRole('admin');
+    const installations = await loadPublicSdkInstallations();
+    for (const installation of installations) {
+      assertDashboardWorkspaceScope(context.workspaceId, installation, ...installation.origins);
+    }
+    const current = installations.find((candidate) => candidate.installationId === installationId);
+    if (!current) {
+      return {
+        status: 'error',
+        error: await serverMessage(DASHBOARD_ACTION_MESSAGES.installationNotFound),
+      };
+    }
+    const updated = await setPublicSdkInstallationSuspension(installationId, suspended);
+    revalidatePath('/');
+    return {
+      status: 'success',
+      installation: {
+        ...current,
+        ...updated.installation,
+        origins: current.origins,
+        sdkSnippet: current.sdkSnippet,
+      },
+    };
+  } catch (error) {
+    return {
+      status: 'error',
+      error: await dashboardActionErrorMessage(
+        error,
+        suspended
+          ? DASHBOARD_ACTION_MESSAGES.pauseInstallationFailed
+          : DASHBOARD_ACTION_MESSAGES.resumeInstallationFailed,
       ),
     };
   }

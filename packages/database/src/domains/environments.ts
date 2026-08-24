@@ -3,11 +3,13 @@ import {
   EnvironmentReleasePolicy as EnvironmentReleasePolicySchema,
   WorkspaceEnvironmentPolicy as WorkspaceEnvironmentPolicySchema,
   createDefaultEnvironmentReleasePolicy,
+  defaultEnvironmentGovernanceCapabilities,
   validate,
   validateWorkspaceEnvironmentPolicy,
   type Environment,
   type EnvironmentPolicyValidationIssue,
   type EnvironmentReleasePolicy,
+  type EnvironmentGovernanceCapability,
   type WorkspaceEnvironmentPolicy,
   type WorkspaceEnvironmentPolicyRow,
 } from '@lodariq/schema';
@@ -31,6 +33,8 @@ export interface WorkspaceEnvironment {
   authoringEnabled?: boolean;
   promotionSourceEnvironmentId?: string;
   releasePolicy?: EnvironmentReleasePolicy;
+  /** Explicit upper bound for human authority in this environment. */
+  governanceCapabilities?: EnvironmentGovernanceCapability[];
   createdAt: string;
   updatedAt: string;
 }
@@ -53,6 +57,7 @@ export interface UpdateWorkspaceEnvironmentPolicyInput {
   authoringEnabled: boolean;
   promotionSourceEnvironmentId?: string;
   releasePolicy: EnvironmentReleasePolicy;
+  governanceCapabilities?: EnvironmentGovernanceCapability[];
   expectedUpdatedAt: string;
   actorUserId: string;
 }
@@ -106,6 +111,7 @@ export type NormalizedWorkspaceEnvironment = WorkspaceEnvironment & {
   pipelinePosition: 0 | 1 | 2;
   authoringEnabled: boolean;
   releasePolicy: EnvironmentReleasePolicy;
+  governanceCapabilities: EnvironmentGovernanceCapability[];
 };
 
 /**
@@ -176,6 +182,9 @@ export function normalizeWorkspaceEnvironments(
         authoringEnabled: environment.authoringEnabled ?? environment.kind !== 'production',
         ...(promotionSourceEnvironmentId ? { promotionSourceEnvironmentId } : {}),
         releasePolicy,
+        governanceCapabilities:
+          environment.governanceCapabilities ??
+          defaultEnvironmentGovernanceCapabilities(environment.kind),
       };
     })
     .sort(compareWorkspaceEnvironmentsByPipeline);
@@ -195,6 +204,7 @@ export function toWorkspaceEnvironmentPolicyRow(
     pipelinePosition: normalized.pipelinePosition,
     allowedOrigins: [...normalized.originAllowlist],
     authoringEnabled: normalized.authoringEnabled,
+    governanceCapabilities: [...normalized.governanceCapabilities],
     ...(normalized.promotionSourceEnvironmentId
       ? { promotionSourceEnvironmentId: normalized.promotionSourceEnvironmentId }
       : {}),
@@ -219,6 +229,7 @@ export function toWorkspaceEnvironmentPolicy(
       pipelinePosition: environment.pipelinePosition,
       allowedOrigins: [...environment.originAllowlist],
       authoringEnabled: environment.authoringEnabled,
+      governanceCapabilities: [...environment.governanceCapabilities],
       ...(environment.promotionSourceEnvironmentId
         ? { promotionSourceEnvironmentId: environment.promotionSourceEnvironmentId }
         : {}),

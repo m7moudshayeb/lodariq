@@ -52,7 +52,7 @@ The feedback is directionally correct and should be adopted. This revision also 
 34. Narrow the initial commercial category to the in-product launch and adoption workflow for Product Marketing teams at frequently shipping B2B SaaS companies. Other personas remain collaborators and expansion users, not equal initial buyers.
 35. Treat a 48/50 product score as an evidence-gated target, not a roadmap claim. Buyer clarity, usage, workflow advantage, and distribution must be proven through paid pilots, comparative usability tests, retention, and channel results.
 36. Keep the permanently installed SDK launcher hidden by default on authenticated development and staging environments. Creators reveal it with `Ctrl/⌘ + Shift + L` or dashboard **Open in product**; neither entry gesture grants authoring. A browser extension and second creator snippet are not required.
-37. Replace the fixed dock or page-width authoring bar with a draggable, modeless launcher and popup that preserve host-page hit testing. Target selection temporarily collapses the popup to a movable chip and restores it after selection.
+37. Replace the fixed dock or page-width authoring bar with a draggable, modeless launcher, live overlay editor, filmstrip, and pulses that preserve host-page hit testing. Target selection temporarily collapses overlay chrome to a movable chip and restores it after selection. An operations modal is the only full-page covering surface and opens only from an explicit creator action.
 38. Authenticate signed-out creators through a top-level first-party Lodariq popup and an exact-origin, single-use, short-lived activation exchange. Do not collect credentials in the customer page, depend on another Lodariq tab being open, or put bearer credentials in URLs or persistent browser storage.
 
 ## Feedback Disposition
@@ -784,12 +784,12 @@ Interaction rules:
   expands the selection scope from the current page to the workspace; choosing
   an item or starting the Tour flow then creates or restores its document-scoped
   authoring session.
-- Selecting the launcher center opens, restores, or resumes the most relevant state. While the authoring popup is open, the launcher becomes its minimize/restore control rather than duplicating editing commands.
-- The authoring surface is a bounded, draggable, modeless popup. Only its visible bounds may intercept pointer input; the customer page outside it remains clickable and scrollable.
-- Target selection collapses the popup to a draggable status chip so any covered element can be selected, then restores the popup without losing draft, step, or focus context.
-- The popup is viewport-clamped, edge-aware, keyboard movable, and responsive. Quick-action controls use visible labels or tooltips, real buttons, at least 44-by-44-pixel touch targets, predictable focus order, and `Escape` collapse behavior.
-- Content and component controls stay on or beside the rendered experience.
-- A sequence rail appears inside the popup only for genuinely multi-step experiences such as tours or checklists.
+- Selecting the launcher center opens, restores, or resumes the most relevant state. While a document is open, the launcher becomes overlay minimize/restore rather than duplicating editing commands. A contextual **Operations** action may appear; it does not replace New, Experiences, Preview, or Hide.
+- The authoring surface is the live experience on the customer page. The editor iframe aligns over the runtime tooltip; it is not a floating studio panel. Only visible overlay, filmstrip, pulse, compass, and launcher pixels intercept pointer input; the rest of the page stays clickable and scrollable.
+- Target selection collapses overlay chrome to a draggable status chip so any covered element can be selected, then restores the overlay without losing draft, step, or focus context.
+- Overlay chrome is viewport-clamped and edge-aware. Quick-action controls use visible labels or tooltips, real buttons, at least 44-by-44-pixel touch targets, predictable focus order, and `Escape` collapse behavior.
+- Content and component controls stay on or beside the rendered experience. The format toolbar docks to the open live popup and hides when that popup collapses to a pulse.
+- A filmstrip lists every step for genuinely multi-step experiences. Numbered pulses mark only resolved, on-screen targets. Off-page steps stay in the filmstrip.
 - Advanced audience, lifecycle, placement, and diagnostic controls are progressively disclosed from the item they affect.
 - Autosave is quiet and continuous. Draft save remains permissive; publish blocks only critical safety or runtime failures.
 - The dedicated close control and **Save & exit** are different intentional
@@ -2774,10 +2774,10 @@ Scope:
 - Hidden-by-default launcher, top-level first-party activation popup, exact-origin
   one-time-code exchange, short-lived activation grant, document-scoped session
   creation, expiry/replay/cancel recovery, and production-origin exclusion.
-- Converged draggable launcher and modeless authoring popup with the stable
-  **New experience**, **Experiences on this page**, **Preview as user**, and
-  **Hide Lodariq** actions. Page-level drafts/history and release stay
-  in-product.
+- Converged draggable launcher with the stable **New experience**,
+  **Experiences on this page**, **Preview as user**, and **Hide Lodariq**
+  actions, plus the live overlay editor, filmstrip, pulses, and operations
+  modal. Page-level drafts/history and release stay in-product.
 - Selector-free Target Identity V2 capture and runtime resolution. New targets
   use independent durable semantic/context evidence, strict ambiguity and
   runner-up gates, locale-scoped supporting text, and container-relative
@@ -3325,9 +3325,11 @@ Billing notes:
   either gesture as proof of identity or workspace role.
 - Do not use wildcard popup or iframe `postMessage` targets. Validate exact
   origin, source window, request state, session, document, and payload schema.
-- Do not let the launcher or popup block host-page hit testing outside its
-  visible bounds. Target selection must collapse or move authoring chrome when
-  necessary and restore state afterward.
+- Do not let the launcher, filmstrip, pulses, overlay editor, or operations
+  modal block host-page hit testing outside their visible bounds. Target
+  selection must collapse or move authoring chrome when necessary and restore
+  state afterward. Do not use a floating editor panel as the in-product writing
+  surface.
 - Do not make hover the only mechanism for launcher discovery or activation;
   click, tap, and keyboard paths must be complete.
 - Do not allow coordinates to trigger production interactions.

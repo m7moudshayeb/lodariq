@@ -21,7 +21,10 @@ import {
   reorderStepChildBlock,
   reorderTopLevelBlock,
   setBlockAction,
+  setBlockEmphasis,
   setBlockLayout,
+  setBlockShowWhen,
+  setBlockTeaches,
   setBlockPlacement,
   setBlockPresentationAnchor,
   setBlockTextStyle,
@@ -34,6 +37,7 @@ import {
   updateBlockContentRuns,
 } from './document-ops';
 import { findContainingTourStepId } from './preview-step-state';
+import { selectExperienceRootBlocks } from './experience-authoring-capabilities';
 import {
   isDefaultDocumentLocale,
   setAuthoringLocalizedBlockContent,
@@ -168,7 +172,28 @@ export function applyPreviewPatch(
       next = { ...next, blocks: setBlockVariant(next.blocks, blockId, op.variant) };
     }
     if (op.op === 'setPlacement') {
-      next = { ...next, blocks: setBlockPlacement(next.blocks, blockId, op.placement) };
+      next = {
+        ...next,
+        blocks: setBlockPlacement(next.blocks, blockId, op.placement, {
+          ...(op.align ? { align: op.align } : {}),
+          ...(op.offsetPx === undefined ? {} : { offsetPx: op.offsetPx }),
+        }),
+      };
+    }
+    /*
+     * The three step-level facts. They were declared on the bridge and reduced
+     * optimistically in the frame, but never applied here — so a visibility
+     * rule, an emphasis or a teaches event showed in the inspector, replayed
+     * once, and was gone on the next load.
+     */
+    if (op.op === 'setShowWhen') {
+      next = { ...next, blocks: setBlockShowWhen(next.blocks, blockId, op.showWhen) };
+    }
+    if (op.op === 'setEmphasis') {
+      next = { ...next, blocks: setBlockEmphasis(next.blocks, blockId, op.emphasis) };
+    }
+    if (op.op === 'setTeaches') {
+      next = { ...next, blocks: setBlockTeaches(next.blocks, blockId, op.eventName) };
     }
     if (op.op === 'setPresentationAnchor') {
       const presentationAnchor = op.presentationAnchor;
@@ -184,7 +209,7 @@ export function applyPreviewPatch(
       const label =
         op.identity?.display.authorLabel ??
         op.fingerprint.accessibleName ??
-        op.fingerprint.stableAttributes['data-lodariq-id'] ??
+        op.fingerprint.stableAttributes?.['data-lodariq-id'] ??
         op.fingerprint.tagName;
       next = {
         ...next,
@@ -196,6 +221,10 @@ export function applyPreviewPatch(
             ...(previousTarget?.lifecycle
               ? { lifecycle: structuredClone(previousTarget.lifecycle) }
               : {}),
+            ...(previousTarget?.approach
+              ? { approach: structuredClone(previousTarget.approach) }
+              : {}),
+            ...(op.selection ? { selection: structuredClone(op.selection) } : {}),
             ...(op.identity
               ? {
                   identity: {
@@ -246,6 +275,16 @@ export function applyPreviewPatch(
         }),
       };
     }
+    if (op.op === 'setTargetApproach') {
+      next = {
+        ...next,
+        targets: next.targets.map((target) => {
+          if (target.id !== op.targetId) return target;
+          const approach = op.approach ? structuredClone(op.approach) : undefined;
+          return approach ? { ...target, approach } : { ...target, approach: undefined };
+        }),
+      };
+    }
     if (op.op === 'replaceDocument') {
       next = structuredClone(op.document);
     }
@@ -257,9 +296,12 @@ export function inlinePreviewControlContext(
   document: LodariqDocument,
   bodyBlockId: string,
 ): InlinePreviewControlContext | null {
-  const stepId = findContainingTourStepId(document.blocks, bodyBlockId);
-  const step = document.blocks.find((block) => block.id === stepId && block.type === 'tourStep');
-  const tooltip = step?.children.find((block) => block.type === 'tooltip');
+  const tourStepId = findContainingTourStepId(document.blocks, bodyBlockId);
+  const step = selectExperienceRootBlocks(document).find(
+    (candidate) => candidate.id === tourStepId || blockContainsId(candidate, bodyBlockId),
+  );
+  const tooltip =
+    step?.type === 'tooltip' ? step : step?.children.find((block) => block.type === 'tooltip');
   if (!step || !tooltip) return null;
   const actionBlock = firstInlineActionBlock(tooltip.children);
   const actionType = inlineActionType(actionBlock?.props.action?.type);
@@ -269,6 +311,10 @@ export function inlinePreviewControlContext(
     placement: tooltip.props.placement ?? 'bottom',
     ...(actionBlock ? { actionBlockId: actionBlock.id, actionType } : {}),
   };
+}
+
+function blockContainsId(block: LodariqBlock, blockId: string): boolean {
+  return block.id === blockId || block.children.some((child) => blockContainsId(child, blockId));
 }
 
 function firstInlineActionBlock(blocks: LodariqBlock[]): LodariqBlock | null {

@@ -143,23 +143,107 @@ function escapeRegularExpression(value) {
 function splitStatements(source) {
   const statements = [];
   let start = 0;
+  // `start` skips the leading blank, so a finding names the statement's own
+  // line rather than wherever the previous one happened to end.
+  const record = (from, raw) => {
+    const text = raw.trim();
+    if (text) statements.push({ start: from + (raw.length - raw.trimStart().length), text });
+  };
   for (let index = 0; index < source.length; index += 1) {
     if (source[index] !== ';') continue;
-    const text = source.slice(start, index + 1).trim();
-    if (text) statements.push({ start, text });
+    record(start, source.slice(start, index + 1));
     start = index + 1;
   }
-  const text = source.slice(start).trim();
-  if (text) statements.push({ start, text });
+  record(start, source.slice(start));
   return statements;
 }
 
+/*
+ * One left-to-right pass, because independent passes cannot agree on what a
+ * quote means. Stripping strings before comments read an apostrophe in prose as
+ * a string opening and blanked every statement up to the next one, so two
+ * apostrophes in comments hid an unapproved DROP from this guard completely.
+ * Reversing the order only moves the hole: a `--` inside a string literal would
+ * then eat the rest of that line.
+ *
+ * Blanked regions keep their newlines, so reported line numbers stay true.
+ */
 function stripCommentsAndStrings(source) {
-  return source
-    .replace(/\$([A-Za-z0-9_]*)\$[\s\S]*?\$\1\$/gu, ' ')
-    .replace(/'(?:''|[^'])*'/gu, ' ')
-    .replace(/\/\*[\s\S]*?\*\//gu, ' ')
-    .replace(/--.*$/gmu, ' ');
+  const blank = (text) => text.replace(/[^\n]/gu, ' ');
+  let result = '';
+  let index = 0;
+  const skipTo = (end) => {
+    result += blank(source.slice(index, end));
+    index = end;
+  };
+  while (index < source.length) {
+    const dollarTag = /^\$[A-Za-z0-9_]*\$/u.exec(source.slice(index));
+    if (dollarTag) {
+      const tag = dollarTag[0];
+      const close = source.indexOf(tag, index + tag.length);
+      skipTo(close === -1 ? source.length : close + tag.length);
+      continue;
+    }
+    if (source.startsWith('/*', index)) {
+      skipTo(blockCommentEnd(source, index));
+      continue;
+    }
+    if (source.startsWith('--', index)) {
+      const newline = source.indexOf('\n', index);
+      skipTo(newline === -1 ? source.length : newline);
+      continue;
+    }
+    if (source[index] === "'" || source[index] === '"') {
+      skipTo(quotedEnd(source, index));
+      continue;
+    }
+    result += source[index];
+    index += 1;
+  }
+  return result;
+}
+
+/** Postgres block comments nest, so depth decides the end, not the first `*` `/`. */
+function blockCommentEnd(source, start) {
+  let depth = 0;
+  let cursor = start;
+  while (cursor < source.length) {
+    if (source.startsWith('/*', cursor)) {
+      depth += 1;
+      cursor += 2;
+      continue;
+    }
+    if (source.startsWith('*/', cursor)) {
+      depth -= 1;
+      cursor += 2;
+      if (depth === 0) return cursor;
+      continue;
+    }
+    cursor += 1;
+  }
+  return source.length;
+}
+
+/** `''` escapes a quote inside a literal, and `E'...'` also honours backslashes. */
+function quotedEnd(source, start) {
+  const quote = source[start];
+  const backslashEscapes = quote === "'" && /[eE]$/u.test(source.slice(Math.max(0, start - 1), start));
+  let cursor = start + 1;
+  while (cursor < source.length) {
+    if (backslashEscapes && source[cursor] === '\\') {
+      cursor += 2;
+      continue;
+    }
+    if (source[cursor] === quote) {
+      if (source[cursor + 1] === quote) {
+        cursor += 2;
+        continue;
+      }
+      return cursor + 1;
+    }
+    cursor += 1;
+  }
+  return source.length;
 }
 
 function lineNumberAt(source, index) {

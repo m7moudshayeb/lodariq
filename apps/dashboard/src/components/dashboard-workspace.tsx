@@ -4,11 +4,18 @@ import * as React from 'react';
 import { DASHBOARD_VIEW_IDS, type DashboardViewId } from '../lib/dashboard-constants';
 import type { DashboardViewModel } from '../lib/view-model';
 import { DashboardAppShell } from './dashboard-app-shell';
-import { AnalyticsView, ExperiencesView, OverviewView } from './dashboard-primary-views';
+import {
+  AnalyticsView,
+  ApplicationsView,
+  ExperiencesView,
+  OverviewView,
+} from './dashboard-primary-views';
 import { ReleasesView } from './dashboard-release-view';
 import { BrandSystemView, EnvironmentsView, SupportView } from './dashboard-settings-views';
 import { StatusBanner } from './ui/status-banner';
 import { WorkspaceMembersView } from './workspace-members-view';
+
+const BillingView = React.lazy(() => import('./billing-view'));
 
 interface DashboardWorkspaceProps {
   viewModel: DashboardViewModel;
@@ -129,6 +136,9 @@ function ActiveDashboardView({
   if (activeView === 'environments') {
     return <EnvironmentsView viewModel={viewModel} workspaceId={workspaceId} />;
   }
+  if (activeView === 'applications') {
+    return <ApplicationsView workspaceId={workspaceId} />;
+  }
   if (activeView === 'members') {
     return (
       <WorkspaceMembersView
@@ -138,10 +148,25 @@ function ActiveDashboardView({
       />
     );
   }
+  if (activeView === 'billing') {
+    return (
+      <React.Suspense fallback={<DashboardViewLoading />}>
+        <BillingView currentRole={viewModel.currentRole} workspaceId={workspaceId} />
+      </React.Suspense>
+    );
+  }
   if (activeView === 'support') {
     return <SupportView viewModel={viewModel} workspaceId={workspaceId} />;
   }
   return null;
+}
+
+function DashboardViewLoading(): React.ReactElement {
+  return (
+    <div className="rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground">
+      Loading workspace billing…
+    </div>
+  );
 }
 
 function DashboardError({ message }: { message: string }): React.ReactElement {

@@ -40,7 +40,7 @@ export const AUTHORING_FOCUSED_FLOW_CSS = `
   }
 
   .tour-flow-heading strong {
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .tour-flow-heading small {
@@ -63,7 +63,7 @@ export const AUTHORING_FOCUSED_FLOW_CSS = `
     background: #ffffff;
     color: var(--lq-color-ink-soft);
     cursor: pointer;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     padding: 0 8px;
     white-space: nowrap;
   }
@@ -162,8 +162,8 @@ export const AUTHORING_FOCUSED_FLOW_CSS = `
     border-radius: 999px;
     background: var(--lq-color-primary-soft);
     color: var(--lq-color-primary);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
   }
 
   .tour-flow-node > span:nth-child(2),
@@ -176,7 +176,7 @@ export const AUTHORING_FOCUSED_FLOW_CSS = `
   .tour-flow-node strong,
   .tour-flow-completion strong {
     overflow: hidden;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -236,7 +236,7 @@ export const AUTHORING_FOCUSED_FLOW_CSS = `
     background: var(--lq-color-primary-soft);
     color: var(--lq-color-primary);
     font-size: 8px;
-    font-weight: 600;
+    font-weight: var(--lq-weight-semibold);
     padding: 4px 8px;
   }
 
@@ -259,7 +259,7 @@ export const AUTHORING_FOCUSED_FLOW_CSS = `
 
   .tour-flow-node-inspector dd {
     overflow: hidden;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     margin: 0;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -286,8 +286,8 @@ export const AUTHORING_FOCUSED_FLOW_CSS = `
     background: transparent;
     color: var(--lq-color-primary);
     cursor: pointer;
-    font-size: 10px;
-    font-weight: 600;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
     padding: 0 8px;
   }
 
@@ -313,7 +313,7 @@ export const AUTHORING_FOCUSED_FLOW_CSS = `
   }
 
   .tour-flow-utilities summary strong {
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
   }
 
   .tour-flow-utilities summary small {
@@ -343,8 +343,8 @@ export const AUTHORING_FOCUSED_FLOW_CSS = `
   }
 
   .tour-flow-utility-grid legend {
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
   }
 
   .tour-flow-utility-grid label {
@@ -362,7 +362,7 @@ export const AUTHORING_FOCUSED_FLOW_CSS = `
     border-radius: 8px;
     background: #ffffff;
     color: var(--lq-color-ink);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     padding: 0 8px;
   }
 
@@ -389,7 +389,7 @@ export const AUTHORING_FOCUSED_FLOW_CSS = `
 
   .tour-checkpoint-editor li strong {
     overflow: hidden;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
   }

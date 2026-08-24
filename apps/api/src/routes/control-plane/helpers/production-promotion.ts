@@ -15,11 +15,14 @@ import {
   PublicationVerificationRequiredError,
   ReleaseApprovalRejectedError,
   ReleaseOperationInProgressError,
+  AccessibilityReleaseBlockedError,
   type ControlPlaneRepository,
   type PersistedReleaseOperation,
 } from '@lodariq/database';
+import { assertAccessibilityReleaseGate } from '../../../accessibility-governance';
 import type { FastifyReply } from 'fastify';
 import { createObservabilityEvent } from '../../../observability';
+import { enqueueReleaseWebhookEvent } from '../../../governance-events';
 import { promoteExactVerifiedPublication } from '../../../releases/promotion';
 import { authRoleFromMembership, emitObservability } from '../../control-plane-access';
 import type { ControlPlaneRouteOptions } from '../../control-plane-context';
@@ -118,6 +121,13 @@ export async function handleProductionPromotion(
     return sendEnvironmentPolicyDecision(policyDecision, reply);
   }
   try {
+    if (existingOperation?.status !== 'completed') {
+      await assertAccessibilityReleaseGate(
+        options.repository,
+        scope.workspaceId,
+        sourcePublication.documentVersionId,
+      );
+    }
     const result = await promoteExactVerifiedPublication(options.repository, {
       workspaceId: scope.workspaceId,
       sourceEnvironmentId: sourceEnvironment.id,
@@ -131,6 +141,19 @@ export async function handleProductionPromotion(
       expectedEnvironmentPolicyUpdatedAt: targetEnvironment.updatedAt,
     });
     const response = validateProductionPromotionResult(toProductionPromotionResult(result));
+    if (response.ok && response.state === 'completed') {
+      await enqueueReleaseWebhookEvent(options.repository, {
+        workspaceId: scope.workspaceId,
+        environmentId: targetEnvironment.id,
+        documentId: scope.documentId,
+        operationId: response.releaseOperationId,
+        action: 'activated',
+        occurredAt: result.operation.completedAt ?? new Date().toISOString(),
+        generation: response.generation,
+        publicationId: response.publicationId,
+        contentHash: response.contentHash,
+      });
+    }
     emitObservability(
       options.observability,
       createObservabilityEvent({
@@ -275,6 +298,9 @@ export function productionPromotionFailureForError(
   }
   if (error instanceof PublicationVerificationRequiredError) {
     return { statusCode: 409, code: 'source_not_verified', message: error.message };
+  }
+  if (error instanceof AccessibilityReleaseBlockedError) {
+    return { statusCode: 409, code: error.code, message: error.message };
   }
   if (error instanceof ReleaseApprovalRejectedError) {
     return { statusCode: 409, code: 'approval_rejected', message: error.message };

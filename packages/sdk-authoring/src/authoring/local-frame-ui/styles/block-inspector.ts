@@ -7,7 +7,14 @@ export const AUTHORING_BLOCK_INSPECTOR_CSS = `
     resize: vertical;
     cursor: text;
     outline: 0;
-    padding: var(--lq-space-3);
+    padding: var(
+        --lq-tour-composition-padding-block,
+        var(--lq-tour-composition-padding, var(--lq-space-3))
+      )
+      var(
+        --lq-tour-composition-padding-inline,
+        var(--lq-tour-composition-padding, var(--lq-space-3))
+      );
   }
 
   .rich-step-content[data-lodariq-content-align='center'] {

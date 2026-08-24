@@ -1,5 +1,6 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { InlineTextRun, type LodariqBlock } from './block';
+import { resolveMediaPresentationForLocale } from './presentation';
 
 export const DEFAULT_CONTENT_LOCALE = 'en' as const;
 export const CONTENT_LOCALE_PATTERN = '^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$';
@@ -25,8 +26,27 @@ export const LocalizedBlockContent = Type.Object(
 export type LocalizedBlockContent = Static<typeof LocalizedBlockContent>;
 
 /**
+ * Redirects one step's target for a single locale.
+ *
+ * Targets are shared across locales by default — that is the point of keeping
+ * variants text-only — but a localized UI sometimes genuinely differs. Both ends
+ * are existing document targets, so evidence and identity stay intact (ADR-0016),
+ * and the swap is resolved when a locale is materialized rather than by asking a
+ * creator to keep locales in manual sync.
+ */
+export const LocalizedTargetOverride = Type.Object(
+  {
+    targetId: Type.String({ minLength: 1 }),
+    replacementTargetId: Type.String({ minLength: 1 }),
+  },
+  { $id: 'LocalizedTargetOverride', additionalProperties: false },
+);
+export type LocalizedTargetOverride = Static<typeof LocalizedTargetOverride>;
+
+/**
  * Sparse copy for one locale. Structure and behavior always come from the
- * canonical document; only creator-facing text may vary by locale.
+ * canonical document; creator-facing text and, where a localized UI genuinely
+ * differs, target bindings may vary by locale.
  */
 export const DocumentLocaleVariant = Type.Object(
   {
@@ -35,6 +55,9 @@ export const DocumentLocaleVariant = Type.Object(
     fallbackLocale: Type.Ref(ContentLocale),
     title: Type.Optional(Type.String({ maxLength: 1_024 })),
     blocks: Type.Array(Type.Ref(LocalizedBlockContent), { maxItems: 2_000 }),
+    targetOverrides: Type.Optional(
+      Type.Array(Type.Ref(LocalizedTargetOverride), { maxItems: 200 }),
+    ),
   },
   { $id: 'DocumentLocaleVariant', additionalProperties: false },
 );
@@ -59,15 +82,21 @@ export interface DocumentLocalizationIssue {
     | 'non_leaf_block'
     | 'invalid_content_runs'
     | 'missing_fallback'
-    | 'fallback_cycle';
+    | 'fallback_cycle'
+    | 'unknown_target_override'
+    | 'self_target_override'
+    | 'duplicate_target_override';
   locale: string;
   blockId?: string;
+  targetId?: string;
 }
 
 export interface LocalizableDocument {
   title: string;
   blocks: LodariqBlock[];
   localization?: DocumentLocalization;
+  /** Present on full documents; target overrides are only validated when it is. */
+  targets?: readonly { id: string }[];
 }
 
 /** Canonicalizes a bounded language tag without accepting arbitrary locale-shaped strings. */
@@ -91,6 +120,15 @@ export function resolveDocumentLocalization(
     defaultLocale,
     variants: structuredClone(document.localization?.variants ?? []),
   };
+}
+
+export function documentLocaleCount(document: Pick<LocalizableDocument, 'localization'>): number {
+  const localization = resolveDocumentLocalization(document);
+  const locales = new Set<string>([localization.defaultLocale]);
+  for (const variant of localization.variants) {
+    locales.add(canonicalContentLocale(variant.locale) ?? variant.locale);
+  }
+  return locales.size;
 }
 
 /**
@@ -145,7 +183,17 @@ export function materializeLocalizedDocument<T extends LocalizableDocument>(
     if (variant.title !== undefined) next.title = variant.title;
     const contentByBlockId = new Map(variant.blocks.map((block) => [block.blockId, block]));
     next.blocks = next.blocks.map((block) => localizeBlock(block, contentByBlockId));
+    const targetSwaps = new Map(
+      (variant.targetOverrides ?? []).map((override) => [
+        override.targetId,
+        override.replacementTargetId,
+      ]),
+    );
+    if (targetSwaps.size > 0) {
+      next.blocks = next.blocks.map((block) => retargetBlock(block, targetSwaps));
+    }
   }
+  next.blocks = next.blocks.map((block) => localizeBlockMedia(block, requestedLocale));
   return next;
 }
 
@@ -184,6 +232,7 @@ export function documentLocalizationIssues(
         issues.push({ code: 'invalid_content_runs', locale, blockId: localized.blockId });
       }
     }
+    issues.push(...targetOverrideIssues(document, variant, locale));
   }
 
   for (const [locale, variant] of variantsByLocale) {
@@ -235,6 +284,63 @@ function localizeBlock(
   next.content = localized.content;
   if (localized.contentRuns) next.contentRuns = structuredClone(localized.contentRuns);
   else delete next.contentRuns;
+  return next;
+}
+
+function localizeBlockMedia(
+  block: LodariqBlock,
+  requestedLocale: string | null | undefined,
+): LodariqBlock {
+  const media = block.props.media;
+  return {
+    ...block,
+    props: media
+      ? {
+          ...block.props,
+          media: resolveMediaPresentationForLocale(media, requestedLocale ?? undefined),
+        }
+      : block.props,
+    children: block.children.map((child) => localizeBlockMedia(child, requestedLocale)),
+  };
+}
+
+/**
+ * Both ends of an override must be real document targets, so a locale can never
+ * point a step at evidence that does not exist (ADR-0016).
+ */
+function targetOverrideIssues(
+  document: LocalizableDocument,
+  variant: DocumentLocaleVariant,
+  locale: string,
+): DocumentLocalizationIssue[] {
+  const overrides = variant.targetOverrides ?? [];
+  if (overrides.length === 0) return [];
+  const issues: DocumentLocalizationIssue[] = [];
+  const known = document.targets ? new Set(document.targets.map((target) => target.id)) : null;
+  const seen = new Set<string>();
+  for (const override of overrides) {
+    const { targetId, replacementTargetId } = override;
+    if (seen.has(targetId)) issues.push({ code: 'duplicate_target_override', locale, targetId });
+    seen.add(targetId);
+    if (targetId === replacementTargetId) {
+      issues.push({ code: 'self_target_override', locale, targetId });
+      continue;
+    }
+    if (known && (!known.has(targetId) || !known.has(replacementTargetId))) {
+      issues.push({ code: 'unknown_target_override', locale, targetId });
+    }
+  }
+  return issues;
+}
+
+/** Applies a locale's target swaps. Only the binding moves; nothing else changes. */
+function retargetBlock(block: LodariqBlock, swaps: ReadonlyMap<string, string>): LodariqBlock {
+  const next: LodariqBlock = {
+    ...block,
+    children: block.children.map((child) => retargetBlock(child, swaps)),
+  };
+  const replacement = block.props.targetId ? swaps.get(block.props.targetId) : undefined;
+  if (replacement) next.props = { ...next.props, targetId: replacement };
   return next;
 }
 

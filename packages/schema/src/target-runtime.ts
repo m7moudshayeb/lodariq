@@ -1,8 +1,31 @@
+import { isPageKey, TARGET_PAGE_MATCHES } from './page-key';
+
 export const TARGET_IDENTITY_SCHEMA_VERSION = 2 as const;
 
 export const TARGET_ELEMENT_KINDS = ['control', 'field', 'content', 'container'] as const;
 export const TARGET_REQUIRED_ACTIONS = ['anchor', 'observe-click', 'focus', 'input'] as const;
 export const TARGET_RESOLUTION_MODES = ['semantic', 'visual-anchor', 'layout-slot'] as const;
+
+/**
+ * Which match to take when the evidence genuinely cannot separate several
+ * candidates. `only` is the default and keeps today's behaviour: ambiguity is
+ * reported, never guessed. The rest are explicit author answers to the
+ * disambiguation question, and the data-relative ones survive the data
+ * changing — which happens far more often than the UI changing.
+ */
+export const TARGET_SELECTION_KINDS = [
+  'only',
+  'any-matching',
+  'ordinal',
+  'first',
+  'last',
+  'newest-in-collection',
+  'first-in-collection',
+  'within-container',
+] as const;
+export const TARGET_SELECTION_ORDINAL_LIMITS = { min: 1, max: 50 } as const;
+/** Collection ordering signals a data-relative selection may rank on. */
+export const TARGET_COLLECTION_ORDERS = ['reading-order', 'recency'] as const;
 export const TARGET_RELATIONSHIP_KINDS = [
   'inside',
   'labelled-by',
@@ -32,6 +55,7 @@ export const TARGET_SIGNAL_FAMILIES = [
   'visual-appearance',
   'visual-neighborhood',
   'layout-slot',
+  'sibling-position',
   'localized-text',
 ] as const;
 export const TARGET_CAPTURE_QUALITIES = ['strong', 'usable', 'weak'] as const;
@@ -69,6 +93,16 @@ export const TARGET_IDENTITY_SCORE_BY_FAMILY = {
   'visual-appearance': 18,
   'visual-neighborhood': 22,
   'layout-slot': 35,
+  /*
+   * Enough to separate two candidates nothing else can separate, and never more.
+   *
+   * `TARGET_MAX_RESOLUTION_RUNNER_UP_MARGIN` caps the gap a winner must open over
+   * its runner-up at 30, so one confirmed positional match (30 × the stable
+   * multiplier = 33) always clears it, while an identity built on position plus
+   * one other family cannot: `sibling-position` is excluded from the independent
+   * family count on both sides. It decides ties; it does not establish identity.
+   */
+  'sibling-position': 30,
   'localized-text': 15,
 } as const satisfies Readonly<Record<(typeof TARGET_SIGNAL_FAMILIES)[number], number>>;
 export const TARGET_STABLE_SIGNAL_MULTIPLIER = 1.1;
@@ -76,6 +110,114 @@ export const TARGET_UNCONFIRMED_SIGNAL_MULTIPLIER = 0.65;
 export const TARGET_MIN_RESOLUTION_RUNNER_UP_MARGIN = 15;
 export const TARGET_MAX_RESOLUTION_RUNNER_UP_MARGIN = 30;
 export const TARGET_MIN_RESOLUTION_RUNNER_UP_RATIO = 0.15;
+
+/**
+ * Every container between the element and its captured context, and every
+ * captured container the element does not have at all, costs it this much
+ * agreement.
+ *
+ * Calibrated against the runner-up margin, not picked for feel: `ancestor-context`
+ * scores 25, so a direct match is 27.5 with the stable multiplier and one level
+ * of indirection is 8.25. The 19.25 between them clears the margin a winner must
+ * open over its runner-up, which is 15 at the floor and about 16.5 for a control
+ * carrying two other families. Anything softer and the two still tie.
+ */
+export const TARGET_ANCESTOR_INDIRECTION_DECAY = 0.3;
+
+/**
+ * How well a candidate's ancestor roles agree with the captured ones, read from
+ * the element outwards. 1 when the captured chain sits directly above it, less
+ * the further out it had to be found, 0 when it is not there at all.
+ *
+ * The nearest containers are the ones that say what an element *is*. Asking only
+ * whether the captured roles appear in order somewhere above made a toolbar
+ * button captured under `main` score identically to every row menu buried in a
+ * `table` inside `main` — ten indistinguishable candidates on a page with one
+ * toolbar. Depth is not a detail here; it is the difference.
+ *
+ * Shared so capture and resolution cannot disagree about it.
+ */
+export function ancestorContextSimilarity(
+  expected: readonly string[],
+  actual: readonly string[],
+): number {
+  if (expected.length === 0) return 0;
+  let index = 0;
+  let matched = 0;
+  let skipped = 0;
+  let missing = 0;
+  for (const role of expected) {
+    let cursor = index;
+    let pending = 0;
+    while (cursor < actual.length && actual[cursor] !== role) {
+      // A repeat of the role just matched is one container reported twice, not a
+      // step further out: capture folds those away and resolution does not.
+      if (actual[cursor] !== actual[cursor - 1]) pending += 1;
+      cursor += 1;
+    }
+    // Absent entirely: costs a step like any other disagreement, and the walk
+    // that failed to find it is not charged on top. Letting it cost nothing put
+    // an element with no `article` above one that had it a container further
+    // out — the opposite of what depth is being measured for.
+    if (cursor >= actual.length) {
+      missing += 1;
+      continue;
+    }
+    index = cursor + 1;
+    skipped += pending;
+    matched += 1;
+  }
+  return matched === 0
+    ? 0
+    : (matched / expected.length) * TARGET_ANCESTOR_INDIRECTION_DECAY ** (skipped + missing);
+}
+
+const MIN_STABLE_TEXT_LENGTH = 2;
+
+/**
+ * The words every sample agreed on. What differs between samples is data; what
+ * survives all of them is the label. `partial` marks the result a fragment.
+ */
+export function stableTextAcrossSamples(
+  values: readonly (string | undefined)[],
+): { readonly text: string; readonly partial: boolean } | null {
+  if (values.length === 0) return null;
+  // Absent from any sample means the field is not reliably there.
+  const present: string[] = [];
+  for (const value of values) {
+    const trimmed = value?.replace(/\s+/g, ' ').trim();
+    if (!trimmed) return null;
+    present.push(trimmed);
+  }
+  const first = present[0]!;
+  if (present.every((value) => value === first)) return { text: first, partial: false };
+
+  const shared = present.slice(1).reduce<Set<string>>((carried, value) => {
+    const words = new Set(textShapeWords(value));
+    return new Set([...carried].filter((word) => words.has(word)));
+  }, new Set(textShapeWords(first)));
+
+  const kept = first.split(' ').filter((word) => {
+    const normalized = textShapeWord(word);
+    return normalized !== null && shared.has(normalized);
+  });
+  const text = kept.join(' ').trim();
+  // Nothing held still: a name, a total, a timestamp. Storing it stores data.
+  return text.length >= MIN_STABLE_TEXT_LENGTH ? { text, partial: true } : null;
+}
+
+function textShapeWords(value: string): string[] {
+  return value
+    .split(' ')
+    .map(textShapeWord)
+    .filter((word): word is string => word !== null);
+}
+
+/** Case and punctuation write the same word twice, not two words. */
+function textShapeWord(value: string): string | null {
+  const stripped = value.replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
+  return stripped.length > 0 ? stripped : null;
+}
 
 /**
  * Deliberately excludes class, style, href, src, action, and selector-shaped
@@ -131,6 +273,7 @@ const TARGET_VIEWPORT_CLASS_SET = new Set<string>(TARGET_VIEWPORT_CLASSES);
 const TARGET_VISUAL_RELATION_KIND_SET = new Set<string>(TARGET_VISUAL_RELATION_KINDS);
 const TARGET_VISUAL_REFERENCE_KIND_SET = new Set<string>(TARGET_VISUAL_REFERENCE_KINDS);
 const TARGET_VISUAL_DISTANCE_BUCKET_SET = new Set<string>(TARGET_VISUAL_DISTANCE_BUCKETS);
+const TARGET_PAGE_MATCH_SET = new Set<string>(TARGET_PAGE_MATCHES);
 const TARGET_VISUAL_HASH_REGEX = new RegExp(TARGET_VISUAL_HASH_PATTERN);
 const TARGET_OCCUPANCY_GRID_REGEX = new RegExp(TARGET_OCCUPANCY_GRID_PATTERN);
 
@@ -194,11 +337,13 @@ const TARGET_INVARIANT_KEYS = new Set([
 ]);
 const TARGET_SEMANTICS_KEYS = new Set(['tagName', 'role', 'inputType', 'controlGroup']);
 const TARGET_CONTEXT_KEYS = new Set([
+  'page',
   'routePatternId',
   'stateId',
   'ancestorRoles',
   'relationships',
 ]);
+const TARGET_PAGE_SCOPE_KEYS = new Set(['key', 'match']);
 const TARGET_RELATIONSHIP_KEYS = new Set(['kind', 'semanticRole', 'stableKey']);
 const TARGET_TOPOLOGY_KEYS = new Set([
   'viewportClass',
@@ -239,6 +384,7 @@ const TARGET_LOCALIZED_EVIDENCE_KEYS = new Set([
   'placeholder',
   'title',
   'nearbyText',
+  'partial',
 ]);
 const TARGET_CAPTURE_EVIDENCE_KEYS = new Set([
   'sampleCount',
@@ -246,6 +392,7 @@ const TARGET_CAPTURE_EVIDENCE_KEYS = new Set([
   'uniqueCandidateCount',
   'runnerUpMargin',
   'quality',
+  'ambiguityIsSoleWeakness',
 ]);
 const TARGET_DISPLAY_KEYS = new Set(['authorLabel']);
 
@@ -285,6 +432,7 @@ function hasTargetSemanticsEnvelope(value: unknown): boolean {
 function hasTargetContextEnvelope(value: unknown): boolean {
   return (
     isObjectWithKeys(value, TARGET_CONTEXT_KEYS) &&
+    (value.page === undefined || hasTargetPageScopeEnvelope(value.page)) &&
     isOptionalBoundedString(value.routePatternId, TARGET_KEY_MAX_LENGTH, TARGET_KEY_REGEX) &&
     isOptionalBoundedString(value.stateId, TARGET_KEY_MAX_LENGTH, TARGET_KEY_REGEX) &&
     isOptionalUniqueStringArray(
@@ -298,6 +446,14 @@ function hasTargetContextEnvelope(value: unknown): boolean {
       TARGET_MAX_CONTEXT_RELATIONSHIPS,
       hasTargetRelationshipEnvelope,
     )
+  );
+}
+
+function hasTargetPageScopeEnvelope(value: unknown): boolean {
+  return (
+    isObjectWithKeys(value, TARGET_PAGE_SCOPE_KEYS) &&
+    isPageKey(value.key) &&
+    isOptionalMember(value.match, TARGET_PAGE_MATCH_SET)
   );
 }
 
@@ -386,7 +542,8 @@ function hasLocalizedEvidenceEnvelope(value: unknown): boolean {
     isOptionalBoundedString(value.title, TARGET_LOCALIZED_TEXT_MAX_LENGTH) &&
     isOptionalArray(value.nearbyText, 0, TARGET_MAX_NEARBY_TEXT_ITEMS, (item) =>
       isBoundedString(item, TARGET_LOCALIZED_TEXT_MAX_LENGTH),
-    )
+    ) &&
+    (value.partial === undefined || typeof value.partial === 'boolean')
   );
 }
 
@@ -401,7 +558,8 @@ function hasCaptureEvidenceEnvelope(value: unknown): boolean {
     ) &&
     isIntegerInRange(value.uniqueCandidateCount, 0, TARGET_MAX_CANDIDATE_COUNT) &&
     isNumberInRange(value.runnerUpMargin, 0, 1) &&
-    isMember(value.quality, TARGET_CAPTURE_QUALITY_SET)
+    isMember(value.quality, TARGET_CAPTURE_QUALITY_SET) &&
+    isOptionalBoolean(value.ambiguityIsSoleWeakness)
   );
 }
 
@@ -450,6 +608,10 @@ function isOptionalAttributeRecord(value: unknown, keyPattern: RegExp): boolean 
 
 function isMember(value: unknown, allowedValues: ReadonlySet<string>): value is string {
   return typeof value === 'string' && allowedValues.has(value);
+}
+
+function isOptionalBoolean(value: unknown): boolean {
+  return value === undefined || typeof value === 'boolean';
 }
 
 function isOptionalMember(value: unknown, allowedValues: ReadonlySet<string>): boolean {

@@ -11,6 +11,7 @@ import {
   type BridgeMessage,
   type BrowserVerificationReport,
   type LodariqDocument,
+  type LocaleLayoutQaReport,
   type ProductStyleProposal,
   type ProductionPromotionResult,
   type ReleaseRecoveryRequest,
@@ -54,6 +55,21 @@ const browserReport: Extract<BrowserVerificationReport, { status: 'passed' }> = 
     code,
     status: 'passed' as const,
   })),
+};
+const localeLayoutReport: LocaleLayoutQaReport = {
+  schemaVersion: '1',
+  documentRevision: 3,
+  contentHash: CONTENT_HASH,
+  checkedAt: CREATED_AT,
+  viewport: { width: 390, height: 844 },
+  checkedLocaleCount: 2,
+  checkedStepCount: 1,
+  checkedPresentationCount: 2,
+  passedCount: 2,
+  failedCount: 0,
+  unavailableCount: 0,
+  findingLimitReached: false,
+  findings: [],
 };
 const styleProposal: ProductStyleProposal = {
   schemaVersion: '1',
@@ -256,6 +272,20 @@ describe('direct authoring host services', () => {
       result: { ok: true, report: browserReport },
     });
     await expect(browserVerification).resolves.toEqual(browserReport);
+
+    const localeLayoutQa = direct.services.runLocaleLayoutQa!(3);
+    const localeLayoutRequest = outboundMessage(peer, 'authoring.locale-layout-qa.request');
+    expect(localeLayoutRequest).toMatchObject({ expectedDocumentRevision: 3 });
+    dispatchFromPeer(peer, {
+      protocol: '1',
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: 'locale_layout_result_1',
+      type: 'authoring.locale-layout-qa.result',
+      requestCorrelationId: localeLayoutRequest!.correlationId,
+      result: { ok: true, report: localeLayoutReport },
+    });
+    await expect(localeLayoutQa).resolves.toEqual(localeLayoutReport);
 
     const submittedVerification = direct.services.submitStagingVerification!({
       publicationId: 'publication_staging_1',
@@ -688,6 +718,7 @@ function createDirectServices(peer: Window, sliceThree = false, recovery = false
     sampleProductStyle: sliceThree,
     saveStyleSource: sliceThree,
     verifyBrowserPublication: sliceThree,
+    localeLayoutQa: sliceThree,
     submitStagingVerification: sliceThree,
     promoteProduction: sliceThree,
     approveProduction: sliceThree,

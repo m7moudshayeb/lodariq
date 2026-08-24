@@ -4,6 +4,7 @@ const entries = {
   index: 'src/index.ts',
   'authoring-frame': 'src/authoring-frame.ts',
   'authoring/reliability': 'src/authoring/reliability.ts',
+  'authoring-collaboration-transport': 'src/authoring/operations/collaboration-transport.ts',
   'hosted-entry': 'src/hosted-entry.ts',
   'lodariq-authoring': 'src/index.ts',
   'lodariq-creator': 'src/creator-install/index.ts',

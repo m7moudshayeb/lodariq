@@ -79,6 +79,7 @@ export function registerHealthAndCorsRoutes(
     SDK_DOCUMENT_MANIFEST_PATH,
     SDK_DOCUMENT_ARTIFACT_PATH,
     '/v1/sdk/events',
+    '/v1/sdk/form-responses',
     '/v1/sdk/authoring/authorization-requests',
     '/v1/sdk/authoring/exchange',
     '/v1/sdk/authoring/document',
@@ -91,6 +92,16 @@ export function registerHealthAndCorsRoutes(
     '/v1/sdk/authoring/verifications',
     '/v1/sdk/authoring/promotions',
     '/v1/sdk/authoring/release-operations/:operationId/approvals',
+    '/v1/sdk/catalog-observations',
+    /*
+     * One wildcard, not a copy of the operations suffix list. The list was
+     * hand-maintained beside routes registered somewhere else entirely, so it
+     * went stale silently: 41 operations routes had a mutating handler and no
+     * preflight, which is a 404 with no `access-control-allow-origin` and a
+     * blocked fetch in every real browser. Server-side tests never noticed
+     * because they do not issue preflights.
+     */
+    '/v1/sdk/authoring/operations/*',
   ]) {
     fastify.options(path, async (request, reply) => {
       setSdkPreflightCorsHeaders(request, reply);
@@ -135,6 +146,8 @@ export function registerHealthAndCorsRoutes(
     '/v1/authoring/promotions',
     '/v1/authoring/release-operations/:operationId/approvals',
     '/v1/authoring/sessions/:sessionId/revoke',
+    /* Same wildcard, same reason, for the editor-origin half of the pair. */
+    '/v1/authoring/operations/*',
   ]) {
     fastify.options(path, async (request, reply) => {
       if (!requireEditorOrigin(request, reply)) return;

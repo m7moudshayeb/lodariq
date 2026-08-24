@@ -6,6 +6,7 @@ import {
   type PublicSdkBootstrapGrantRecord,
   type PublicSdkInstallationRecord,
   type ResolvedPublicSdkInstallation,
+  type SetPublicSdkInstallationSuspensionInput,
   assertPublicSdkBootstrapGrantHash,
   assertPublicSdkBootstrapGrantLifetime,
   normalizeExactOrigin,
@@ -106,6 +107,36 @@ export class DrizzleRepositorySdkBootstrap extends DrizzleRepositorySdkOrigins {
         )
         .returning();
       return revoked ? toPublicSdkInstallationRecord(revoked) : null;
+    });
+  }
+
+  async setPublicSdkInstallationSuspension(
+    input: SetPublicSdkInstallationSuspensionInput,
+  ): Promise<PublicSdkInstallationRecord | null> {
+    return this.scoped(input.workspaceId, async (tx) => {
+      const existing = await this.findPublicSdkInstallation(
+        tx,
+        input.workspaceId,
+        input.installationId,
+      );
+      // A revoked installation is already permanently off; suspending it would
+      // imply it could be turned back on.
+      if (!existing || existing.revokedAt) return null;
+      const now = new Date();
+      const [updated] = await tx
+        .update(publicSdkInstallations)
+        .set({
+          suspendedAt: input.suspended ? (existing.suspendedAt ?? now) : null,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(publicSdkInstallations.workspaceId, input.workspaceId),
+            eq(publicSdkInstallations.id, input.installationId),
+          ),
+        )
+        .returning();
+      return updated ? toPublicSdkInstallationRecord(updated) : null;
     });
   }
 

@@ -1,6 +1,7 @@
 import * as RadixPopover from '@radix-ui/react-popover';
 import type { ReactNode } from 'react';
 import { X } from './icons';
+import { useExclusiveFloating } from './exclusive-floating';
 
 export function AuthoringPopover({
   align = 'start',
@@ -23,6 +24,10 @@ export function AuthoringPopover({
   side?: 'bottom' | 'left' | 'right' | 'top';
   trigger: ReactNode;
 }) {
+  const floating = useExclusiveFloating({
+    ...(onOpenChange ? { onOpenChange } : {}),
+    ...(open === undefined ? {} : { open }),
+  });
   const className = ['ui-popover-content', contentClassName].filter(Boolean).join(' ');
   const popoverContent = (
     <RadixPopover.Content align={align} className={className} side={side} sideOffset={6}>
@@ -43,7 +48,7 @@ export function AuthoringPopover({
     </RadixPopover.Content>
   );
   return (
-    <RadixPopover.Root open={open} onOpenChange={onOpenChange}>
+    <RadixPopover.Root open={floating.open} onOpenChange={floating.setOpen}>
       <RadixPopover.Trigger asChild>{trigger}</RadixPopover.Trigger>
       {portal ? <RadixPopover.Portal>{popoverContent}</RadixPopover.Portal> : popoverContent}
     </RadixPopover.Root>

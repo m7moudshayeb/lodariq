@@ -23,6 +23,10 @@ import type {
   WorkspaceInvitationSummaryRecord,
 } from '../domains/tenant-administration';
 import { clone } from '../domains/in-memory-helpers';
+import {
+  assertCommercialFeature,
+  CommercialEntitlementError,
+} from '../domains/commercial-entitlements';
 import { InMemoryRepositoryIdentitySessions } from './identity-sessions';
 
 interface InMemoryMembership {
@@ -115,6 +119,10 @@ export class InMemoryRepositoryTenantAdministration extends InMemoryRepositoryId
     if (context.role === 'admin' && invitation.role === 'admin') {
       return { status: 'forbidden' };
     }
+    assertCommercialFeature(
+      this.resolveWorkspaceEntitlements(invitation.workspaceId).entitlements,
+      'roles',
+    );
     const existingUser = [...this.userEmails.values()].find(
       (email) => email.isPrimary && email.normalizedEmail === invitation.emailNormalized,
     );
@@ -207,6 +215,14 @@ export class InMemoryRepositoryTenantAdministration extends InMemoryRepositoryId
     const membershipKey = this.key(invitation.workspaceId, input.userId);
     if (this.workspaceMemberships.has(membershipKey)) return { status: 'membership_conflict' };
     if (this.tenantAuditEvents.has(input.eventId)) return { status: 'membership_conflict' };
+    if (invitation.role !== 'viewer') {
+      try {
+        this.assertCreatorSeatAvailable(invitation.workspaceId);
+      } catch (error) {
+        if (!(error instanceof CommercialEntitlementError)) throw error;
+        return { status: 'seat_limit_reached' };
+      }
+    }
 
     this.workspaceMemberships.set(membershipKey, {
       workspaceId: invitation.workspaceId,
@@ -290,6 +306,14 @@ export class InMemoryRepositoryTenantAdministration extends InMemoryRepositoryId
     if (target.role === 'owner' && ownerCount(memberships) <= 1) return 'final_owner';
     if (target.userId === input.actorUserId) return 'forbidden';
     if (this.tenantAuditEvents.has(input.eventId)) return 'conflict';
+    if (target.role === 'viewer' && input.nextRole !== 'viewer') {
+      try {
+        this.assertCreatorSeatAvailable(input.workspaceId);
+      } catch (error) {
+        if (!(error instanceof CommercialEntitlementError)) throw error;
+        return 'seat_limit_reached';
+      }
+    }
 
     const key = this.key(input.workspaceId, input.targetUserId);
     const current = this.workspaceMemberships.get(key);

@@ -35,6 +35,7 @@ import {
   type ManifestPointer,
   type SdkInstallContext,
 } from '@lodariq/schema';
+import { createAuthoringOperationsClient } from '../authoring/operations/operations-client';
 import {
   installLodariq,
   readConfigFromScript,
@@ -202,9 +203,18 @@ function openCreatorAuthoringPanel(
             ...(previewOptions.flowConditionContext
               ? { flowConditionContext: previewOptions.flowConditionContext }
               : {}),
+            ...(previewOptions.adaptiveContext
+              ? { adaptiveContext: previewOptions.adaptiveContext }
+              : {}),
             ...(previewOptions.stepId ? { initialStepId: previewOptions.stepId } : {}),
             ...(previewOptions.authoringTargetOverride
               ? { authoringTargetOverride: previewOptions.authoringTargetOverride }
+              : {}),
+            ...(previewOptions.onBeforeStepChange
+              ? {
+                  onBeforeStepChange: (index, step) =>
+                    previewOptions.onBeforeStepChange?.(index, step.id),
+                }
               : {}),
             ...(previewOptions.onStepChange
               ? {
@@ -232,6 +242,12 @@ function openCreatorAuthoringPanel(
                     previewOptions.onBranchChoice?.(step.id, ruleIndex, destination),
                 }
               : {}),
+            ...(previewOptions.onAdaptiveSkip
+              ? {
+                  onAdaptiveSkip: (step, decision) =>
+                    previewOptions.onAdaptiveSkip?.(step.id, decision),
+                }
+              : {}),
             ...(previewOptions.getAuthoringProtectedSurfaces
               ? { getAuthoringProtectedSurfaces: previewOptions.getAuthoringProtectedSurfaces }
               : {}),
@@ -246,6 +262,19 @@ function openCreatorAuthoringPanel(
         const saved = await saveCreatorDocument(config, context, document, documentUpdatedAt);
         documentUpdatedAt = saved.documentUpdatedAt;
       },
+      // §4.7 — the Operations sections read and write real product data. Both
+      // credentials stay on this side of the boundary; the frame only ever
+      // asks the host.
+      ...(config.apiBaseUrl && config.clientToken && config.authoringSessionToken
+        ? {
+            operations: createAuthoringOperationsClient({
+              baseUrl: config.apiBaseUrl,
+              authorization: () => `Bearer ${config.clientToken}`,
+              authoringSession: () => config.authoringSessionToken as string,
+              documentUpdatedAt: () => documentUpdatedAt,
+            }),
+          }
+        : {}),
       ...(context.authoring.release?.releaseState.capability ===
       AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE
         ? {

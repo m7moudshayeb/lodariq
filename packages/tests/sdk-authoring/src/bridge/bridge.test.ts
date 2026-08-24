@@ -765,8 +765,10 @@ describe('AuthoringBridge (PRD §9.5)', () => {
 
     const hoverLabel = document.querySelector<HTMLElement>('[data-lodariq-bridge="target-label"]');
     expect(hoverLabel?.style.display).toBe('block');
-    expect(hoverLabel?.textContent).toContain('Current placement');
-    expect(hoverLabel?.textContent).toContain('New project');
+    // The hover card (§4.4): what it is, its size, and the look-alike count.
+    expect(hoverLabel?.textContent).toContain('Button · New project');
+    expect(hoverLabel?.textContent).toContain('1 of 1 on this page');
+    expect(hoverLabel?.textContent).toContain('Click to keep or choose another');
 
     button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     expect(onPick).toHaveBeenCalledOnce();

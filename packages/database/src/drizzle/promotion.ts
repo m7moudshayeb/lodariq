@@ -16,6 +16,7 @@ import {
   RELEASE_APPROVAL_REJECTED_ERROR_CODE,
   assertReleaseMutationGuardInput,
   normalizeWorkspaceEnvironments,
+  assertCommercialFeature,
 } from '../repository';
 import {
   environments,
@@ -150,6 +151,11 @@ export class DrizzleRepositoryPromotion extends DrizzleRepositoryReleaseChecks {
           };
         }
       }
+
+      assertCommercialFeature(
+        (await this.resolveWorkspaceEntitlements(tx, input.workspaceId)).entitlements,
+        'release-management',
+      );
 
       const sourcePolicy = normalizeWorkspaceEnvironments([
         toWorkspaceEnvironment(sourceEnvironment),

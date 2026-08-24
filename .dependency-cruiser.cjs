@@ -88,7 +88,7 @@ module.exports = {
     // Next supports custom distDir values (for example `.next-e2e`). Exclude
     // every generated `.next*` directory so local QA artifacts do not become
     // dependency-cruiser inputs or exhaust the CI heap.
-    exclude: { path: '(^|/)(dist|build|coverage|\\.turbo|\\.next[^/]*)/' },
+    exclude: { path: '(^|/)(dist|dist-[^/]+|build|coverage|\\.turbo|\\.next[^/]*)/' },
     tsConfig: { fileName: 'tsconfig.json' },
     tsPreCompilationDeps: true,
     enhancedResolveOptions: {

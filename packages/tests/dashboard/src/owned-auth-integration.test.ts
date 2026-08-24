@@ -84,7 +84,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     vi.stubGlobal('fetch', upstreamFetch);
     const response = await proxyOidcCallback(
       new Request(
-        `https://app.lodariq.io/api/auth/oidc/google/callback?state=${state}&code=provider-code`,
+        `https://app.lodariq.io/v1/auth/oidc/google/callback?state=${state}&code=provider-code`,
         { headers: { cookie: 'lodariq_session_dev=existing-session' } },
       ),
       'google',
@@ -114,7 +114,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     );
     const response = await proxyEnterpriseOidcCallback(
       new Request(
-        `https://app.lodariq.io/api/auth/enterprise/oidc/callback?state=${state}&code=enterprise-code`,
+        `https://app.lodariq.io/v1/auth/enterprise/oidc/callback?state=${state}&code=enterprise-code`,
       ),
     );
     expect(response.status).toBe(303);
@@ -250,7 +250,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     vi.stubGlobal('fetch', upstreamFetch);
 
     const response = await proxyOwnedAuthRequest(
-      jsonRequest('https://app.lodariq.io/api/workspaces/wk_product/select', {
+      jsonRequest('https://app.lodariq.io/v1/workspaces/wk_product/select', {
         cookie: 'lodariq_session_dev=owned-session-token',
       }),
       '/v1/workspaces/wk_product/select',
@@ -263,7 +263,7 @@ describe('@lodariq/dashboard owned authentication', () => {
   });
 
   it('matches the fixed BFF client-source envelope and never accepts an invalid IP', () => {
-    const request = new Request('https://app.lodariq.io/api/auth/sign-in', {
+    const request = new Request('https://app.lodariq.io/v1/auth/sign-in', {
       headers: { 'fly-client-ip': '203.0.113.42' },
     });
     const envelope = createAuthClientSource(
@@ -280,7 +280,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     );
     expect(
       createAuthClientSource(
-        new Request('https://app.lodariq.io/api/auth/sign-in', {
+        new Request('https://app.lodariq.io/v1/auth/sign-in', {
           headers: { 'fly-client-ip': '203.0.113.42, 10.0.0.1' },
         }),
         {
@@ -305,15 +305,15 @@ describe('@lodariq/dashboard owned authentication', () => {
 
     const sourceHeaders = { 'fly-client-ip': '203.0.113.42' };
     await proxyOwnedAuthRequest(
-      jsonRequest('https://app.lodariq.io/api/auth/sign-in', sourceHeaders),
+      jsonRequest('https://app.lodariq.io/v1/auth/sign-in', sourceHeaders),
       '/v1/auth/sign-in',
     );
     await proxyOwnedAuthRequest(
-      jsonRequest('https://app.lodariq.io/api/auth/username', sourceHeaders, 'PUT'),
+      jsonRequest('https://app.lodariq.io/v1/auth/username', sourceHeaders, 'PUT'),
       '/v1/auth/username',
     );
     await proxyOwnedAuthRequest(
-      jsonRequest('https://app.lodariq.io/api/workspaces/wk_product/select', sourceHeaders),
+      jsonRequest('https://app.lodariq.io/v1/workspaces/wk_product/select', sourceHeaders),
       '/v1/workspaces/wk_product/select',
     );
 
@@ -333,7 +333,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     vi.stubGlobal('fetch', upstreamFetch);
 
     const crossOrigin = await proxyOwnedAuthRequest(
-      new Request('https://app.lodariq.io/api/auth/sign-in', {
+      new Request('https://app.lodariq.io/v1/auth/sign-in', {
         method: 'POST',
         headers: { 'content-type': 'application/json', origin: 'https://attacker.test' },
         body: '{}',
@@ -343,7 +343,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     expect(crossOrigin.status).toBe(403);
 
     const formEncoded = await proxyOwnedAuthRequest(
-      new Request('https://app.lodariq.io/api/auth/sign-in', {
+      new Request('https://app.lodariq.io/v1/auth/sign-in', {
         method: 'POST',
         headers: {
           'content-type': 'application/x-www-form-urlencoded',
@@ -358,7 +358,7 @@ describe('@lodariq/dashboard owned authentication', () => {
   });
 
   it('checks mutations against the browser-facing host instead of the server bind address', async () => {
-    const localRequest = new Request('http://0.0.0.0:3000/api/locale', {
+    const localRequest = new Request('http://0.0.0.0:3000/v1/locale', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -368,7 +368,7 @@ describe('@lodariq/dashboard owned authentication', () => {
       },
       body: '{}',
     });
-    const forwardedRequest = new Request('http://0.0.0.0:3000/api/locale', {
+    const forwardedRequest = new Request('http://0.0.0.0:3000/v1/locale', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -399,7 +399,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     );
 
     const response = await proxyOwnedAuthRequest(
-      jsonRequest('https://app.lodariq.io/api/auth/sign-in'),
+      jsonRequest('https://app.lodariq.io/v1/auth/sign-in'),
       '/v1/auth/sign-in',
     );
     const body = JSON.stringify(await response.json());
@@ -445,7 +445,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     vi.stubGlobal('fetch', upstreamFetch);
 
     const limited = await proxyOwnedAuthRequest(
-      jsonRequest('https://app.lodariq.io/api/auth/sign-in'),
+      jsonRequest('https://app.lodariq.io/v1/auth/sign-in'),
       '/v1/auth/sign-in',
     );
     expect(limited.status).toBe(429);
@@ -459,7 +459,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     });
 
     const unavailable = await proxyOwnedAuthRequest(
-      jsonRequest('https://app.lodariq.io/api/auth/sign-up'),
+      jsonRequest('https://app.lodariq.io/v1/auth/sign-up'),
       '/v1/auth/sign-up',
     );
     await expect(unavailable.json()).resolves.toEqual({
@@ -468,7 +468,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     });
 
     const invalid = await proxyOwnedAuthRequest(
-      jsonRequest('https://app.lodariq.io/api/auth/verify-email'),
+      jsonRequest('https://app.lodariq.io/v1/auth/verify-email'),
       '/v1/auth/verify-email',
     );
     await expect(invalid.json()).resolves.toEqual({
@@ -477,7 +477,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     });
 
     const onboarding = await proxyOwnedAuthRequest(
-      jsonRequest('https://app.lodariq.io/api/auth/sign-in'),
+      jsonRequest('https://app.lodariq.io/v1/auth/sign-in'),
       '/v1/auth/sign-in',
     );
     await expect(onboarding.json()).resolves.toEqual({
@@ -493,11 +493,11 @@ describe('@lodariq/dashboard owned authentication', () => {
     vi.stubGlobal('fetch', upstreamFetch);
 
     const signUp = await proxyOwnedAuthRequest(
-      jsonRequest('https://app.lodariq.io/api/auth/sign-up'),
+      jsonRequest('https://app.lodariq.io/v1/auth/sign-up'),
       '/v1/auth/sign-up',
     );
     const recovery = await proxyOwnedAuthRequest(
-      jsonRequest('https://app.lodariq.io/api/auth/password-recovery'),
+      jsonRequest('https://app.lodariq.io/v1/auth/password-recovery'),
       '/v1/auth/password-recovery',
     );
 
@@ -532,6 +532,30 @@ describe('@lodariq/dashboard owned authentication', () => {
     expect(read('apps/dashboard/src/app/authoring/activate/request/route.ts')).toContain(
       'rejectUnsafeMutation(request)',
     );
+  });
+
+  it('exposes dashboard APIs through a version-first URI and blocks internal route paths', () => {
+    const nextConfig = read('apps/dashboard/next.config.mjs');
+    expect(nextConfig).toContain("source: '/v1/:path*'");
+    expect(nextConfig).toContain("destination: '/api/:path*'");
+    expect(nextConfig).toContain("source: '/v1/authoring/activation'");
+
+    const proxySource = read('apps/dashboard/src/proxy.ts');
+    expect(proxySource).toContain("const VERSIONED_API_PREFIX = '/v1/'");
+    expect(proxySource).toContain("const INTERNAL_API_PREFIX = '/api/'");
+    expect(proxySource).toContain('return new NextResponse(null, { status: 404 })');
+
+    const browserApiClients = [
+      'apps/dashboard/src/lib/client-auth-api.ts',
+      'apps/dashboard/src/lib/client-authoring-activation-api.ts',
+      'apps/dashboard/src/lib/client-dashboard-api.ts',
+      'apps/dashboard/src/lib/client-locale-api.ts',
+      'apps/dashboard/src/lib/client-tenant-api.ts',
+    ];
+    for (const path of browserApiClients) {
+      expect(read(path), path).not.toMatch(/['"`]\/api\//u);
+      expect(read(path), path).not.toContain("'/authoring/activate/request'");
+    }
   });
 
   it('wires owned forms, protected session loading, and account controls without Clerk', () => {
@@ -569,11 +593,7 @@ describe('@lodariq/dashboard owned authentication', () => {
   });
 });
 
-function jsonRequest(
-  url: string,
-  headers: Record<string, string> = {},
-  method = 'POST',
-): Request {
+function jsonRequest(url: string, headers: Record<string, string> = {}, method = 'POST'): Request {
   return new Request(url, {
     method,
     headers: {

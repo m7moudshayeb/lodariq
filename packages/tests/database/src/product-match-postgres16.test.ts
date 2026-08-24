@@ -29,6 +29,7 @@ import {
   type ReleaseRecoveryResult,
 } from '@lodariq/schema';
 import { listCheckedInSqlPaths } from './migration-test-utils.js';
+import { businessWorkspaceSubscriptionSql } from './postgres16-test-harness.js';
 
 const VERIFY_WORKFLOW_PATH = fileURLToPath(
   new URL('../../../../.github/workflows/verify.yml', import.meta.url),
@@ -956,6 +957,9 @@ function seedSql(): string {
     insert into workspaces (id, name, created_at, updated_at) values
       (${sqlLiteral(WORKSPACE_A)}, 'PostgreSQL tenant A', ${sqlLiteral(CREATED_AT)}, ${sqlLiteral(CREATED_AT)}),
       (${sqlLiteral(WORKSPACE_B)}, 'PostgreSQL tenant B', ${sqlLiteral(CREATED_AT)}, ${sqlLiteral(CREATED_AT)});
+
+    ${businessWorkspaceSubscriptionSql(WORKSPACE_A, CREATED_AT)}
+    ${businessWorkspaceSubscriptionSql(WORKSPACE_B, CREATED_AT)}
 
     insert into users (id, email, name, created_at) values
       (${sqlLiteral(USER_A)}, 'pg16-a@lodariq.test', 'PostgreSQL A', ${sqlLiteral(CREATED_AT)}),

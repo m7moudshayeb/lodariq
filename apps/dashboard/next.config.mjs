@@ -19,6 +19,18 @@ const nextConfig = {
   experimental: {
     swcPlugins: [linguiMacroSwcPlugin()],
   },
+  async rewrites() {
+    return [
+      {
+        source: '/v1/authoring/activation',
+        destination: '/authoring/activate/request',
+      },
+      {
+        source: '/v1/:path*',
+        destination: '/api/:path*',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

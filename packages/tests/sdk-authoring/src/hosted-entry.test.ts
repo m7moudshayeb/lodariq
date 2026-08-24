@@ -129,10 +129,10 @@ describe('content-addressed hosted creator entry', () => {
     const panelHost = document.querySelector('lodariq-authoring-panel');
     expect(panelHost?.querySelector('iframe')).toBe(iframe);
     expect(iframe.hasAttribute('aria-hidden')).toBe(false);
-    expect(iframe.dataset['lodariqEditorZoom']).toBe('100');
-    expect(iframe.style.transform).toBe('scale(1)');
-    expect(iframe.style.width).toBe('100%');
-    expect(iframe.style.height).toBe('100%');
+    // The overlay sizes the iframe to the card region, not to the whole viewport.
+    expect(iframe.style.position).toBe('fixed');
+    expect(iframe.style.width.endsWith('px')).toBe(true);
+    expect(iframe.style.height.endsWith('px')).toBe(true);
     expect(outboundMessages(peer, 'authoring.init')).toHaveLength(1);
     expect(document.documentElement.outerHTML).not.toContain(ACTIVATION_GRANT);
 
@@ -185,7 +185,7 @@ describe('content-addressed hosted creator entry', () => {
     expectLastSaveStateUpdate(peer, 'saved', 'Brouillon enregistré');
 
     const closeButton = panelHost?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-action="close-panel"]',
+      '[data-pill-exit-authoring]',
     );
     closeButton?.click();
     await flushMicrotasks();
@@ -318,9 +318,7 @@ describe('content-addressed hosted creator entry', () => {
     expect(sessionStorage.length).toBe(0);
 
     const panelHost = document.querySelector<HTMLElement>('lodariq-authoring-panel');
-    panelHost?.shadowRoot
-      ?.querySelector<HTMLButtonElement>('[data-panel-action="close-panel"]')
-      ?.click();
+    panelHost?.shadowRoot?.querySelector<HTMLButtonElement>('[data-pill-exit-authoring]')?.click();
     await flushMicrotasks();
     const closeRequest = lastItem(outboundMessages(peer, 'hosted-authoring.session.close.request'));
     dispatchFromEditor(peer, {
@@ -392,7 +390,7 @@ describe('content-addressed hosted creator entry', () => {
 
     document
       .querySelector<HTMLElement>('lodariq-authoring-panel')
-      ?.shadowRoot?.querySelector<HTMLButtonElement>('[data-panel-action="close-panel"]')
+      ?.shadowRoot?.querySelector<HTMLButtonElement>('[data-pill-exit-authoring]')
       ?.click();
     await flushMicrotasks();
     const closeRequest = lastItem(outboundMessages(peer, 'hosted-authoring.session.close.request'));

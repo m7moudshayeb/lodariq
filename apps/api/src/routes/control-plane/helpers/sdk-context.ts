@@ -24,7 +24,6 @@ import {
   directSdkSessionCanReadReleaseState,
   directSdkSessionCanPublishToStaging,
   directSdkSessionHasCapability,
-  directSdkSessionHasExplicitCapability,
   currentAuthoringMemberHasReleaseCapability,
 } from './session-capabilities';
 import { compileAndValidate } from './document-compilation';
@@ -95,7 +94,7 @@ export async function createAuthoringSdkInstallContext(
   const canRollbackRelease =
     canReadReleaseState &&
     authoringSession.environment === 'staging' &&
-    directSdkSessionHasExplicitCapability(
+    directSdkSessionHasCapability(
       authoringSession,
       AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE,
     ) &&
@@ -107,7 +106,7 @@ export async function createAuthoringSdkInstallContext(
   const canUnpublishRelease =
     canReadReleaseState &&
     authoringSession.environment === 'staging' &&
-    directSdkSessionHasExplicitCapability(
+    directSdkSessionHasCapability(
       authoringSession,
       AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE,
     ) &&

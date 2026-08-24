@@ -1,12 +1,63 @@
 import { AUTHORING_RESOURCE_LIMITS, ICON_RECIPE_VALUES } from '@lodariq/schema';
 import { ChevronLeft, Image, Upload } from 'lucide-react';
-import { DynamicIcon } from 'lucide-react/dynamic';
-import { lazy, Suspense, type ReactElement, type ReactNode } from 'react';
+
+import {
+  Component,
+  lazy,
+  Suspense,
+  useMemo,
+  useState,
+  type ErrorInfo,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { authoringText } from '../i18n';
 import { humanizeIconName } from './rich-content-doc';
-import { lucideIconName } from './rich-content-icons';
+import { RichContentIcon } from './rich-content-icon-set';
 
-const RichContentEmojiPicker = lazy(() => import('./rich-content-emoji-picker'));
+/**
+ * The emoji set is a chunk of its own — thousands of entries nobody should pay
+ * for until they ask. That makes it the one panel here that can fail to arrive:
+ * a dropped connection, a stale cache, a deploy mid-session.
+ *
+ * A rejected import throws during render, and with no boundary React unwinds
+ * past the whole insert menu. The creator's menu vanished mid-click with nothing
+ * said about why, which is how this was found. The boundary keeps the failure
+ * the size of the panel and offers the retry that usually fixes it.
+ */
+class LazyPanelBoundary extends Component<
+  { children: ReactNode; onRetry: () => void },
+  { failed: boolean }
+> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  override componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error('[lodariq] insert panel failed to load', error, info.componentStack);
+  }
+
+  override render(): ReactNode {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="rich-content-picker-error" role="alert">
+        <span>{authoringText('That picker could not be loaded.')}</span>
+        <button
+          onClick={() => {
+            this.setState({ failed: false });
+            this.props.onRetry();
+          }}
+          onPointerDown={(event) => event.preventDefault()}
+          type="button"
+        >
+          {authoringText('Try again')}
+        </button>
+      </div>
+    );
+  }
+}
 
 export function RichContentIconPickerPanel({
   color,
@@ -66,7 +117,7 @@ export function RichContentIconPickerPanel({
             title={humanizeIconName(name)}
             type="button"
           >
-            <DynamicIcon name={lucideIconName(name)} size={19} />
+            <RichContentIcon icon={name} size={19} />
           </button>
         ))}
       </div>
@@ -81,6 +132,9 @@ export function RichContentEmojiPickerPanel({
   onBack?: () => void;
   onSelect: (emoji: string) => void;
 }): ReactElement {
+  const [attempt, setAttempt] = useState(0);
+  // `attempt` is the whole dependency: bumping it is what mints a fresh `lazy`.
+  const EmojiPickerChunk = useMemo(() => lazy(() => import('./rich-content-emoji-picker')), [attempt]);
   return (
     <div className="rich-content-emoji-menu">
       {onBack ? (
@@ -94,11 +148,17 @@ export function RichContentEmojiPickerPanel({
           <span>{authoringText('Back')}</span>
         </button>
       ) : null}
-      <Suspense
-        fallback={<span className="rich-content-picker-loading">{authoringText('Loading…')}</span>}
-      >
-        <RichContentEmojiPicker onSelect={onSelect} />
-      </Suspense>
+      {/*
+        A fresh `lazy` per attempt: the previous one has cached its rejected
+        promise, so reusing it would re-throw without ever asking again.
+      */}
+      <LazyPanelBoundary key={attempt} onRetry={() => setAttempt((count) => count + 1)}>
+        <Suspense
+          fallback={<span className="rich-content-picker-loading">{authoringText('Loading…')}</span>}
+        >
+          <EmojiPickerChunk onSelect={onSelect} />
+        </Suspense>
+      </LazyPanelBoundary>
     </div>
   );
 }

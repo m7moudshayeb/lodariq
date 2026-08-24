@@ -55,7 +55,7 @@ describe('local-dev document import', () => {
     );
   });
 
-  it('compiles canonical tourStep blocks without wrapping loose top-level content', async () => {
+  it('rejects loose top-level tour content instead of silently dropping it', async () => {
     const doc = JSON.parse(JSON.stringify(tourFixture)) as LodariqDocument;
     doc.blocks.push({
       id: 'block_loose_heading',
@@ -66,10 +66,7 @@ describe('local-dev document import', () => {
       children: [],
     });
 
-    const compiled = await compilePreview(doc);
-
-    expect(compiled.steps.map((step) => step.id)).toEqual(['block_step_1']);
-    expect(JSON.stringify(compiled)).not.toContain('block_loose_heading');
+    await expect(compilePreview(doc)).rejects.toThrow('Unsupported tour root block: heading');
   });
 });
 

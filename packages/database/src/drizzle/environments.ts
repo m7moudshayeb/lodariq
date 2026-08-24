@@ -8,6 +8,8 @@ import {
   assertRequiredApprovalCount,
   normalizeIsoTimestamp,
   normalizeWorkspaceEnvironments,
+  assertCommercialFeature,
+  assertWithinCommercialLimit,
 } from '../repository';
 import { environments } from '../schema';
 import { toWorkspaceEnvironment, toIsoString } from './helpers';
@@ -39,6 +41,12 @@ export class DrizzleRepositoryEnvironments extends DrizzleRepositoryPromotion {
       'environment release policy expectedUpdatedAt',
     );
     return this.scoped(input.workspaceId, async (tx) => {
+      if (input.requiredApprovalCount > 0) {
+        assertCommercialFeature(
+          (await this.resolveWorkspaceEntitlements(tx, input.workspaceId)).entitlements,
+          'required-production-approval',
+        );
+      }
       const [current] = await tx
         .select()
         .from(environments)
@@ -110,11 +118,23 @@ export class DrizzleRepositoryEnvironments extends DrizzleRepositoryPromotion {
           ? { promotionSourceEnvironmentId: input.promotionSourceEnvironmentId }
           : {}),
         releasePolicy: input.releasePolicy,
+        governanceCapabilities:
+          input.governanceCapabilities ?? toWorkspaceEnvironment(current).governanceCapabilities,
       };
       const candidateRows = currentRows.map((row) =>
         row.id === input.environmentId ? candidate : toWorkspaceEnvironment(row),
       );
       assertValidWorkspaceEnvironmentPolicy(input.workspaceId, candidateRows);
+      const entitlements = (await this.resolveWorkspaceEntitlements(tx, input.workspaceId))
+        .entitlements;
+      if (input.releasePolicy.requiredApprovalCount > 0) {
+        assertCommercialFeature(entitlements, 'required-production-approval');
+      }
+      assertWithinCommercialLimit(
+        'environments',
+        configuredEnvironmentCount(candidateRows),
+        entitlements.environments,
+      );
       const [updated] = await tx
         .update(environments)
         .set({
@@ -126,6 +146,8 @@ export class DrizzleRepositoryEnvironments extends DrizzleRepositoryPromotion {
           authoringEnabled: input.authoringEnabled,
           promotionSourceEnvironmentId: input.promotionSourceEnvironmentId ?? null,
           releasePolicy: input.releasePolicy,
+          governanceCapabilities:
+            input.governanceCapabilities ?? toWorkspaceEnvironment(current).governanceCapabilities,
           updatedAt: new Date(),
         })
         .where(
@@ -145,4 +167,10 @@ export class DrizzleRepositoryEnvironments extends DrizzleRepositoryPromotion {
       );
     });
   }
+}
+
+function configuredEnvironmentCount(environments: readonly WorkspaceEnvironment[]): number {
+  return environments.filter(
+    (environment) => environment.enabled && environment.originAllowlist.length > 0,
+  ).length;
 }

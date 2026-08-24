@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, desc, eq, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import {
   type ApplyProductStyleProposalInput,
   type ProductStyleProposalApplicationResult,
@@ -18,6 +18,7 @@ import {
   normalizeThemeGuardUpdatedAt,
   normalizeWorkspaceThemeName,
   productStyleProposalRequestHash,
+  assertCommercialFeature,
 } from '../repository';
 import {
   environments,
@@ -93,6 +94,19 @@ export class DrizzleRepositoryThemeDrafts extends DrizzleRepositoryEnterpriseIde
     const name = normalizeWorkspaceThemeName(input.name);
     assertWorkspaceThemeDraft(input.draft);
     return this.scoped(input.workspaceId, async (tx) => {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${`themes:${input.workspaceId}`}, 0))`,
+      );
+      const [existing] = await tx
+        .select({ used: count() })
+        .from(themes)
+        .where(eq(themes.workspaceId, input.workspaceId));
+      if (Number(existing?.used ?? 0) > 0) {
+        assertCommercialFeature(
+          (await this.resolveWorkspaceEntitlements(tx, input.workspaceId)).entitlements,
+          'multiple-themes',
+        );
+      }
       const now = new Date();
       const [created] = await tx
         .insert(themes)

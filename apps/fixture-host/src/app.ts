@@ -1,340 +1,189 @@
 /**
- * Realistic SaaS-like fixture UI (PRD §16.1 fixture-host scope).
+ * Meridian — the fixture product Lodariq authors against.
  *
- * Intentionally includes the host-page conditions the resolver/runtime must
- * survive: client-side routes, a scroll container, a drawer, repeated labels,
- * and lazy-loaded content. Most stable elements carry `data-lodariq-id` so the
- * semantic resolver has a high-confidence signal. The Projects view also has a
- * deliberately marker-free Target Identity V2 surface for resilience checks.
+ * Every screen renders from the URL, so a full reload resumes exactly: same
+ * route, same section, same open menu or dialog, same locale, same layout.
+ * Resolver stress lives in the markup itself — repeated labels, marker-free
+ * controls, an async list, a scroll container and transient layers.
  */
+import { COPY, PROJECTS } from './data';
+import { renderDrawer, renderModal, renderPop } from './layers';
+import {
+  DEFAULT_SECTION,
+  ROUTES,
+  getState,
+  navigate,
+  startRouter,
+  subscribe,
+  type HostState,
+  type RouteId,
+} from './router';
+import { icon } from './icons';
+import { SECTIONS, renderRoute } from './views';
+
+const esc = (value: string): string =>
+  value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+
+let listTimer: ReturnType<typeof setTimeout> | undefined;
+
 export function renderApp(root: HTMLElement): void {
-  root.innerHTML = `
-    <div class="layout">
-      <aside class="sidebar">
-        <h2>Acme</h2>
-        <nav>
-          <a data-route="dashboard" class="active">Dashboard</a>
-          <a data-route="projects">Projects</a>
-          <a data-route="billing">Billing</a>
-        </nav>
-      </aside>
-      <main class="main">
-        <div class="toolbar">
-          <button class="primary" data-lodariq-id="new-project" aria-label="New project">
-            New project
-          </button>
-          <button data-lodariq-id="open-drawer" aria-label="Open settings">Settings</button>
-          <button data-lodariq-id="open-modal" aria-label="Open import modal">Import</button>
-          <button data-lodariq-id="start-tour" aria-label="Start tour">Start tour</button>
-        </div>
-        <section data-view="dashboard" class="dashboard-view">
-          <header class="page-heading">
-            <div>
-              <p class="page-eyebrow">Workspace</p>
-              <h1>Dashboard</h1>
-              <p>Plan, track, and deliver work that matters.</p>
-            </div>
-          </header>
-          <div class="project-summary" aria-label="Project summary">
-            <article><span>Active projects</span><strong>18</strong><small>3 launched this month</small></article>
-            <article><span>On track</span><strong>14</strong><small>78% of active work</small></article>
-            <article><span>Needs attention</span><strong>4</strong><small>2 due this week</small></article>
-          </div>
-          <section class="recent-projects" aria-labelledby="recent-projects-title">
-            <div class="section-heading">
-              <div>
-                <h2 id="recent-projects-title">Recent projects</h2>
-                <p>Keep the team moving without losing context.</p>
-              </div>
-              <button type="button">View all</button>
-            </div>
-            <div class="project-table" role="table" aria-label="Recent projects">
-              <div class="project-row project-row-header" role="row">
-                <span role="columnheader">Project</span><span role="columnheader">Owner</span><span role="columnheader">Status</span><span role="columnheader">Updated</span>
-              </div>
-              <div class="project-row" role="row"><strong role="cell">Product launch</strong><span role="cell">Marcus Chen</span><span role="cell"><em class="status-chip on-track">On track</em></span><time role="cell">Today</time></div>
-              <div class="project-row" role="row"><strong role="cell">Website redesign</strong><span role="cell">Priya Shah</span><span role="cell"><em class="status-chip planning">Planning</em></span><time role="cell">Yesterday</time></div>
-              <div class="project-row" role="row"><strong role="cell">Pricing refresh</strong><span role="cell">Alex Rivera</span><span role="cell"><em class="status-chip at-risk">At risk</em></span><time role="cell">Aug 4</time></div>
-              <div class="project-row" role="row"><strong role="cell">Customer research</strong><span role="cell">Jordan Lee</span><span role="cell"><em class="status-chip on-track">On track</em></span><time role="cell">Aug 3</time></div>
-            </div>
-          </section>
-        </section>
-        <section data-view="projects" hidden>
-          <h1>Projects</h1>
-          <section class="target-identity-v2-surface" aria-label="Target identity reliability fixture">
-            <div class="target-identity-v2-heading">
-              <div>
-                <p class="target-identity-v2-eyebrow">Reliability fixture</p>
-                <h2 class="target-identity-v2-title">Marker-free project actions</h2>
-                <p class="target-identity-v2-description">
-                  These controls exercise localization, DOM replacement, and layout reflow.
-                </p>
-              </div>
-              <div class="target-identity-v2-controls" role="group" aria-label="Target stress controls">
-                <button type="button" class="target-identity-locale-control">Switch to German</button>
-                <button type="button" class="target-identity-rerender-control">Replace target node</button>
-                <button type="button" class="target-identity-reflow-control" aria-pressed="false">
-                  Reflow layout
-                </button>
-              </div>
-            </div>
-            <div class="target-identity-v2-stage">
-              <article class="target-identity-v2-card target-identity-v2-primary-card">
-                <div>
-                  <h3 class="target-identity-v2-primary-heading">Project workspace</h3>
-                  <p class="target-identity-v2-primary-description">Start work for your delivery team.</p>
-                </div>
-                <div class="target-identity-v2-action-slot target-identity-primary"></div>
-              </article>
-              <aside class="target-identity-v2-card target-identity-v2-distractor-card">
-                <div>
-                  <h3 class="target-identity-v2-distractor-heading">Project templates</h3>
-                  <p class="target-identity-v2-distractor-description">Save a reusable starting point.</p>
-                </div>
-                <div class="target-identity-v2-action-slot target-identity-distractor"></div>
-              </aside>
-            </div>
-            <p class="target-identity-v2-status" role="status" aria-live="polite">
-              Target render 1 is ready in English with the standard layout.
-            </p>
-          </section>
-          <div class="scroll-list" id="project-list"></div>
-        </section>
-        <section data-view="billing" hidden><h1>Billing</h1><p>Manage your plan.</p></section>
-      </main>
-      <div class="drawer" id="settings-drawer">
-        <h2>Settings</h2>
-        <button data-lodariq-id="close-drawer">Close</button>
-      </div>
-      <div class="modal-backdrop" id="import-modal" hidden>
-        <section class="modal" role="dialog" aria-label="Import projects">
-          <h2>Import projects</h2>
-          <p>Upload a CSV to create projects in bulk.</p>
-          <button data-lodariq-id="confirm-import" aria-label="Review import">Review</button>
-          <button data-lodariq-id="close-modal" aria-label="Close import modal">Close</button>
-        </section>
-      </div>
+  const paint = (state: HostState): void => {
+    root.innerHTML = shell(state);
+    wire(root);
+    populateList(root);
+    positionPop(root);
+    document.documentElement.lang = state.locale;
+  };
+  // The router is the only source of truth, so the paint subscribes to it
+  // rather than to DOM events: `pushState` fires neither `hashchange` nor
+  // `popstate`, so listening for those leaves every in-app action dead.
+  subscribe(paint);
+  startRouter();
+  paint(getState());
+}
+
+function shell(state: HostState): string {
+  const t = COPY[state.locale];
+  const sections = SECTIONS[state.route] ?? [];
+  return `
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="#/dashboard/overview" aria-label="Meridian home"><span class="mark">${icon('layers', 14)}</span>Meridian</a>
+      <nav aria-label="Primary">
+        ${ROUTES.map(
+          (route) => `<a href="#/${route}/${DEFAULT_SECTION[route]}" data-route="${route}"
+            class="${state.route === route ? 'on' : ''}"
+            ${state.route === route ? 'aria-current="page"' : ''}>${esc(t[route] ?? route)}</a>`,
+        ).join('')}
+      </nav>
+      <span class="grow"></span>
+      <div class="search" role="search"><label class="sr-only" for="q">Search Meridian</label>
+        ${icon('search', 14)}<input id="q" type="search" placeholder="Search Meridian"><kbd>⌘K</kbd></div>
+      <button type="button" class="icon-btn" data-open-pop="notify" aria-haspopup="menu"
+        aria-expanded="${state.pop === 'notify'}" aria-label="Notifications">${icon('bell', 17)}<i class="badge"></i></button>
+      <button type="button" class="icon-btn" aria-label="Help">${icon('help', 17)}</button>
+      <button type="button" class="avatar" data-open-pop="account" aria-haspopup="menu"
+        aria-expanded="${state.pop === 'account'}" aria-label="Your account">MS</button>
+    </header>
+    <div class="body">
+      <nav class="sidebar" aria-label="${esc(t[state.route] ?? state.route)} sections">
+        <p class="side-head">${esc(t[state.route] ?? state.route)}</p>
+        ${sections
+          .map(
+            ([id, label, glyph, count]) => `<a href="#/${state.route}/${id}" data-section="${id}"
+              class="${state.section === id ? 'on' : ''}"
+              ${state.section === id ? 'aria-current="true"' : ''}>${icon(glyph, 15)}<span>${esc(label)}</span>
+              ${count == null ? '' : `<span class="count">${count}</span>`}</a>`,
+          )
+          .join('')}
+        <span class="grow"></span>
+        <p class="side-head">Workspace</p>
+        <a href="#/billing/plan">${icon('gauge', 15)}<span>Usage</span><span class="count">62%</span></a>
+      </nav>
+      <main class="main" id="main">${renderRoute(state)}</main>
     </div>
-  `;
-
-  wireRouting(root);
-  wireDrawer(root);
-  wireModal(root);
-  wireTargetIdentityV2Surface(root);
-  populateList(root);
+    ${renderPop(state)}
+    ${renderDrawer(state)}
+    ${renderModal(state)}
+  </div>`;
 }
 
-type TargetIdentityLocale = 'en' | 'de';
-
-interface TargetIdentityCopy {
-  surfaceLabel: string;
-  eyebrow: string;
-  title: string;
-  description: string;
-  primaryHeading: string;
-  primaryDescription: string;
-  primaryAction: string;
-  distractorHeading: string;
-  distractorDescription: string;
-  distractorAction: string;
-  localeControl: string;
-}
-
-const TARGET_IDENTITY_COPY: Record<TargetIdentityLocale, TargetIdentityCopy> = {
-  en: {
-    surfaceLabel: 'Target identity reliability fixture',
-    eyebrow: 'Reliability fixture',
-    title: 'Marker-free project actions',
-    description: 'These controls exercise localization, DOM replacement, and layout reflow.',
-    primaryHeading: 'Project workspace',
-    primaryDescription: 'Start work for your delivery team.',
-    primaryAction: 'Create project',
-    distractorHeading: 'Project templates',
-    distractorDescription: 'Save a reusable starting point.',
-    distractorAction: 'Create project template',
-    localeControl: 'Switch to German',
-  },
-  de: {
-    surfaceLabel: 'Testbereich für zuverlässige Zielerkennung',
-    eyebrow: 'Zuverlässigkeitstest',
-    title: 'Projektaktionen ohne technische Markierungen',
-    description: 'Diese Steuerelemente testen Sprache, DOM-Austausch und Layout-Änderungen.',
-    primaryHeading: 'Projektarbeitsbereich',
-    primaryDescription: 'Beginnen Sie die Arbeit für Ihr Projektteam.',
-    primaryAction: 'Projekt erstellen',
-    distractorHeading: 'Projektvorlagen',
-    distractorDescription: 'Speichern Sie einen wiederverwendbaren Ausgangspunkt.',
-    distractorAction: 'Projektvorlage erstellen',
-    localeControl: 'Zu Englisch wechseln',
-  },
-};
-
-function wireTargetIdentityV2Surface(root: HTMLElement): void {
-  const surface = root.querySelector<HTMLElement>('.target-identity-v2-surface');
-  const primarySlot = root.querySelector<HTMLElement>('.target-identity-primary');
-  const distractorSlot = root.querySelector<HTMLElement>('.target-identity-distractor');
-  const localeControl = root.querySelector<HTMLButtonElement>('.target-identity-locale-control');
-  const rerenderControl = root.querySelector<HTMLButtonElement>(
-    '.target-identity-rerender-control',
-  );
-  const reflowControl = root.querySelector<HTMLButtonElement>('.target-identity-reflow-control');
-  const status = root.querySelector<HTMLElement>('.target-identity-v2-status');
-
-  if (
-    !surface ||
-    !primarySlot ||
-    !distractorSlot ||
-    !localeControl ||
-    !rerenderControl ||
-    !reflowControl ||
-    !status
-  ) {
-    return;
-  }
-
-  let locale: TargetIdentityLocale = 'en';
-  let targetRender = 1;
-  let isReflowed = false;
-
-  const activatePrimary = (): void => {
-    const label = TARGET_IDENTITY_COPY[locale].primaryAction;
-    status.textContent = `Activated "${label}" from target render ${targetRender}.`;
+function wire(root: HTMLElement): void {
+  const on = (selector: string, handler: (el: HTMLElement, event: Event) => void): void => {
+    root.querySelectorAll<HTMLElement>(selector).forEach((el) => {
+      el.addEventListener('click', (event) => handler(el, event));
+    });
   };
 
-  const activateDistractor = (): void => {
-    const label = TARGET_IDENTITY_COPY[locale].distractorAction;
-    status.textContent = `Activated the semantic distractor "${label}".`;
-  };
-
-  const replacePrimaryAction = (): void => {
-    primarySlot.replaceChildren(
-      createMarkerFreeAction(TARGET_IDENTITY_COPY[locale].primaryAction, activatePrimary),
-    );
-  };
-
-  const renderLocalizedCopy = (): void => {
-    const copy = TARGET_IDENTITY_COPY[locale];
-    surface.lang = locale;
-    surface.setAttribute('aria-label', copy.surfaceLabel);
-    setText(root, '.target-identity-v2-eyebrow', copy.eyebrow);
-    setText(root, '.target-identity-v2-title', copy.title);
-    setText(root, '.target-identity-v2-description', copy.description);
-    setText(root, '.target-identity-v2-primary-heading', copy.primaryHeading);
-    setText(root, '.target-identity-v2-primary-description', copy.primaryDescription);
-    setText(root, '.target-identity-v2-distractor-heading', copy.distractorHeading);
-    setText(root, '.target-identity-v2-distractor-description', copy.distractorDescription);
-    setText(primarySlot, '.target-identity-v2-action-label', copy.primaryAction);
-    setText(distractorSlot, '.target-identity-v2-action-label', copy.distractorAction);
-    localeControl.textContent = copy.localeControl;
-  };
-
-  primarySlot.append(
-    createMarkerFreeAction(TARGET_IDENTITY_COPY.en.primaryAction, activatePrimary),
-  );
-  distractorSlot.append(
-    createMarkerFreeAction(TARGET_IDENTITY_COPY.en.distractorAction, activateDistractor),
-  );
-
-  localeControl.addEventListener('click', () => {
-    locale = locale === 'en' ? 'de' : 'en';
-    renderLocalizedCopy();
-    const localeLabel = locale === 'en' ? 'English' : 'German';
-    status.textContent = `Localized the same target intent to ${localeLabel}.`;
+  on('[data-open-pop]', (el, event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const next = el.dataset['openPop'] ?? null;
+    navigate({ pop: getState().pop === next ? null : next });
   });
-
-  rerenderControl.addEventListener('click', () => {
-    targetRender += 1;
-    replacePrimaryAction();
-    status.textContent = `Replaced the target DOM node with target render ${targetRender}.`;
+  on('[data-open-modal]', (el, event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    navigate({ modal: el.dataset['openModal'] ?? null, pop: null });
   });
-
-  reflowControl.addEventListener('click', () => {
-    isReflowed = !isReflowed;
-    surface.classList.toggle('is-reflowed', isReflowed);
-    reflowControl.setAttribute('aria-pressed', String(isReflowed));
-    reflowControl.textContent = isReflowed ? 'Restore layout' : 'Reflow layout';
-    status.textContent = isReflowed
-      ? 'Reflowed the cards without changing the target intent.'
-      : 'Restored the standard card layout without changing the target intent.';
+  on('[data-close-modal]', (_el, event) => {
+    event.preventDefault();
+    navigate({ modal: null });
   });
-}
+  on('[data-open-drawer]', (_el, event) => {
+    event.preventDefault();
+    navigate({ drawer: true });
+  });
+  on('[data-close-drawer]', (_el, event) => {
+    event.preventDefault();
+    navigate({ drawer: false });
+  });
+  on('[data-sort]', (el) => {
+    const sort = el.dataset['sort'];
+    if (sort === 'name' || sort === 'owner' || sort === 'updated') navigate({ sort });
+  });
+  on('[data-toggle-locale]', () => navigate({ locale: getState().locale === 'en' ? 'de' : 'en' }));
+  on('[data-toggle-reflow]', () => navigate({ reflow: !getState().reflow }));
+  on('[data-bump-render]', () => navigate({ render: getState().render + 1 }));
 
-function createMarkerFreeAction(label: string, onActivate: () => void): HTMLButtonElement {
-  const button = document.createElement('button');
-  button.type = 'button';
-
-  const icon = document.createElement('span');
-  icon.className = 'target-identity-v2-action-icon';
-  icon.setAttribute('aria-hidden', 'true');
-  icon.innerHTML = `
-    <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
-      <path d="M10 4v12M4 10h12" />
-    </svg>
-  `;
-
-  const text = document.createElement('span');
-  text.className = 'target-identity-v2-action-label';
-  text.textContent = label;
-
-  button.append(icon, text);
-  button.addEventListener('click', onActivate);
-  return button;
-}
-
-function setText(root: ParentNode, selector: string, value: string): void {
-  const element = root.querySelector<HTMLElement>(selector);
-  if (element) element.textContent = value;
-}
-
-function wireRouting(root: HTMLElement): void {
-  const links = root.querySelectorAll<HTMLAnchorElement>('[data-route]');
-  links.forEach((link) => {
-    link.addEventListener('click', () => {
-      links.forEach((l) => l.classList.remove('active'));
-      link.classList.add('active');
-      const route = link.dataset['route'];
-      root.querySelectorAll<HTMLElement>('[data-view]').forEach((view) => {
-        view.hidden = view.dataset['view'] !== route;
-      });
+  // Anchors carry the route, so the URL stays the only source of truth.
+  root.querySelectorAll<HTMLAnchorElement>('a[href^="#/"]').forEach((anchor) => {
+    anchor.addEventListener('click', () => {
+      requestAnimationFrame(() => document.dispatchEvent(new CustomEvent('lodariq-host:navigate')));
     });
   });
+
+  // Clicking away closes a menu, the way a real product does.
+  document.addEventListener(
+    'pointerdown',
+    (event) => {
+      const state = getState();
+      if (!state.pop) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('.pop') || target?.closest('[data-open-pop]')) return;
+      navigate({ pop: null });
+    },
+    { once: true },
+  );
 }
 
-function wireDrawer(root: HTMLElement): void {
-  const drawer = root.querySelector<HTMLElement>('#settings-drawer');
-  root.querySelector('[data-lodariq-id="open-drawer"]')?.addEventListener('click', () => {
-    drawer?.classList.add('open');
-  });
-  root.querySelector('[data-lodariq-id="close-drawer"]')?.addEventListener('click', () => {
-    drawer?.classList.remove('open');
-  });
+/** Anchors the open menu under whatever opened it, after layout settles. */
+function positionPop(root: HTMLElement): void {
+  const pop = root.querySelector<HTMLElement>('.pop');
+  if (!pop) return;
+  const anchorSelector = pop.dataset['popAnchor'];
+  const anchor = anchorSelector ? root.querySelector<HTMLElement>(anchorSelector) : null;
+  if (!anchor) return;
+  const rect = anchor.getBoundingClientRect();
+  pop.style.left = `${Math.min(rect.left, window.innerWidth - pop.offsetWidth - 12)}px`;
+  pop.style.top = `${rect.bottom + 6}px`;
 }
 
-function wireModal(root: HTMLElement): void {
-  const modal = root.querySelector<HTMLElement>('#import-modal');
-  root.querySelector('[data-lodariq-id="open-modal"]')?.addEventListener('click', () => {
-    if (modal) modal.hidden = false;
-  });
-  root.querySelector('[data-lodariq-id="close-modal"]')?.addEventListener('click', () => {
-    if (modal) modal.hidden = true;
-  });
-}
-
+/** Async rows, because a table that is present on first paint is not a real table. */
 function populateList(root: HTMLElement): void {
   const list = root.querySelector<HTMLElement>('#project-list');
   if (!list) return;
-  const skeleton = document.createElement('div');
-  skeleton.className = 'skeleton-row';
-  skeleton.setAttribute('aria-label', 'Loading projects');
-  list.appendChild(skeleton);
-  // Lazy-load rows to mimic async tables (PRD §8.6 virtualized/async UI).
-  setTimeout(() => {
+  clearTimeout(listTimer);
+  const skeleton = document.createElement('p');
+  skeleton.className = 'skeleton';
+  skeleton.textContent = 'Loading projects…';
+  list.replaceChildren(skeleton);
+  listTimer = setTimeout(() => {
     list.replaceChildren();
     for (let i = 1; i <= 40; i += 1) {
       const row = document.createElement('div');
-      row.className = 'row';
-      row.innerHTML = `<span>Project ${i}</span><button aria-label="Open project">Open</button>`;
+      row.className = 'list-row';
+      row.setAttribute('role', 'listitem');
+      const name = PROJECTS[(i - 1) % PROJECTS.length]?.name ?? 'Project';
+      row.innerHTML = `<span>${esc(name)} ${i}</span>
+        <button type="button" class="btn sm" aria-label="Open ${esc(name)} ${i}">Open</button>`;
       list.appendChild(row);
     }
   }, 300);
+}
+
+/** Deep link helper used by e2e and by the runtime when it resumes a journey. */
+export function hostLink(route: RouteId, section?: string, params: Record<string, string> = {}): string {
+  const query = new URLSearchParams(params).toString();
+  return `#/${route}/${section ?? DEFAULT_SECTION[route]}${query ? `?${query}` : ''}`;
 }

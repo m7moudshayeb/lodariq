@@ -1,6 +1,8 @@
 import { Type } from '@sinclair/typebox';
 import {
   AUTHORING_ACTIVATION_PROTOCOL,
+  SDK_ELIGIBILITY_DIGEST_MAX_AGE_SECONDS,
+  SDK_ELIGIBILITY_DIGEST_STALE_WHILE_REVALIDATE_SECONDS,
   AUTHORING_BOOTSTRAP_GRANT_HEADER,
   AUTHORING_SESSION_HEADER,
   AuthoringAuthorizationRequest,
@@ -47,6 +49,10 @@ import {
   validateAuthoringAuthorizationContext,
   validateAuthoringAuthorizationResult,
   validateAuthoringCodeExchangeResult,
+  buildSdkEligibilityDigest,
+  isInstallationEnabled,
+  createJsonEtag,
+  requestMatchesEtag,
   createViewerSdkInstallContext,
   createAuthoringSdkInstallContext,
   getLegacyCurrentPublication,
@@ -133,6 +139,67 @@ export function registerSdkBootstrapRoutes(
         publication,
         deployment,
       );
+    },
+  );
+
+  /**
+   * The cacheable pre-flight (ADR-0027).
+   *
+   * A GET, so browsers and edges may cache it; scoped to one installation and
+   * varied by Origin, so a customer's URL patterns are never served to a page
+   * that is not theirs. Everything expensive about the bootstrap — page intent,
+   * grant minting, artifact pinning — is deliberately absent.
+   */
+  fastify.get(
+    '/v1/sdk/installations/:installationId/eligibility',
+    {
+      schema: {
+        params: Type.Object(
+          { installationId: Type.String({ minLength: 1, maxLength: 160 }) },
+          { additionalProperties: false },
+        ),
+      },
+    },
+    async (request, reply) => {
+      const exactOrigin = parseExactBrowserOrigin(request.headers.origin);
+      if (!exactOrigin) {
+        return reply.code(400).send({
+          error: 'origin_required',
+          message: 'SDK eligibility requires one canonical browser Origin',
+        });
+      }
+      const { installationId } = request.params as { installationId: string };
+      const resolved = await options.repository.resolvePublicSdkInstallation(
+        installationId,
+        exactOrigin,
+      );
+      if (!resolved) {
+        return reply.code(403).send({
+          error: 'installation_origin_forbidden',
+          message: 'Installation is not configured for this Origin',
+        });
+      }
+      setAllowedSdkCorsHeaders(exactOrigin, reply);
+      const digest = await buildSdkEligibilityDigest(
+        options,
+        resolved.installation.installationId,
+        resolved.installation.workspaceId,
+        resolved.environment.id,
+        isInstallationEnabled(resolved.installation),
+      );
+      const body = JSON.stringify(digest);
+      const etag = createJsonEtag(body);
+      // Short freshness, long stale-while-revalidate: repeat page views inside
+      // the window cost no network at all, an edge keeps absorbing traffic for
+      // a day after that, and the kill switch still lands within minutes.
+      reply.header(
+        'cache-control',
+        `public, max-age=${SDK_ELIGIBILITY_DIGEST_MAX_AGE_SECONDS}, stale-while-revalidate=${SDK_ELIGIBILITY_DIGEST_STALE_WHILE_REVALIDATE_SECONDS}`,
+      );
+      reply.header('etag', etag);
+      reply.header('x-content-type-options', 'nosniff');
+      if (requestMatchesEtag(request, etag)) return reply.code(304).send();
+      return reply.send(digest);
     },
   );
 

@@ -101,7 +101,6 @@ export const AUTHORING_AGREED_RESPONSIVE_CSS = `
     }
   }
 
-  /* Chrome stays content-sized; the tray keeps its own row when open. */
   .storyboard-canvas .rich-step-editor {
     grid-template-rows: auto minmax(0, 1fr) auto;
   }

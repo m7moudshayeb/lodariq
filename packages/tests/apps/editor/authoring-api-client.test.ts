@@ -64,4 +64,29 @@ describe('@lodariq/editor hosted API client', () => {
       /session is unavailable/u,
     );
   });
+
+  it('preserves the SSE accept header and lets disposal own its long-lived deadline', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError')),
+          );
+        }),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const client = new HostedAuthoringApiClient('https://api.lodariq.test');
+    client.setSessionToken('authoring-session-secret');
+    const stream = client.request('/v1/authoring/operations/collaboration/events', {
+      method: 'GET',
+      headers: { accept: 'text/event-stream' },
+      useSession: true,
+      longLived: true,
+    });
+    await Promise.resolve();
+
+    expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).get('accept')).toBe('text/event-stream');
+    client.dispose();
+    await expect(stream).rejects.toMatchObject({ name: 'AbortError' });
+  });
 });

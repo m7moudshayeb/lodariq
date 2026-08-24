@@ -77,10 +77,70 @@
       "types": "./dist/events-runtime.d.ts",
       "import": "./dist/events-runtime.js"
     },
+    "./adaptive-runtime": {
+      "source": "./src/adaptive-runtime.ts",
+      "types": "./dist/adaptive-runtime.d.ts",
+      "import": "./dist/adaptive-runtime.js"
+    },
+    "./product-capabilities-runtime": {
+      "source": "./src/product-capabilities-runtime.ts",
+      "types": "./dist/product-capabilities-runtime.d.ts",
+      "import": "./dist/product-capabilities-runtime.js"
+    },
+    "./product-capability-inventory": {
+      "source": "./src/product-capability-inventory.ts",
+      "types": "./dist/product-capability-inventory.d.ts",
+      "import": "./dist/product-capability-inventory.js"
+    },
+    "./accessibility-governance": {
+      "source": "./src/accessibility-governance.ts",
+      "types": "./dist/accessibility-governance.d.ts",
+      "import": "./dist/accessibility-governance.js"
+    },
+    "./accessibility-governance-runtime": {
+      "source": "./src/accessibility-governance-runtime.ts",
+      "types": "./dist/accessibility-governance-runtime.d.ts",
+      "import": "./dist/accessibility-governance-runtime.js"
+    },
+    "./analytics-warehouse": {
+      "source": "./src/analytics-warehouse.ts",
+      "types": "./dist/analytics-warehouse.d.ts",
+      "import": "./dist/analytics-warehouse.js"
+    },
+    "./commercial-billing": {
+      "source": "./src/commercial-billing.ts",
+      "types": "./dist/commercial-billing.d.ts",
+      "import": "./dist/commercial-billing.js"
+    },
+    "./governance-change-history": {
+      "source": "./src/governance-change-history.ts",
+      "types": "./dist/governance-change-history.d.ts",
+      "import": "./dist/governance-change-history.js"
+    },
+    "./server-registry": {
+      "source": "./src/server-registry.ts",
+      "types": "./dist/server-registry.d.ts",
+      "import": "./dist/server-registry.js"
+    },
+    "./public-demo-runtime": {
+      "source": "./src/public-demo-runtime.ts",
+      "types": "./dist/public-demo-runtime.d.ts",
+      "import": "./dist/public-demo-runtime.js"
+    },
     "./url": {
       "source": "./src/url.ts",
       "types": "./dist/url.d.ts",
       "import": "./dist/url.js"
+    },
+    "./page-eligibility": {
+      "source": "./src/page-eligibility.ts",
+      "types": "./dist/page-eligibility.d.ts",
+      "import": "./dist/page-eligibility.js"
+    },
+    "./page-key": {
+      "source": "./src/page-key.ts",
+      "types": "./dist/page-key.d.ts",
+      "import": "./dist/page-key.js"
     },
     "./package.json": "./package.json",
     "./fixtures/*": "./fixtures/*"

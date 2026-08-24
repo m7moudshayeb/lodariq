@@ -1,7 +1,3 @@
-import { createEditor, type LexicalEditor } from 'lexical';
-import { HeadingNode } from '@lexical/rich-text';
-import { LodariqBlockNode } from './nodes';
-
 /**
  * Lodariq editor boundary on top of Lexical (PRD §7.2).
  *
@@ -9,21 +5,15 @@ import { LodariqBlockNode } from './nodes';
  * allowed to import `lexical` / `@lexical/*`. Enforced by package separation,
  * dependency-cruiser, and ESLint (PRD §7.2, §20).
  *
- * Node policy (PRD §7.2): use Lexical's standard text/element nodes for
- * paragraphs, headings, and lists; reserve custom/decorator nodes for
- * Lodariq-specific UI (target chips, validation badges, tooltips, tour steps,
- * action buttons). MVP nodes are implemented in the Pre-phase (PRD §16.1).
+ * This barrel is the public shape of that boundary. It is deliberately NOT the
+ * way the authoring frame reaches into it: `export *` over the Rich Content
+ * editor means one named import pulls the whole editor, its plugins and the
+ * `lucide-react` icon map into whatever chunk asked. Callers inside the frame
+ * import the specific module they need — `./ids`, `./paste`, `./serialize`,
+ * `./create-editor` — so that only the editor's own chunk carries Lexical's
+ * weight.
  */
-export function createLodariqEditor(): LexicalEditor {
-  return createEditor({
-    namespace: 'lodariq',
-    nodes: [HeadingNode, LodariqBlockNode],
-    onError: (error) => {
-      throw error;
-    },
-  });
-}
-
+export { createLodariqEditor } from './create-editor';
 export * from './ids';
 export * from './nodes';
 export * from './paste';

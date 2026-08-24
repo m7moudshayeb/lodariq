@@ -1,11 +1,15 @@
 import {
   ANALYTICS_EVENT_LIMITS,
+  ANALYTICS_AUDIENCE_SEGMENT_IDENTITY_KEYS,
   ANALYTICS_FORBIDDEN_PAYLOAD_KEYS,
+  ANALYTICS_FORBIDDEN_AUDIENCE_DATA_KEYS,
   ANALYTICS_INGEST_DIAGNOSTIC_CODES,
   ANALYTICS_RESERVED_IDENTITY_KEYS,
   type AnalyticsEventProperties,
+  type AnalyticsAudienceSegmentIdentity,
   type AnalyticsIngestDiagnosticCode,
   type AnalyticsIngestResult,
+  type ActiveExperimentAssignment,
   type AuthoritativeAnalyticsEvent,
   type SdkAnalyticsEvent,
 } from '@lodariq/schema';
@@ -23,6 +27,8 @@ export interface ActiveAnalyticsPointer {
   generation: number;
   publicationId: string;
   contentHash: string;
+  experimentId?: string;
+  audienceSegment: AnalyticsAudienceSegmentIdentity;
 }
 
 export interface InactiveAnalyticsPointer {
@@ -39,6 +45,10 @@ export type ResolveAnalyticsPointer = (
   documentId: string,
 ) => Promise<ResolvedAnalyticsPointer | null>;
 
+export type ResolveAnalyticsExperimentAssignment = (
+  pointer: ActiveAnalyticsPointer,
+) => Promise<ActiveExperimentAssignment | null>;
+
 export interface AuthoritativeAnalyticsBatch {
   events: AuthoritativeAnalyticsEvent[];
   result: AnalyticsIngestResult;
@@ -51,12 +61,21 @@ const ALLOWED_EVENT_KEYS = new Set([
   'stepId',
   'sdkVersion',
   'correlationId',
+  'engagementKey',
   'timestamp',
   'props',
 ]);
 const ALLOWED_POINTER_KEYS = new Set(['generation', 'publicationId', 'contentHash']);
-const RESERVED_IDENTITY_KEYS = new Set(ANALYTICS_RESERVED_IDENTITY_KEYS.map(normalizePropertyKey));
-const FORBIDDEN_PAYLOAD_KEYS = new Set(ANALYTICS_FORBIDDEN_PAYLOAD_KEYS.map(normalizePropertyKey));
+const RESERVED_IDENTITY_KEYS = new Set(
+  [...ANALYTICS_RESERVED_IDENTITY_KEYS, ...ANALYTICS_AUDIENCE_SEGMENT_IDENTITY_KEYS].map(
+    normalizePropertyKey,
+  ),
+);
+const FORBIDDEN_PAYLOAD_KEYS = new Set(
+  [...ANALYTICS_FORBIDDEN_PAYLOAD_KEYS, ...ANALYTICS_FORBIDDEN_AUDIENCE_DATA_KEYS].map(
+    normalizePropertyKey,
+  ),
+);
 const EVENT_NAME_PATTERN = /^[a-z][a-z0-9_.-]*$/u;
 const CONTENT_HASH_PATTERN = /^sha256-[0-9a-f]{64}$/u;
 const RFC_3339_DATE_TIME =
@@ -75,6 +94,7 @@ export async function resolveAuthoritativeAnalyticsBatch(
   scope: AuthoritativeAnalyticsScope,
   candidates: readonly unknown[],
   resolvePointer: ResolveAnalyticsPointer,
+  resolveExperimentAssignment?: ResolveAnalyticsExperimentAssignment,
 ): Promise<AuthoritativeAnalyticsBatch> {
   const diagnostics = new Map<AnalyticsIngestDiagnosticCode, number>();
   const events: AuthoritativeAnalyticsEvent[] = [];
@@ -101,6 +121,9 @@ export async function resolveAuthoritativeAnalyticsBatch(
     }
 
     const activePointer = pointer as ActiveAnalyticsPointer;
+    const experimentAssignment = resolveExperimentAssignment
+      ? await resolveExperimentAssignment(activePointer)
+      : null;
     events.push({
       workspaceId: activePointer.workspaceId,
       environmentId: activePointer.environmentId,
@@ -108,10 +131,19 @@ export async function resolveAuthoritativeAnalyticsBatch(
       publicationId: activePointer.publicationId,
       contentHash: activePointer.contentHash,
       pointerGeneration: activePointer.generation,
+      ...(experimentAssignment
+        ? {
+            experimentId: experimentAssignment.experimentId,
+            armId: experimentAssignment.armId,
+            experimentAllocationRevision: experimentAssignment.allocationRevision,
+          }
+        : {}),
+      audienceSegment: { ...activePointer.audienceSegment },
       name: event.name,
       ...(event.stepId ? { stepId: event.stepId } : {}),
       sdkVersion: event.sdkVersion,
       ...(event.correlationId ? { correlationId: event.correlationId } : {}),
+      ...(event.engagementKey ? { engagementKey: event.engagementKey } : {}),
       timestamp: event.timestamp,
       ...(event.props ? { props: event.props } : {}),
     });
@@ -177,7 +209,10 @@ function inspectSdkAnalyticsEvent(
     (value['stepId'] !== undefined &&
       !isBoundedString(value['stepId'], ANALYTICS_EVENT_LIMITS.identifierLength)) ||
     (value['correlationId'] !== undefined &&
-      !isBoundedString(value['correlationId'], ANALYTICS_EVENT_LIMITS.correlationIdLength))
+      !isBoundedString(value['correlationId'], ANALYTICS_EVENT_LIMITS.correlationIdLength)) ||
+    (value['engagementKey'] !== undefined &&
+      (typeof value['engagementKey'] !== 'string' ||
+        !/^eng_[0-9a-f]{64}$/u.test(value['engagementKey'])))
   ) {
     return { code: 'event_invalid' };
   }
@@ -216,6 +251,7 @@ function inspectSdkAnalyticsEvent(
       ...(value['stepId'] ? { stepId: value['stepId'] } : {}),
       sdkVersion: value['sdkVersion'],
       ...(value['correlationId'] ? { correlationId: value['correlationId'] } : {}),
+      ...(value['engagementKey'] ? { engagementKey: value['engagementKey'] } : {}),
       timestamp: value['timestamp'],
       ...(props ? { props } : {}),
     },

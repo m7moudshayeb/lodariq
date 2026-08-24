@@ -9,6 +9,7 @@ import {
   COMPILER_VERSION,
   DEFAULT_EXPERIENCE_APPEARANCE,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+  PUBLIC_MANIFEST_SCHEMA_VERSION,
   RENDERER_CONTRACT_VERSION,
   type ActiveManifestPointerV2,
   type CompiledDocument,
@@ -63,7 +64,7 @@ const publicCompiledDoc: NewCompiledDocument = {
 };
 
 const publicArtifactManifest: ActiveManifestPointerV2 = {
-  schemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
+  schemaVersion: PUBLIC_MANIFEST_SCHEMA_VERSION,
   workspaceId: 'wk_public_compatible',
   environmentId: 'env_production',
   documentId: publicCompiledDoc.documentId,
@@ -137,9 +138,88 @@ const availableAuthoring = {
   bootstrapGrantExpiresAt: '2099-01-01T00:00:00.000Z',
 };
 
+interface ResumePlaybackOptions {
+  initialStepId?: string;
+  onBeforeStepChange?: (index: number, step: CompiledDocument['steps'][number]) => void;
+  onStepChange?: (index: number, step: CompiledDocument['steps'][number]) => void;
+  onComplete?: () => void;
+  onSkip?: () => void;
+}
+
+let latestPlaybackOptions: ResumePlaybackOptions | undefined;
+
+/**
+ * A two-step tour left mid-way and reinstalled, which is what a hard navigation
+ * to the next page looks like from the SDK's side. Returns the reinstalled API
+ * with the resume already applied, plus `install` for a further page load.
+ */
+async function resumedTourInstall(): Promise<{
+  api: Awaited<ReturnType<typeof installLodariq>>;
+  install: () => Promise<Awaited<ReturnType<typeof installLodariq>>>;
+  starts: Array<{ documentId: string; initialStepId?: string }>;
+  doc: CompiledDocument;
+}> {
+  const doc: CompiledDocument = {
+    ...compiledDoc,
+    contentHash: 'sha256-resume-fixture',
+    steps: [
+      { id: 'step_1', body: [{ id: 'h1', type: 'heading', text: 'One', props: {} }] },
+      { id: 'step_2', body: [{ id: 'h2', type: 'heading', text: 'Two', props: {} }] },
+    ],
+  };
+  const starts: Array<{ documentId: string; initialStepId?: string }> = [];
+
+  class FakeTourPlayer {
+    constructor(
+      private readonly tour: CompiledDocument,
+      options?: ResumePlaybackOptions,
+    ) {
+      latestPlaybackOptions = options;
+      starts.push({ documentId: tour.documentId, initialStepId: options?.initialStepId });
+    }
+
+    start(): void {
+      const index = this.tour.steps.findIndex(
+        (step) => step.id === latestPlaybackOptions?.initialStepId,
+      );
+      const stepIndex = index >= 0 ? index : 0;
+      latestPlaybackOptions?.onStepChange?.(stepIndex, this.tour.steps[stepIndex]!);
+    }
+
+    stop(): void {}
+  }
+
+  const install = (): Promise<Awaited<ReturnType<typeof installLodariq>>> =>
+    installLodariq(
+      {
+        workspaceId: 'wk_local_dev',
+        environment: 'development' as const,
+        manifestUrl: '/lodariq-local/manifest.json',
+      },
+      {
+        fetchManifest: async () => ({
+          documentId: 'doc_tour_welcome',
+          currentVersion: 'local-preview',
+        }),
+        loadCurrentTour: async () => doc,
+        loadTourRenderer: async () => ({ TourPlayer: FakeTourPlayer }) as never,
+      },
+    );
+
+  const first = await install();
+  await first.playTour(doc);
+  latestPlaybackOptions?.onBeforeStepChange?.(1, doc.steps[1]!);
+
+  delete window.Lodariq;
+  starts.length = 0;
+  const api = await install();
+  return { api, install, starts, doc };
+}
+
 describe('loader config (PRD §6.2, §9.2)', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
+    latestPlaybackOptions = undefined;
     delete window.Lodariq;
     document.querySelectorAll('[data-lodariq-launcher]').forEach((element) => element.remove());
     sessionStorage.clear();
@@ -491,11 +571,19 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     }
 
     class FakeTourPlayer {
-      constructor(_document: CompiledDocument, options?: { onSkip?: () => void }) {
+      private readonly onStart?: () => void;
+
+      constructor(
+        _document: CompiledDocument,
+        options?: { onSkip?: () => void; onStart?: () => void },
+      ) {
         skip = options?.onSkip;
+        this.onStart = options?.onStart;
       }
 
-      start(): void {}
+      start(): void {
+        this.onStart?.();
+      }
       stop(): void {}
     }
 
@@ -521,6 +609,141 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     expect(tracked).toContain('tour_started');
     expect(tracked).toContain('tour_skipped');
     expect(tracked).not.toContain('tour_dismissed');
+  });
+
+  it('does not count a frequency-suppressed announcement as shown or resumable', async () => {
+    const tracked: string[] = [];
+    const resumeWrites: string[] = [];
+    const announcement: NewCompiledDocument = {
+      ...publicCompiledDoc,
+      documentId: 'doc_announcement_frequency',
+      type: 'announcement',
+      experience: {
+        type: 'announcement',
+        surface: 'banner',
+        frequency: 'visitor',
+        dismissible: true,
+      },
+      steps: [{ id: 'announcement_surface', body: [] }],
+    };
+
+    class FakeRuntime extends LodariqRuntime {
+      override track(name: string): void {
+        tracked.push(name);
+      }
+
+      override writeTourResume(): void {
+        resumeWrites.push('write');
+      }
+    }
+
+    class FakeTourPlayer {
+      constructor(
+        _document: CompiledDocument,
+        private readonly options?: {
+          onStart?: () => void;
+          onFrequencySuppressed?: () => void;
+          onBeforeStepChange?: (index: number, step: CompiledDocument['steps'][number]) => void;
+          onStepChange?: (index: number, step: CompiledDocument['steps'][number]) => void;
+        },
+      ) {}
+
+      start(): void {
+        this.options?.onFrequencySuppressed?.();
+      }
+
+      stop(): void {}
+    }
+
+    const api = await installLodariq(
+      {
+        workspaceId: 'wk_local_dev',
+        environment: 'development',
+        manifestUrl: '/lodariq-local/manifest.json',
+      },
+      {
+        fetchManifest: async () => ({
+          documentId: announcement.documentId,
+          currentVersion: 'local-preview',
+        }),
+        loadRuntime: async () => ({ LodariqRuntime: FakeRuntime }) as never,
+        loadTourRenderer: async () => ({ TourPlayer: FakeTourPlayer }) as never,
+      },
+    );
+
+    await api.playTour(announcement);
+    expect(tracked).toContain('announcement_frequency_suppressed');
+    expect(tracked).not.toContain('announcement_started');
+    expect(tracked).not.toContain('experience_shown');
+    expect(resumeWrites).toEqual([]);
+  });
+
+  it('tracks an adaptive step skip separately from branching and explicit skip', async () => {
+    const trackedEvents: Array<{ name: string; props?: Record<string, unknown> }> = [];
+    const adaptiveTrackedDoc = {
+      ...compiledDoc,
+      steps: [
+        {
+          id: 'step_adaptive',
+          placement: 'bottom',
+          body: [],
+        },
+      ],
+    } as CompiledDocument;
+
+    class FakeRuntime extends LodariqRuntime {
+      override track(name: string, props?: Record<string, unknown>): void {
+        trackedEvents.push({ name, ...(props ? { props } : {}) });
+      }
+    }
+
+    class FakeTourPlayer {
+      constructor(doc: CompiledDocument, options?: TourPlaybackOptions) {
+        const step = doc.steps[0];
+        if (!step) return;
+        options?.onAdaptiveSkip?.(step, {
+          stepId: step.id,
+          action: 'skip',
+          reason: 'demonstrated',
+          eventName: 'project_created',
+          occurrences: 3,
+          minimumOccurrences: 2,
+          lookbackDays: 30,
+          lastObservedAt: '2026-08-21T10:00:00.000Z',
+        });
+      }
+
+      start(): void {}
+      stop(): void {}
+    }
+
+    const api = await installLodariq(
+      {
+        workspaceId: 'wk_local_dev',
+        environment: 'development',
+        manifestUrl: '/lodariq-local/manifest.json',
+      },
+      {
+        fetchManifest: async () => ({
+          documentId: adaptiveTrackedDoc.documentId,
+          currentVersion: 'local-preview',
+        }),
+        loadRuntime: async () => ({ LodariqRuntime: FakeRuntime }) as never,
+        loadTourRenderer: async () => ({ TourPlayer: FakeTourPlayer }) as never,
+      },
+    );
+
+    await api.playTour(adaptiveTrackedDoc);
+    expect(trackedEvents).toContainEqual({
+      name: 'tour_adaptive_step_skipped',
+      props: expect.objectContaining({
+        stepId: adaptiveTrackedDoc.steps[0]?.id,
+        reason: 'demonstrated',
+        eventName: 'project_created',
+      }),
+    });
+    expect(trackedEvents.map((event) => event.name)).not.toContain('tour_skipped');
+    expect(trackedEvents.map((event) => event.name)).not.toContain('tour_branch_chosen');
   });
 
   it('tracks only privacy-safe bucketed target-resolution fields', async () => {
@@ -586,6 +809,67 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     expect(targetResolutionEvent?.props).not.toHaveProperty('coordinates');
   });
 
+  it('tracks bounded condition diagnostics without condition keys or values', async () => {
+    const trackedEvents: Array<{ name: string; props?: Record<string, unknown> }> = [];
+    const onConditionDiagnostic = vi.fn();
+
+    class FakeRuntime extends LodariqRuntime {
+      override track(name: string, props?: Record<string, unknown>): void {
+        trackedEvents.push({ name, ...(props ? { props } : {}) });
+      }
+    }
+
+    class FakeTourPlayer {
+      constructor(
+        private readonly doc: CompiledDocument,
+        private readonly options?: TourPlaybackOptions,
+      ) {}
+
+      start(): void {
+        this.options?.onConditionDiagnostic?.(this.doc.steps[0]!, {
+          blockId: 'block_heading_1',
+          reason: 'missing-context',
+          source: 'documentState',
+        });
+      }
+
+      stop(): void {}
+    }
+
+    const api = await installLodariq(
+      {
+        workspaceId: 'wk_local_dev',
+        environment: 'development',
+        manifestUrl: '/lodariq-local/manifest.json',
+      },
+      {
+        fetchManifest: async () => ({
+          documentId: targetResolutionDoc.documentId,
+          currentVersion: 'local-preview',
+        }),
+        loadRuntime: async () => ({ LodariqRuntime: FakeRuntime }) as never,
+        loadTourRenderer: async () => ({ TourPlayer: FakeTourPlayer }) as never,
+      },
+    );
+
+    await api.playTour(targetResolutionDoc, { onConditionDiagnostic });
+
+    const event = trackedEvents.find((candidate) => candidate.name === 'tour_condition_diagnostic');
+    expect(event).toEqual({
+      name: 'tour_condition_diagnostic',
+      props: {
+        documentId: targetResolutionDoc.documentId,
+        stepId: 'step_target_identity_v2',
+        blockId: 'block_heading_1',
+        reason: 'missing-context',
+        source: 'documentState',
+      },
+    });
+    expect(event?.props).not.toHaveProperty('key');
+    expect(event?.props).not.toHaveProperty('value');
+    expect(onConditionDiagnostic).toHaveBeenCalledOnce();
+  });
+
   it('bootstraps API token installs without putting the token in the URL', async () => {
     const fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -644,6 +928,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
         href: 'https://staging.customer.example/projects?tab=active',
         origin: 'https://staging.customer.example',
       },
+      `lqv_${'1'.repeat(32)}`,
     );
 
     expect(context.environment).toBe('staging');
@@ -654,6 +939,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         installationId: publicInstallationId,
+        assignmentKey: `lqv_${'1'.repeat(32)}`,
         href: 'https://staging.customer.example/projects?tab=active',
         origin: 'https://staging.customer.example',
       }),
@@ -667,7 +953,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
 
   it('accepts a closed multi-document V2 delivery index for the resolved environment', async () => {
     const manifest = (documentId: string, hashCharacter: string) => ({
-      schemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
+      schemaVersion: PUBLIC_MANIFEST_SCHEMA_VERSION,
       workspaceId: 'wk_public_delivery',
       environmentId: 'env_staging',
       documentId,
@@ -1515,6 +1801,68 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     await installLodariq(config, installOptions);
 
     expect(starts).toEqual([{ documentId: 'doc_tour_welcome', initialStepId: 'step_2' }]);
+  });
+
+  it('lets an automatic activation yield to the tour it just resumed', async () => {
+    // The page a cross-page tour lands on re-evaluates its own activation from
+    // an empty in-memory state, so the trigger that started the tour on page one
+    // fires again here. Restarting on it is the bug: step 2 becomes step 1.
+    const { api, starts, doc } = await resumedTourInstall();
+
+    await api.playTour(doc, { automatic: true });
+
+    expect(starts).toEqual([{ documentId: 'doc_tour_welcome', initialStepId: 'step_2' }]);
+  });
+
+  it('still restarts on an explicit host playTour', async () => {
+    const { api, starts, doc } = await resumedTourInstall();
+
+    await api.playTour(doc);
+
+    expect(starts).toEqual([
+      { documentId: 'doc_tour_welcome', initialStepId: 'step_2' },
+      { documentId: 'doc_tour_welcome', initialStepId: undefined },
+    ]);
+  });
+
+  it('holds an automatic activation back from someone who already finished the tour', async () => {
+    vi.stubGlobal('crypto', webcrypto as unknown as Crypto);
+    localStorage.clear();
+    const { api, starts, doc, install } = await resumedTourInstall();
+    api.identify({ userId: 'user_finished' });
+
+    // Completing writes the person-scoped record, then clears the tab-scoped one.
+    latestPlaybackOptions?.onComplete?.();
+    delete window.Lodariq;
+    starts.length = 0;
+
+    const reinstalled = await install();
+    reinstalled.identify({ userId: 'user_finished' });
+    await reinstalled.playTour(doc, { automatic: true });
+    expect(starts).toEqual([]);
+
+    // An explicit instruction from the host still runs: the record gates the
+    // SDK's own offers, not the customer's code.
+    await reinstalled.playTour(doc);
+    expect(starts).toHaveLength(1);
+  });
+
+  it('does not suppress an unidentified visitor', async () => {
+    vi.stubGlobal('crypto', webcrypto as unknown as Crypto);
+    localStorage.clear();
+    const { api, starts, doc, install } = await resumedTourInstall();
+    api.identify({ userId: 'user_finished' });
+    latestPlaybackOptions?.onComplete?.();
+
+    delete window.Lodariq;
+    starts.length = 0;
+
+    // Same browser, no identify call. Without an identity there is no answer to
+    // give, and the safe way to be wrong is to show the tour.
+    const anonymous = await install();
+    await anonymous.playTour(doc, { automatic: true });
+
+    expect(starts).toHaveLength(1);
   });
 
   it('ignores stale concurrent playTour starts', async () => {

@@ -27,6 +27,8 @@ jobs:
             command: pnpm run knip:check
           - name: Styles
             command: pnpm run styles:check
+          - name: Design tokens
+            command: pnpm run tokens:check
           - name: Migrations
             command: pnpm run migrations:check
     steps:

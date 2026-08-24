@@ -1,5 +1,7 @@
 import type { DashboardViewModel } from '../lib/view-model';
 import { AnalyticsPanel, type AnalyticsEnvironmentOption } from './analytics-panel';
+import { ApplicationsPanel } from './applications-panel';
+import { ExperienceMeasurementPanel } from './experience-measurement-panel';
 import { DocumentsTable } from './documents-table';
 import { LaunchQueue } from './launch-queue';
 import { RecentActivity } from './recent-activity';
@@ -52,13 +54,34 @@ export function AnalyticsView({
   viewModel: DashboardViewModel;
   workspaceId: string;
 }): React.ReactElement {
+  const environments = analyticsEnvironmentOptions(viewModel.environmentOptions);
+  // Production when it exists: the question "did this work" is about real users.
+  const measured =
+    environments.find((environment) => environment.kind === 'production') ?? environments[0];
   return (
     <>
       <DashboardPageHeader view="analytics" />
-      <AnalyticsPanel
-        environments={analyticsEnvironmentOptions(viewModel.environmentOptions)}
-        workspaceId={workspaceId}
-      />
+      <AnalyticsPanel environments={environments} workspaceId={workspaceId} />
+      {measured ? (
+        <ExperienceMeasurementPanel
+          environmentId={measured.id}
+          experiences={viewModel.documentRows.map((row) => ({ id: row.id, name: row.title }))}
+          workspaceId={workspaceId}
+        />
+      ) : null}
+    </>
+  );
+}
+
+export function ApplicationsView({
+  workspaceId,
+}: {
+  workspaceId: string;
+}): React.ReactElement {
+  return (
+    <>
+      <DashboardPageHeader view="applications" />
+      <ApplicationsPanel workspaceId={workspaceId} />
     </>
   );
 }

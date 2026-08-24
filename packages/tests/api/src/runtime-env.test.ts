@@ -133,8 +133,7 @@ describe('@lodariq/api runtime environment check', () => {
       LODARIQ_OIDC_STATE_SECRET: 'oidc-state-secret-at-least-thirty-two-bytes',
       LODARIQ_GOOGLE_OIDC_CLIENT_ID: 'google-client',
       LODARIQ_GOOGLE_OIDC_CLIENT_SECRET: 'google-secret',
-      LODARIQ_GOOGLE_OIDC_REDIRECT_URI:
-        'https://app.lodariq.io/api/auth/oidc/google/callback',
+      LODARIQ_GOOGLE_OIDC_REDIRECT_URI: 'https://app.lodariq.io/v1/auth/oidc/google/callback',
     };
     expect(runCheck(validApiEnv(google))).toContain('ready for a live smoke check');
     expect(() =>
@@ -156,7 +155,7 @@ describe('@lodariq/api runtime environment check', () => {
       LODARIQ_ENTERPRISE_OIDC_MODE: 'enabled',
       LODARIQ_OIDC_STATE_SECRET: 'enterprise-oidc-state-secret-at-least-thirty-two-bytes',
       LODARIQ_ENTERPRISE_OIDC_REDIRECT_URI:
-        'https://app.lodariq.io/api/auth/enterprise/oidc/callback',
+        'https://app.lodariq.io/v1/auth/enterprise/oidc/callback',
       LODARIQ_ENTERPRISE_OIDC_CLIENT_SECRETS: JSON.stringify({
         [connectionId]: 'enterprise-client-secret-at-least-thirty-two-bytes',
       }),
@@ -167,7 +166,7 @@ describe('@lodariq/api runtime environment check', () => {
         validApiEnv({
           ...enterprise,
           LODARIQ_ENTERPRISE_OIDC_REDIRECT_URI:
-            'https://app.lodariq.io/api/auth/enterprise/oidc/attacker',
+            'https://app.lodariq.io/v1/auth/enterprise/oidc/attacker',
         }),
       ),
     ).toThrow(/exact public HTTPS callback URL/u);
@@ -181,6 +180,18 @@ describe('@lodariq/api runtime environment check', () => {
         }),
       ),
     ).toThrow(/invalid connection ID/u);
+  });
+
+  it('refuses to deploy without the secrets that silently disable a feature', () => {
+    // Absent, `createOutboundWebhookWorker` is never started and the webhooks
+    // route answers 503 — the feature is simply off, with nothing in the deploy
+    // saying so. Public demo links cannot be signed at all.
+    expect(() => runCheck(validApiEnv({ LODARIQ_WEBHOOK_SIGNING_KEY: '' }))).toThrow(
+      /LODARIQ_WEBHOOK_SIGNING_KEY is required/u,
+    );
+    expect(() => runCheck(validApiEnv({ LODARIQ_DEMO_LINK_SECRET: 'too-short' }))).toThrow(
+      /LODARIQ_DEMO_LINK_SECRET must be at least 32 characters/u,
+    );
   });
 
   it('rejects enterprise validator credentials in the API runtime', () => {
@@ -215,6 +226,8 @@ function validApiEnv(overrides: Record<string, string> = {}): Record<string, str
     LODARIQ_CREATOR_MODULE_VERSION: 'sha256-test',
     LODARIQ_CREATOR_MODULE_INTEGRITY: `sha256-${'A'.repeat(43)}=`,
     LODARIQ_AUTHORING_IFRAME_SRC: 'https://editor.lodariq.io/authoring.html',
+    LODARIQ_WEBHOOK_SIGNING_KEY: 'test-webhook-signing-key-at-least-32-bytes',
+    LODARIQ_DEMO_LINK_SECRET: 'test-demo-link-secret-at-least-32-bytes-long',
     ...overrides,
   };
 }

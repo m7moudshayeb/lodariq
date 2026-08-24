@@ -6,9 +6,14 @@ import type {
   StepChoreographyTransition,
   StepTransitionDestination,
   AuthoringAccessibilityPreviewMode,
+  JourneyHandoff,
 } from '@lodariq/schema';
 import { resolveExperienceAppearance } from '@lodariq/schema/brand-runtime';
-import { LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE } from '@lodariq/schema/dom';
+import {
+  LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE,
+  LODARIQ_TOUR_ANCHORED_ATTRIBUTE,
+} from '@lodariq/schema/dom';
+import { hostSafe } from '../host-safety';
 import { assertSupportedCompiledArtifactIfVersioned } from '../artifact-compatibility';
 import { applyRuntimeLocale, configureRuntimeLocale, currentRuntimeLocale } from '../i18n';
 import { tourRuntimeText } from '../tour-i18n';
@@ -49,18 +54,41 @@ import {
   waitForResolvedElement,
   waitUntil,
 } from './tour-lifecycle';
+import { pageKeyMatches } from '@lodariq/schema/page-key';
 import { canOwnPresentation, createTargetOutline } from './tour-positioning';
+import type { ExperienceSurfaceDefinition } from './experience-surface-registry';
+import { currentPageKey, goToPageKey, watchPageKey } from './tour-page-scope';
+import {
+  applyStepOutlineEmphasis,
+  armBackdropClick,
+  createTourBackdrop,
+  resetTourBackdrop,
+} from './tour-emphasis';
 import type { ChoreographyRecoveryUpdate, ChoreographyStageUpdate } from './tour-choreography';
 import type { ProtectedSurfaceRect } from './protected-surface';
-import type { TourFlowConditionContext } from './tour-flow';
+import {
+  showWhenMatches,
+  type TourFlowConditionContext,
+  type TourFlowConditionDiagnostic,
+} from './tour-flow';
 import { applyStepMotion, resolveResponsiveTourStep } from './tour-presentation';
 import { executeTourSequence } from './tour-choreography-sequence';
 import { runTourFlowDestination } from './tour-flow-navigation';
 import { trackTourTarget } from './tour-target-tracker';
+import { collectStepFormResponses, type CapturedFormResponse } from './tour-form-responses';
+import { handoffDestinationUrl } from '../journey-handoff-destination';
+import type { TargetApproachOutcome, TargetApproachStageUpdate } from './target-approach-runtime';
 
 export { TourPresentationCanceledError, TourPresentationUnavailableError } from './tour-errors';
 export type { ProtectedSurfaceRect } from './protected-surface';
+/** The ring's default gap, so authoring chrome can sit on the ring it drew. */
+export { TARGET_OUTLINE_GAP_PX } from './tour-positioning';
 export type { ChoreographyRecoveryUpdate, ChoreographyStageUpdate } from './tour-choreography';
+export type { TargetApproachOutcome, TargetApproachStageUpdate } from './target-approach-runtime';
+
+export interface TourConditionDiagnostic extends TourFlowConditionDiagnostic {
+  blockId: string;
+}
 export {
   applyStepMotion,
   resolveResponsiveTourStep,
@@ -70,6 +98,7 @@ export {
   resolveTourActionRecipe,
   resolveTourCompositionRecipe,
   resolveTourPopupStyleRecipe,
+  tourCompositionPaddingVariables,
   tourPopupStyleVariables,
 } from './tour-recipes';
 
@@ -86,6 +115,27 @@ type RuntimeActionType = RuntimeAction['type'];
 type RuntimeActionHandler = (player: TourPlayer, action: RuntimeAction) => void;
 type TargetResolver = typeof resolveTarget;
 type FingerprintResolver = typeof resolve;
+interface ExperienceRuntimeModule {
+  experienceCompletionLabel(document: CompiledDocument): string;
+  experienceIsSuppressed(document: CompiledDocument): boolean;
+  experienceRuntimeLabel(document: CompiledDocument): string;
+  experienceSurfaceDefinition(document: CompiledDocument): ExperienceSurfaceDefinition;
+  markExperienceShown(document: CompiledDocument): void;
+  mountExperienceRuntime(
+    document: CompiledDocument,
+    host: HTMLElement,
+    card: HTMLElement,
+    content: HTMLElement,
+    callbacks: {
+      complete(): void;
+      dismiss(): void;
+      dismissOnOutsidePress: boolean;
+      onChecklistItemChange?: TourPlayerOptions['onChecklistItemChange'];
+      onSurveySubmit?: TourPlayerOptions['onSurveySubmit'];
+    },
+    backdrop?: HTMLElement,
+  ): () => void;
+}
 
 /**
  * Exact, in-memory element chosen during authoring. It is intentionally absent
@@ -127,13 +177,30 @@ export interface TourPlayerOptions {
   /** Creator-only live anchor used while the selected element remains connected. */
   authoringTargetOverride?: AuthoringTargetOverride;
   onStepChange?: (index: number, step: CompiledStep) => void;
+  /**
+   * Answers a visitor gave on the step being left. Customer content, so it is
+   * handed over separately from analytics and never as event properties.
+   */
+  onFormResponses?: (responses: readonly CapturedFormResponse[]) => void;
   onBeforeStepChange?: (index: number, step: CompiledStep) => void;
   onComplete?: () => void;
   onDismiss?: () => void;
+  onStart?: () => void;
+  onFrequencySuppressed?: () => void;
+  onChecklistItemChange?: (
+    blockId: string,
+    completed: boolean,
+    completedCount: number,
+    total: number,
+  ) => void;
+  onSurveySubmit?: () => void;
   /** Explicit visitor choice to end the entire tour before completion. */
   onSkip?: () => void;
   /** One bounded result per step attempt for privacy-safe diagnostics. */
   onTargetResolution?: (step: CompiledStep, result: TourTargetResolutionDiagnostic) => void;
+  /** One bounded stage update for each immutable approach leg. */
+  onTargetApproachStageChange?: (step: CompiledStep, update: TargetApproachStageUpdate) => void;
+  onTargetApproachOutcome?: (step: CompiledStep, outcome: TargetApproachOutcome) => void;
   /** Bounded, payload-free stage diagnostics for runtime progress and telemetry. */
   onChoreographyStageChange?: (step: CompiledStep, update: ChoreographyStageUpdate) => void;
   onChoreographyRecovery?: (step: CompiledStep, update: ChoreographyRecoveryUpdate) => void;
@@ -143,11 +210,16 @@ export interface TourPlayerOptions {
   onAuthoringSurfaceChange?: (rect: ProtectedSurfaceRect | null) => void;
   /** Explicit SDK-provided safe state used only by closed flow conditions. */
   flowConditionContext?: Pick<TourFlowConditionContext, 'identifyTraits' | 'documentState'>;
+  /** Lazy adaptive wrapper hook; absent in the base renderer. */
+  skipStep?: (step: CompiledStep) => boolean;
+  onConditionDiagnostic?: (step: CompiledStep, diagnostic: TourConditionDiagnostic) => void;
   onBranchChoice?: (step: CompiledStep, ruleIndex: number | null, destination: string) => void;
+  /** Fires immediately before this origin navigates away for a cross-app handoff. */
+  onJourneyHandoff?: (step: CompiledStep, handoff: JourneyHandoff, destination: string) => void;
   /** Resolves server-validated asset IDs; canonical documents never carry raw src attributes. */
   resolveMediaAsset?: (
     assetId: string,
-    kind: 'image' | 'video' | 'captions',
+    kind: 'image' | 'video' | 'captions' | 'audio',
   ) => string | null | Promise<string | null>;
   /** Opaque delivery context used by Target Identity V2 hard gates. */
   targetResolutionContext?: TargetResolutionContext;
@@ -175,6 +247,7 @@ export class TourPlayer {
   private readonly card: HTMLDivElement;
   private readonly arrow: HTMLDivElement;
   private readonly targetOutline: HTMLDivElement | null;
+  private readonly backdrop: HTMLDivElement;
   private readonly cleanups: Array<() => void> = [];
   private readonly lifetimeCleanups: Array<() => void> = [];
   private renderAbortController: AbortController | null = null;
@@ -182,12 +255,24 @@ export class TourPlayer {
   private renderId = 0;
   private choreographyRetryCount = 0;
   private completionStepActive = false;
+  private stepTransitionPending = false;
+  private cancelExitMotion: (() => void) | null = null;
   private readonly completedStepIds = new Set<string>();
   private readonly accessibilityAnnouncements: string[] = [];
   private announcementRegion: HTMLParagraphElement | null = null;
   private restoreFocusTarget: HTMLElement | null = null;
   private targetResolver: TargetResolver | null = null;
   private fingerprintResolver: FingerprintResolver | null = null;
+  private narrationUnlocked = false;
+  private experienceRuntime: ExperienceRuntimeModule | null = null;
+  private startGeneration = 0;
+
+  private experienceRuntimeStart: Promise<void> | null = null;
+  /** The page the current step appeared on; null until it has appeared. */
+  private stepPageKey: string | null = null;
+  private suspendedForPage = false;
+  private pageScopeWatched = false;
+  private sequenceDepth = 0;
 
   readonly contentLocale: string;
 
@@ -219,6 +304,9 @@ export class TourPlayer {
     }
     if (authoringPreviewOwnerId) {
       this.host.setAttribute(LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE, authoringPreviewOwnerId);
+    }
+    if (options.authoringPreviewInteractive) {
+      this.host.setAttribute('data-lodariq-preview-interactive', '');
     }
     if (options.authoringAccessibilityMode && !authoringPreviewOwnerId) {
       throw new Error('Lodariq accessibility preview requires an owned authoring preview');
@@ -252,13 +340,51 @@ export class TourPlayer {
     ).displayTargetOutline
       ? createTargetOutline(document)
       : null;
+    this.backdrop = createTourBackdrop(document);
     this.lifetimeCleanups.push(applyCompiledTourTheme(this.host, this.doc));
     this.shadow.appendChild(createTourStyles());
+    this.shadow.appendChild(this.backdrop);
     if (this.targetOutline) this.shadow.appendChild(this.targetOutline);
     this.shadow.appendChild(this.card);
   }
 
   start(): void {
+    const generation = ++this.startGeneration;
+    if (documentExperienceType(this.doc) !== 'tour' && !this.experienceRuntime) {
+      const pending = import('./experience-runtime')
+        .then((experienceRuntime) => {
+          if (generation !== this.startGeneration) return;
+          this.experienceRuntime = experienceRuntime;
+          this.card.setAttribute(
+            'aria-label',
+            this.experienceRuntime.experienceRuntimeLabel(this.doc),
+          );
+          this.startReady();
+        });
+      this.experienceRuntimeStart = pending;
+      void pending
+        .catch(() => {})
+        .finally(() => {
+          if (this.experienceRuntimeStart === pending) this.experienceRuntimeStart = null;
+        });
+      return;
+    }
+    this.startReady();
+  }
+
+  private startReady(): void {
+    if (
+      !this.options.authoringPreviewOwnerId &&
+      !this.options.embeddedPreviewContainer &&
+      this.experienceRuntime?.experienceIsSuppressed(this.doc)
+    ) {
+      this.options.onFrequencySuppressed?.();
+      return;
+    }
+    if (!this.options.authoringPreviewOwnerId && !this.options.embeddedPreviewContainer) {
+      this.experienceRuntime?.markExperienceShown(this.doc);
+      this.options.onStart?.();
+    }
     const previewContainer = this.options.embeddedPreviewContainer;
     if (!previewContainer && !this.options.authoringPreviewOwnerId) {
       if (TourPlayer.active && TourPlayer.active !== this) TourPlayer.active.stop();
@@ -272,7 +398,59 @@ export class TourPlayer {
       }
       (previewContainer ?? document.body).appendChild(this.host);
     }
+    const firstIndex = this.displayableStepIndex(this.index, 1);
+    if (firstIndex < 0) {
+      this.completeNow();
+      return;
+    }
+    this.index = firstIndex;
+    this.watchPageScope();
     this.render();
+  }
+
+  /** Suspend a displayed step when the visitor leaves the page it appeared on. */
+  private watchPageScope(): void {
+    if (this.pageScopeWatched || !this.pageScopeApplies()) return;
+    this.pageScopeWatched = true;
+    const watch = watchPageKey(() => this.applyPageScope());
+    this.lifetimeCleanups.push(watch.stop);
+  }
+
+  /** The editing canvas owns its own page navigation; visitor preview does not. */
+  private pageScopeApplies(): boolean {
+    if (this.options.embeddedPreviewContainer) return false;
+    if (!this.options.authoringPreviewOwnerId) return true;
+    return Boolean(this.options.authoringPreviewInteractive);
+  }
+
+  private markStepPage(renderId: number): void {
+    if (renderId !== this.renderId || !this.pageScopeApplies()) return;
+    this.stepPageKey = currentPageKey();
+  }
+
+  private applyPageScope(): void {
+    if (this.sequenceDepth > 0) return;
+    // No page of its own means the step never found its target where it landed,
+    // which is what a resumed step looks like on the wrong screen. The visitor
+    // moving is the one event that can change that answer, so it tries again
+    // rather than staying dead for the rest of the visit.
+    if (!this.stepPageKey) {
+      this.render();
+      return;
+    }
+    const suspend = currentPageKey() !== this.stepPageKey;
+    if (suspend === this.suspendedForPage) return;
+    if (!suspend) {
+      this.render();
+      return;
+    }
+    this.suspendedForPage = true;
+    this.invalidateCurrentRender(new TourPresentationCanceledError());
+    this.renderId += 1;
+    this.clearStepEffects();
+    this.card.hidden = true;
+    if (this.targetOutline) this.targetOutline.hidden = true;
+    this.backdrop.hidden = true;
   }
 
   /**
@@ -280,32 +458,47 @@ export class TourPlayer {
    * steps wait for a safely resolved, visible owner and completed positioning.
    */
   waitUntilReady(): Promise<void> {
-    return (
-      this.readiness?.promise ??
-      Promise.reject(
-        new TourPresentationUnavailableError(tourRuntimeText('Lodariq tour has not started')),
-      )
+    const readiness = this.readiness;
+    if (readiness) return readiness.promise;
+    const pending = this.experienceRuntimeStart;
+    if (pending) {
+      return pending.then(() => {
+        const startedReadiness = this.readiness;
+        if (startedReadiness) return startedReadiness.promise;
+        throw new TourPresentationUnavailableError(tourRuntimeText('Lodariq tour has not started'));
+      });
+    }
+    return Promise.reject(
+      new TourPresentationUnavailableError(tourRuntimeText('Lodariq tour has not started')),
     );
   }
 
   next(): void {
-    this.advanceToNext(true);
+    this.leaveCurrentStep(() => this.advanceToNext(true));
   }
 
   previous(): void {
-    const previousIndex = this.index - 1;
+    const previousIndex = this.displayableStepIndex(this.index - 1, -1);
     const previousStep = this.doc.steps[previousIndex];
     if (!previousStep) return;
-    this.notifyBeforeStepChange(previousIndex, previousStep);
-    this.index = previousIndex;
-    this.render();
+    this.leaveCurrentStep(() => {
+      this.notifyBeforeStepChange(previousIndex, previousStep);
+      this.index = previousIndex;
+      this.render();
+    });
   }
 
   private advanceToNext(notify: boolean): void {
-    const nextIndex = this.index + 1;
+    // A step that hands off ends this application's part of the journey; the
+    // destination continues it. Nothing after this line runs on this origin.
+    if (this.leaveForHandoff(this.doc.steps[this.index])) return;
+    // Steps whose visibility rule excludes this visitor are stepped over, not
+    // rendered and hidden — a card that flashes and vanishes is worse than one
+    // that never appears.
+    const nextIndex = this.displayableStepIndex(this.index + 1, 1);
     const nextStep = this.doc.steps[nextIndex];
     if (!nextStep) {
-      this.complete();
+      this.completeNow();
       return;
     }
     if (notify) this.notifyBeforeStepChange(nextIndex, nextStep);
@@ -313,11 +506,59 @@ export class TourPlayer {
     this.render();
   }
 
+  /**
+   * Navigates to the application this step hands off to, carrying progress in
+   * the URL because the two origins share no storage. Returns false — and stays
+   * put — whenever the destination cannot be resolved from the artifact, so a
+   * misconfigured handoff degrades to an ordinary next step.
+   */
+  private leaveForHandoff(step: CompiledStep | undefined): boolean {
+    const handoff = step?.handoff;
+    if (!handoff || this.options.authoringPreviewOwnerId || this.options.embeddedPreviewContainer) {
+      return false;
+    }
+    const applications = 'applications' in this.doc ? this.doc.applications : undefined;
+    const application = applications?.find((entry) => entry.id === handoff.applicationId);
+    if (!application) return false;
+    const destination = handoffDestinationUrl(application, {
+      applicationId: handoff.applicationId,
+      documentId: handoff.documentId ?? this.doc.documentId,
+      stepId: step!.id,
+      contentHash: this.doc.contentHash,
+      resumeMode: handoff.resumeMode,
+      issuedAt: Date.now(),
+    });
+    if (!destination) return false;
+    this.options.onJourneyHandoff?.(step!, handoff, destination);
+    window.location.assign(destination);
+    return true;
+  }
+
+  /** A step with no rule always shows, so existing documents behave unchanged. */
+  private stepIsVisible(step: CompiledStep | undefined): boolean {
+    if (!step) return false;
+    const matches = !step.showWhen || showWhenMatches(step.showWhen, this.flowConditionContext());
+    return matches && !this.options.skipStep?.(step);
+  }
+
+  private displayableStepIndex(startIndex: number, direction: 1 | -1): number {
+    for (let index = startIndex; this.doc.steps[index]; index += direction) {
+      if (this.stepIsVisible(this.doc.steps[index])) return index;
+    }
+    return -1;
+  }
+
   stop(): void {
+    this.startGeneration += 1;
+    this.cancelPendingStepTransition();
     this.invalidateCurrentRender(new TourPresentationCanceledError());
     this.renderId += 1;
     this.clearStepEffects();
     while (this.lifetimeCleanups.length) this.lifetimeCleanups.pop()?.();
+    this.pageScopeWatched = false;
+    this.stepPageKey = null;
+    this.suspendedForPage = false;
+    this.sequenceDepth = 0;
     if (TourPlayer.active === this) {
       TourPlayer.active = null;
       clearActiveContentLocale();
@@ -336,7 +577,11 @@ export class TourPlayer {
   }
 
   private render(): void {
+    this.cancelPendingStepTransition();
     this.invalidateCurrentRender(new TourPresentationCanceledError());
+    // A new render establishes its own page; the previous step's does not carry.
+    this.stepPageKey = null;
+    this.suspendedForPage = false;
     const renderId = ++this.renderId;
     const abortController = new AbortController();
     this.renderAbortController = abortController;
@@ -357,13 +602,25 @@ export class TourPlayer {
     this.clearStepEffects();
     this.choreographyRetryCount = 0;
     if (this.targetOutline) this.targetOutline.hidden = true;
+    if (!step.targetId || !step.emphasis?.backdrop) resetTourBackdrop(this.backdrop);
+    else this.backdrop.hidden = true;
     this.options.onStepChange?.(this.index, step);
 
     this.card.innerHTML = '';
+    // A target still gates appearance, so the card waits for one either way.
     this.card.hidden = Boolean(step.targetId);
+    this.card.style.removeProperty('visibility');
+    /*
+     * An anchored card is placed by the positioner once its target resolves. A
+     * targetless one never goes through that path, so without this it inherits
+     * the host's origin and renders in the page's top-left corner, over whatever
+     * the product has there.
+     */
+    const anchorsToTarget = this.surfaceAnchorsToTarget(step);
+    this.card.toggleAttribute(LODARIQ_TOUR_ANCHORED_ATTRIBUTE, anchorsToTarget);
     applyStepComposition(this.card, step);
     applyStepMotion(this.card, step);
-    this.card.setAttribute('aria-label', step.accessibilityName ?? tourRuntimeText('Lodariq tour'));
+    this.card.setAttribute('aria-label', step.accessibilityName ?? this.runtimeLabel());
     if (this.targetOutline) {
       if (step.spotlight) {
         this.targetOutline.dataset['lodariqSpotlight'] = step.spotlight.emphasis;
@@ -375,6 +632,13 @@ export class TourPlayer {
         delete this.targetOutline.dataset['lodariqSpotlightPulse'];
       }
     }
+    applyStepOutlineEmphasis(this.targetOutline, step.emphasis);
+    this.addCleanup(
+      armBackdropClick(this.backdrop, step.emphasis?.backdrop, {
+        advance: () => this.next(),
+        dismiss: () => this.dismiss(),
+      }),
+    );
     const content = this.card.ownerDocument.createElement('div');
     content.className = 'tour-content';
     this.announcementRegion = this.card.ownerDocument.createElement('p');
@@ -383,12 +647,49 @@ export class TourPlayer {
     this.announcementRegion.setAttribute('aria-live', 'polite');
     this.announcementRegion.setAttribute('aria-atomic', 'true');
     content.appendChild(this.announcementRegion);
-    appendStepBody(content, step, (node) => this.createBodyElement(node));
-    this.recordAccessibilityAnnouncement(
-      step.accessibilityName ?? tourRuntimeText('Lodariq tour'),
-      false,
+    let conditionDiagnosticCount = 0;
+    const conditionContext = this.flowConditionContext();
+    appendStepBody(
+      content,
+      step,
+      (node) => this.createBodyElement(node),
+      (node) =>
+        showWhenMatches(node.props.showWhen, conditionContext, (diagnostic) => {
+          if (conditionDiagnosticCount >= 8) return;
+          conditionDiagnosticCount += 1;
+          try {
+            this.options.onConditionDiagnostic?.(step, { ...diagnostic, blockId: node.id });
+          } catch {
+            /* Diagnostics hooks must never alter content visibility. */
+          }
+        }),
     );
+    this.recordAccessibilityAnnouncement(step.accessibilityName ?? this.runtimeLabel(), false);
     this.card.appendChild(content);
+    const experienceRuntimeCleanup = this.experienceRuntime?.mountExperienceRuntime(
+      this.doc,
+      this.host,
+      this.card,
+      content,
+      {
+        complete: () => this.complete(),
+        dismiss: () => this.dismiss(),
+        dismissOnOutsidePress:
+          !this.options.embeddedPreviewContainer && !this.options.authoringPreviewOwnerId,
+        ...(this.options.onChecklistItemChange
+          ? { onChecklistItemChange: this.options.onChecklistItemChange }
+          : {}),
+        ...(this.options.onSurveySubmit ? { onSurveySubmit: this.options.onSurveySubmit } : {}),
+      },
+      this.backdrop,
+    );
+    if (experienceRuntimeCleanup) this.addCleanup(experienceRuntimeCleanup);
+    this.armNarration(step, content, renderId, abortController.signal);
+    if ('showLodariqBadge' in this.doc && this.doc.showLodariqBadge) {
+      void import('./tour-badge')
+        .then(({ appendTourBadge }) => appendTourBadge(this.card))
+        .catch(() => {});
+    }
     if (this.options.authoringAccessibilityMode) {
       void import('./tour-accessibility-preview').then(
         ({ appendAuthoringAccessibilityEvidence }) => {
@@ -402,20 +703,25 @@ export class TourPlayer {
         },
       );
     }
-    this.arrow.hidden = !step.targetId || step.tooltipLayout?.showArrow === false;
+    this.arrow.hidden = !anchorsToTarget || step.tooltipLayout?.showArrow === false;
     this.card.appendChild(this.arrow);
     this.armEntrySequence(step, renderId, abortController.signal);
 
     if (!step.targetId) {
+      let lifecycleWait: Promise<void> | null = null;
       if (
         !this.options.embeddedPreviewContainer &&
         (!this.options.authoringPreviewOwnerId || this.options.authoringPreviewInteractive)
       ) {
         focusTourCard(this.card);
         if (step.lifecycle) {
-          void this.waitForLifecycle(step.lifecycle, abortController.signal).catch(() => {});
+          lifecycleWait = this.waitForLifecycle(step.lifecycle, abortController.signal);
         }
       }
+      // A step waiting on a route belongs to the page it is waiting for, not
+      // the one it was queued on, so the page is read once the wait settles.
+      if (lifecycleWait) void lifecycleWait.then(() => this.markStepPage(renderId)).catch(() => {});
+      else this.markStepPage(renderId);
       this.resolveReadiness(renderId);
       return;
     }
@@ -429,6 +735,8 @@ export class TourPlayer {
           return;
         }
         if (!target) {
+          this.stepPageKey = null;
+          this.suspendedForPage = false;
           this.rejectReadiness(
             renderId,
             new TourPresentationUnavailableError(
@@ -437,12 +745,60 @@ export class TourPlayer {
           );
           return;
         }
+        this.markStepPage(renderId);
+        if (!anchorsToTarget) {
+          this.presentAtViewport(step, target.element, renderId);
+          return;
+        }
         this.trackLiveTarget(step, target, renderId);
       })
       .catch((error: unknown) => {
         if (abortController.signal.aborted) return;
-        this.rejectReadiness(renderId, normalizeTourPresentationError(error));
+        const presentationError = normalizeTourPresentationError(error);
+        if (this.targetHasApproach(step.targetId)) {
+          this.showTargetApproachRecovery(renderId);
+        }
+        this.rejectReadiness(renderId, presentationError);
       });
+  }
+
+  /**
+   * Where the surface sits. A target scopes *when* an experience appears; only
+   * a target-anchored surface is also placed by it, so a banner given a target
+   * stays a banner instead of turning back into a tour tooltip.
+   */
+  private surfaceAnchorsToTarget(step: CompiledStep): boolean {
+    if (!step.targetId) return false;
+    return this.experienceRuntime?.experienceSurfaceDefinition(this.doc).anchor !== 'viewport';
+  }
+
+  /**
+   * Its target has been found, which is the only thing the target decided. The
+   * surface's own stylesheet places it; no positioner runs and no arrow points.
+   */
+  private presentAtViewport(step: CompiledStep, target: Element, renderId: number): void {
+    this.card.hidden = false;
+    if (
+      !this.options.embeddedPreviewContainer &&
+      (!this.options.authoringPreviewOwnerId || this.options.authoringPreviewInteractive)
+    ) {
+      this.scrollForLifecycle(target, step.lifecycle);
+      focusTourCard(this.card);
+    }
+    this.resolveReadiness(renderId);
+  }
+
+  private showTargetApproachRecovery(renderId: number): void {
+    this.card.hidden = false;
+    this.card.removeAttribute(LODARIQ_TOUR_ANCHORED_ATTRIBUTE);
+    this.recordAccessibilityAnnouncement(tourRuntimeText('This step could not continue.'), false);
+    void import('./target-approach-runtime').then(({ showTargetApproachRecovery }) =>
+      showTargetApproachRecovery(this.card, () => renderId === this.renderId, {
+        retry: () => this.render(),
+        skip: () => this.next(),
+        dismiss: () => this.dismiss(),
+      }),
+    );
   }
 
   private armEntrySequence(step: CompiledStep, renderId: number, signal: AbortSignal): void {
@@ -456,12 +812,54 @@ export class TourPlayer {
       .catch(() => {});
   }
 
+  private armNarration(
+    step: CompiledStep,
+    content: HTMLElement,
+    renderId: number,
+    signal: AbortSignal,
+  ): void {
+    if (!step.narration || this.options.embeddedPreviewContainer) return;
+    if (this.options.authoringPreviewOwnerId && !this.options.authoringPreviewInteractive) return;
+    let cleanup: (() => void) | null = null;
+    let disposed = false;
+    this.addCleanup(() => {
+      disposed = true;
+      cleanup?.();
+    });
+    void import('./tour-narration')
+      .then(({ mountTourNarration }) =>
+        mountTourNarration(content, step.narration!, {
+          autoplay: this.narrationUnlocked,
+          resolveMediaAsset: this.options.resolveMediaAsset,
+          onPlayGesture: () => {
+            this.narrationUnlocked = true;
+          },
+          onEnded: () => {
+            if (!signal.aborted && renderId === this.renderId) this.next();
+          },
+        }),
+      )
+      .then((dispose) => {
+        if (disposed || signal.aborted || renderId !== this.renderId) dispose();
+        else cleanup = dispose;
+      })
+      .catch(() => {});
+  }
+
   private createBodyElement(node: RuntimeBodyNode): HTMLElement {
     const renderer = BODY_NODE_RENDERERS[node.type] ?? renderTextNode;
     return renderer(node, {
       onAction: (action) => this.handleAction(action),
       resolveMediaAsset: this.options.resolveMediaAsset,
     });
+  }
+
+  private flowConditionContext(): TourFlowConditionContext {
+    return {
+      ...this.options.flowConditionContext,
+      locale: this.contentLocale,
+      completedStepIds: this.completedStepIds,
+    };
   }
 
   private handleAction(action: RuntimeAction | undefined): void {
@@ -525,13 +923,17 @@ export class TourPlayer {
   }
 
   private complete(): void {
+    this.leaveCurrentStep(() => this.completeNow());
+  }
+
+  private completeNow(): void {
     const completion = 'completion' in this.doc ? this.doc.completion : undefined;
     if (!this.completionStepActive && completion) {
       if (completion.type === 'showStep') {
         const nextIndex = this.doc.steps.findIndex((step) => step.id === completion.stepId);
         if (nextIndex >= 0 && nextIndex !== this.index) {
           this.completionStepActive = true;
-          this.goToStep(completion.stepId);
+          this.goToStepNow(completion.stepId);
           return;
         }
       }
@@ -548,13 +950,16 @@ export class TourPlayer {
       }
     }
     if (completion?.type !== 'stop') {
-      const completionAnnouncement = tourRuntimeText('Tour complete');
+      const completionAnnouncement =
+        this.experienceRuntime?.experienceCompletionLabel(this.doc) ??
+        tourRuntimeText('Tour complete');
       this.recordAccessibilityAnnouncement(completionAnnouncement, false);
       const ownerDocument = this.host.ownerDocument;
       void import('./tour-completion-announcement').then(({ announceAfterTourStops }) => {
         announceAfterTourStops(ownerDocument, completionAnnouncement);
       });
     }
+    this.captureFormResponses();
     this.options.onComplete?.();
     this.stop();
   }
@@ -573,12 +978,22 @@ export class TourPlayer {
   }
 
   private dismiss(): void {
+    this.leaveCurrentStep(() => this.dismissNow());
+  }
+
+  private dismissNow(): void {
+    // Someone who answers and then closes still answered.
+    this.captureFormResponses();
     this.options.onDismiss?.();
     this.stop();
   }
 
   private openPage(action: RuntimeAction): void {
     if (action.type !== 'openPage') return;
+    this.leaveCurrentStep(() => this.openPageNow(action));
+  }
+
+  private openPageNow(action: Extract<RuntimeAction, { type: 'openPage' }>): void {
     const destination = safeNavigationDestination(action.url);
     if (!destination) return;
     if (destination.kind === 'external') {
@@ -592,13 +1007,13 @@ export class TourPlayer {
   }
 
   private prepareToContinueAfterNavigation(): void {
-    const nextIndex = this.index + 1;
+    const nextIndex = this.displayableStepIndex(this.index + 1, 1);
     const nextStep = this.doc.steps[nextIndex];
     if (nextStep) {
       this.notifyBeforeStepChange(nextIndex, nextStep);
       return;
     }
-    this.complete();
+    this.completeNow();
   }
 
   private async runSequence(
@@ -609,6 +1024,23 @@ export class TourPlayer {
     const signal = this.renderAbortController?.signal;
     if (!step || !signal || signal.aborted || !this.host.isConnected) return;
     this.card.querySelector('.tour-choreography-recovery')?.remove();
+    this.sequenceDepth += 1;
+    try {
+      await this.runSequenceStages(sequence, step, signal, actionTransition);
+    } finally {
+      this.sequenceDepth -= 1;
+      // The sequence may have walked the visitor somewhere its step does not
+      // belong, so the deferred decision is taken now rather than dropped.
+      if (this.sequenceDepth === 0) this.applyPageScope();
+    }
+  }
+
+  private async runSequenceStages(
+    sequence: StepChoreography,
+    step: CompiledStep,
+    signal: AbortSignal,
+    actionTransition?: NonNullable<RuntimeAction['transition']>,
+  ): Promise<void> {
     await this.ensureResolvers();
     if (signal.aborted || !this.host.isConnected) return;
     const result = await executeTourSequence({
@@ -658,8 +1090,9 @@ export class TourPlayer {
     const step = this.doc.steps[this.index];
     if (step?.targetId === targetId) {
       const override = this.resolveAuthoringTargetOverride(step)?.anchor;
-      if (override?.interactionSafe || requiredAction === 'anchor')
-        return override?.element ?? null;
+      if (override && (override.interactionSafe || requiredAction === 'anchor')) {
+        return override.element;
+      }
     }
     const target = this.doc.targets.find((candidate) => candidate.id === targetId);
     if (!target) return null;
@@ -685,9 +1118,19 @@ export class TourPlayer {
   }
 
   private goToStep(stepId: string): void {
-    const nextIndex = this.doc.steps.findIndex((candidate) => candidate.id === stepId);
+    this.leaveCurrentStep(() => this.goToStepNow(stepId));
+  }
+
+  private goToStepNow(stepId: string): void {
+    const requestedIndex = this.doc.steps.findIndex((candidate) => candidate.id === stepId);
+    if (requestedIndex < 0) return;
+    let nextIndex = this.displayableStepIndex(requestedIndex, 1);
+    if (nextIndex === this.index) nextIndex = this.displayableStepIndex(this.index + 1, 1);
     const nextStep = this.doc.steps[nextIndex];
-    if (nextIndex < 0 || !nextStep || nextIndex === this.index) return;
+    if (nextIndex < 0 || !nextStep) {
+      this.completeNow();
+      return;
+    }
     this.notifyBeforeStepChange(nextIndex, nextStep);
     this.index = nextIndex;
     this.render();
@@ -752,12 +1195,28 @@ export class TourPlayer {
     signal: AbortSignal,
   ): Promise<ResolvedAnchor | null> {
     if (this.options.embeddedPreviewContainer) return null;
+    await this.reachStepPage(step, signal);
     await this.ensureResolvers();
     throwIfTourPresentationCanceled(signal);
     await this.waitForLifecycle(step.lifecycle, signal);
     throwIfTourPresentationCanceled(signal);
     let result = this.resolveStepTarget(step);
     if (!result) return null;
+    const hasApproach = this.targetHasApproach(step.targetId);
+    const mayActOnProduct =
+      !this.options.authoringPreviewOwnerId || this.options.authoringPreviewInteractive;
+    if (!result.anchor && hasApproach && mayActOnProduct) {
+      const { executeStepTargetApproach } = await import('./target-approach-runtime');
+      await executeStepTargetApproach(
+        this.doc,
+        step,
+        (targetId, requiredAction) => this.resolveChoreographyTarget(targetId, requiredAction),
+        signal,
+        this.options.onTargetApproachStageChange,
+        this.options.onTargetApproachOutcome,
+      );
+      result = this.resolveStepTarget(step) ?? result;
+    }
     // Route transitions and lazy UI commonly commit after the product click
     // handler returns. Every targeted step gets a short semantic settling
     // window even when the creator did not add an explicit lifecycle hint.
@@ -778,6 +1237,33 @@ export class TourPlayer {
       /* Diagnostics hooks must never alter delivery behavior. */
     }
     return result.anchor;
+  }
+
+  /** Route into the page a targeted step was authored on before resolving it. */
+  private async reachStepPage(step: CompiledStep, signal: AbortSignal): Promise<void> {
+    if (!this.pageScopeApplies()) return;
+    const page = this.doc.targets.find((candidate) => candidate.id === step.targetId)?.identity
+      ?.context.page;
+    const onPage = (): boolean => {
+      const here = currentPageKey();
+      return Boolean(page && here && pageKeyMatches(page.key, page.match, here));
+    };
+    if (!page || !currentPageKey() || onPage()) return;
+    goToPageKey(page.key);
+    await waitUntil(
+      onPage,
+      step.lifecycle?.timeoutMs ?? DEFAULT_TARGET_RESOLUTION_TIMEOUT_MS,
+      signal,
+    );
+  }
+
+  private targetHasApproach(targetId: string | undefined): boolean {
+    const target = targetId
+      ? this.doc.targets.find((candidate) => candidate.id === targetId)
+      : undefined;
+    if (!target || !('approach' in target)) return false;
+    const approach = target.approach;
+    return Boolean(approach && typeof approach === 'object' && 'legs' in approach);
   }
 
   private resolveStepTarget(step: CompiledStep): ResolutionResult | null {
@@ -846,6 +1332,7 @@ export class TourPlayer {
         step,
         stopPlayer: () => this.stop(),
         targetOutline: this.targetOutline,
+        backdrop: this.backdrop,
         armTargetClickAdvance: (target, onInvalidOwner) =>
           this.armTargetClickAdvance(step, target, onInvalidOwner),
       }),
@@ -861,27 +1348,60 @@ export class TourPlayer {
     const onClick = (): void => {
       if (consumed) return;
       const freshlyResolved = this.resolveStepTarget(step);
+      /**
+       * The listener sits on the target, so the click was on it by
+       * construction. Identity is still required while that element is in the
+       * document — a re-flow can slide a different control under the pointer.
+       * Once it has been replaced, though, a fresh resolution is the only
+       * honest answer: a product that re-renders on click is not a product
+       * whose tour should stop.
+       */
+      const replaced = !target.isConnected;
       if (
         !freshlyResolved?.anchor?.interactionSafe ||
-        freshlyResolved.anchor.element !== target ||
+        (!replaced && freshlyResolved.anchor.element !== target) ||
         !canOwnPresentation(freshlyResolved.anchor)
       ) {
         onInvalidOwner();
         return;
       }
       consumed = true;
-      const nextIndex = this.index + 1;
+      const nextIndex = this.displayableStepIndex(this.index + 1, 1);
       const nextStep = this.doc.steps[nextIndex];
       if (nextStep) this.notifyBeforeStepChange(nextIndex, nextStep);
       window.setTimeout(() => {
-        if (this.host.isConnected) this.advanceToNext(false);
+        if (this.host.isConnected) {
+          this.leaveCurrentStep(() => this.advanceToNext(false));
+        }
       }, 0);
     };
-    target.addEventListener('click', onClick, true);
-    return () => target.removeEventListener('click', onClick, true);
+    // Capture phase on the customer's own element: a throw here would abort
+    // their click dispatch, so the boundary is not optional.
+    const safeOnClick = hostSafe('tour.advanceOnTargetClick', onClick);
+    target.addEventListener('click', safeOnClick, true);
+    return () => target.removeEventListener('click', safeOnClick, true);
+  }
+
+  /**
+   * Answers are read when the step is left rather than on every keystroke: a
+   * half-typed sentence is not an answer, and streaming one would be the kind of
+   * input capture ADR-0015 rules out.
+   */
+  private captureFormResponses(): void {
+    if (!this.options.onFormResponses || this.options.authoringPreviewOwnerId) return;
+    const step = this.doc.steps[this.index];
+    if (!step) return;
+    const responses = collectStepFormResponses(this.card, step.id);
+    if (!responses.length) return;
+    try {
+      this.options.onFormResponses(responses);
+    } catch {
+      /* Losing an answer must never strand the visitor mid-experience. */
+    }
   }
 
   private notifyBeforeStepChange(index: number, step: CompiledStep): void {
+    this.captureFormResponses();
     try {
       this.options.onBeforeStepChange?.(index, step);
     } catch {
@@ -904,8 +1424,53 @@ export class TourPlayer {
     }
   }
 
+  private leaveCurrentStep(transition: () => void): void {
+    if (this.stepTransitionPending) return;
+    const step = this.doc.steps[this.index] as CompiledStep | undefined;
+    if (!step) return;
+    const startingIndex = this.index;
+    this.stepTransitionPending = true;
+    const finish = (): void => {
+      this.cancelExitMotion = null;
+      this.stepTransitionPending = false;
+      if (!this.host.isConnected || this.index !== startingIndex) return;
+      transition();
+    };
+    if (!step.motion) {
+      this.stepTransitionPending = false;
+      transition();
+      return;
+    }
+    let active = true;
+    this.cancelExitMotion = () => {
+      active = false;
+    };
+    void import('./tour-presentation-effects')
+      .then(({ startStepExitMotion }) => {
+        if (!active) return;
+        const cancel = startStepExitMotion(this.card, step, finish);
+        if (!cancel) finish();
+        else this.cancelExitMotion = cancel;
+      })
+      .catch(() => {
+        if (active) finish();
+      });
+  }
+
+  private cancelPendingStepTransition(): void {
+    this.cancelExitMotion?.();
+    this.cancelExitMotion = null;
+    this.stepTransitionPending = false;
+  }
+
   private addCleanup(cleanup: () => void): void {
     this.cleanups.push(cleanup);
+  }
+
+  private runtimeLabel(): string {
+    return (
+      this.experienceRuntime?.experienceRuntimeLabel(this.doc) ?? tourRuntimeText('Lodariq tour')
+    );
   }
 
   private clearStepEffects(): void {
@@ -1021,6 +1586,11 @@ function contentLocaleDirection(locale: string): 'ltr' | 'rtl' {
   } catch {
     return 'ltr';
   }
+}
+
+function documentExperienceType(document: CompiledDocument): string {
+  if ('experience' in document && document.experience) return document.experience.type;
+  return document.type;
 }
 
 export type TourTargetResolutionDiagnostic = Omit<ResolutionResult, 'element' | 'anchor'>;

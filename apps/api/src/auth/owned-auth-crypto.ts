@@ -33,15 +33,33 @@ export type AuthRateBucketPurpose =
   | 'enterprise-discovery'
   | 'enterprise-mutation';
 
-const PASSWORD_HASH_OPTIONS = Object.freeze({
-  type: argon2id,
+/**
+ * Argon2id cost. Production values are the default. The suite creates users and
+ * signs in constantly, and 64 MiB x 3 passes per call across parallel workers is
+ * what makes a full run time out rather than fail, so it runs a reduced profile.
+ */
+const ARGON2ID_PRODUCTION_COST = Object.freeze({
   memoryCost: 65_536,
   timeCost: 3,
   parallelism: 1,
+});
+const ARGON2ID_TEST_COST = Object.freeze({ memoryCost: 8_192, timeCost: 2, parallelism: 1 });
+const ARGON2ID_COST = process.env.VITEST ? ARGON2ID_TEST_COST : ARGON2ID_PRODUCTION_COST;
+
+/** The parameters actually in force, and the ones production must ship. */
+export const PASSWORD_HASH_PARAMETERS = ARGON2ID_COST;
+export const PASSWORD_HASH_PRODUCTION_PARAMETERS = ARGON2ID_PRODUCTION_COST;
+
+const PASSWORD_HASH_OPTIONS = Object.freeze({
+  type: argon2id,
+  memoryCost: ARGON2ID_COST.memoryCost,
+  timeCost: ARGON2ID_COST.timeCost,
+  parallelism: ARGON2ID_COST.parallelism,
   hashLength: 32,
 });
+// Shape only. Cost is checked against ARGON2ID_COST so the two cannot drift.
 const ARGON2ID_HASH_PATTERN =
-  /^\$argon2id\$v=19\$m=65536,p=1,t=3\$[A-Za-z0-9+/]{22}\$[A-Za-z0-9+/]{43}$/u;
+  /^\$argon2id\$v=19\$m=(\d+),p=(\d+),t=(\d+)\$[A-Za-z0-9+/]{22}\$[A-Za-z0-9+/]{43}$/u;
 const DUMMY_SALT = Buffer.from('LodariqAuthDummy', 'utf8');
 
 export interface CreatedAuthSession {
@@ -269,13 +287,20 @@ function sha256Hex(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
 
+// Cost is a floor, not an exact match: a credential hashed at a higher cost than
+// the one in force is still valid. Raising the production cost still needs a
+// rehash-on-verify path before it can ship.
 function isSupportedCredential(
   credential: PasswordCredentialRecord | null,
 ): credential is PasswordCredentialRecord {
-  return Boolean(
-    credential &&
-    credential.algorithm === OWNED_PASSWORD_ALGORITHM &&
-    ARGON2ID_HASH_PATTERN.test(credential.passwordHash),
+  if (!credential || credential.algorithm !== OWNED_PASSWORD_ALGORITHM) return false;
+  const encoded = ARGON2ID_HASH_PATTERN.exec(credential.passwordHash);
+  if (!encoded) return false;
+  const [, memoryCost, parallelism, timeCost] = encoded;
+  return (
+    Number(memoryCost) >= ARGON2ID_COST.memoryCost &&
+    Number(timeCost) >= ARGON2ID_COST.timeCost &&
+    Number(parallelism) === ARGON2ID_COST.parallelism
   );
 }
 

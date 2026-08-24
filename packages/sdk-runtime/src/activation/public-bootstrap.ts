@@ -3,7 +3,9 @@ import type {
   NonProductionPublicSdkBootstrapContext,
   PublicSdkBootstrapContext,
 } from '@lodariq/schema';
+import { patternMatchesPage, readPageEligibilityContext } from '@lodariq/schema/page-eligibility';
 import { registerBrandTokens } from '../brand-token-registry';
+import { watchPagePathname, type PageNavigationWatch } from './page-navigation-watch';
 import type {
   PublicAuthoringActivationOptions,
   PublicAuthoringLauncher,
@@ -54,7 +56,6 @@ const TRUSTED_PUBLIC_API_ORIGINS = new Set([
   'https://staging-api.lodariq.io',
 ]);
 
-const PUBLIC_BOOTSTRAP_PATH = '/v1/sdk/bootstrap';
 const AUTO_INSTALL_ATTRIBUTE = 'data-lodariq-public-installed';
 const PUBLIC_INSTALLATION_ID_PATTERN = /^ins_pub_[A-Za-z0-9_-]{16,128}$/u;
 const LEGACY_SCRIPT_CONFIG_ATTRIBUTES = [
@@ -89,6 +90,7 @@ export function readPublicConfigFromScript(script: HTMLScriptElement): PublicLoa
 export async function fetchPublicSdkBootstrapContext(
   config: PublicLoaderConfig,
   pageIntent: PublicBootstrapPageIntent = readCurrentPageIntent(),
+  assignmentKey?: string,
 ): Promise<PublicSdkBootstrapContext> {
   if (
     !PUBLIC_INSTALLATION_ID_PATTERN.test(config.installationId) ||
@@ -97,10 +99,12 @@ export async function fetchPublicSdkBootstrapContext(
     throw new Error('Lodariq public SDK bootstrap configuration is invalid');
   }
 
-  const body = createRequest(config.installationId, pageIntent);
+  const resolvedAssignmentKey =
+    assignmentKey ?? (await readAssignmentKey(config.installationId));
+  const body = createRequest(config.installationId, pageIntent, resolvedAssignmentKey);
   let response: Response;
   try {
-    response = await fetch(new URL(PUBLIC_BOOTSTRAP_PATH, config.apiBaseUrl), {
+    response = await fetch(new URL('/v1/sdk/bootstrap', config.apiBaseUrl), {
       method: 'POST',
       credentials: 'omit',
       headers: { 'content-type': 'application/json' },
@@ -117,8 +121,12 @@ export async function fetchPublicSdkBootstrapContext(
   } catch {
     throw new Error('Lodariq public SDK bootstrap response is invalid');
   }
+  if (!isPublicContext(value, config.apiBaseUrl)) {
+    throw new Error('Lodariq public SDK bootstrap response is invalid');
+  }
   if (
-    !isPublicContext(value, config.apiBaseUrl) ||
+    (JSON.stringify(value.delivery).includes('"adaptive":') &&
+      !(await import('./adaptive')).valid(value.delivery)) ||
     value.installationId !== config.installationId ||
     (body.origin && value.customerOrigin !== body.origin)
   ) {
@@ -147,11 +155,33 @@ export async function installPublicSdkFromScript(
   const href = options.pageIntent?.href ?? currentPageIntent.href;
   if (href) pageIntent.href = href;
   if (currentPageIntent.origin) pageIntent.origin = currentPageIntent.origin;
-  const context = await fetchPublicSdkBootstrapContext(config, pageIntent);
+  // Pre-flight before the bootstrap POST (ADR-0027).
+  //
+  // On most page views of most applications the honest answer is "nothing here
+  // for you", and that answer is cacheable. Asking for it first means a visitor
+  // clicking through an application pays one cacheable GET for the whole
+  // session instead of an uncacheable POST per page — and pays nothing at all
+  // once the browser has the digest.
+  //
+  // Every failure path proceeds to the bootstrap. A digest that is missing,
+  // malformed, stale, or unreachable must never be able to hide a live
+  // experience; the worst it may do is fail to save a request.
+  const eligibility = await readPublicSdkEligibility(config, pageIntent);
+  if (eligibility === 'stop') {
+    script.setAttribute('data-lodariq-state', 'idle');
+    return null;
+  }
+  if (eligibility === 'disabled') {
+    script.setAttribute('data-lodariq-state', 'disabled');
+    return null;
+  }
+
+  const assignmentKey = await readAssignmentKey(config.installationId);
+  const context = await fetchPublicSdkBootstrapContext(config, pageIntent, assignmentKey);
   const [runtime, authoringModule] = await Promise.all([
     context.delivery.state === 'available'
       ? import('./public-delivery').then(({ installPublicSdkDelivery }) =>
-          installPublicSdkDelivery(context),
+          installPublicSdkDelivery(context, assignmentKey),
         )
       : Promise.resolve(null),
     context.environment !== 'production' && context.authoring.state === 'available'
@@ -165,7 +195,11 @@ export async function installPublicSdkFromScript(
           ...options,
           onPreview: options.onPreview ?? (runtime ? () => runtime.playTour() : undefined),
           refreshContext: async () => {
-            const refreshed = await fetchPublicSdkBootstrapContext(config, pageIntent);
+            const refreshed = await fetchPublicSdkBootstrapContext(
+              config,
+              pageIntent,
+              assignmentKey,
+            );
             if (refreshed.environment === 'production') {
               throw new Error('Lodariq authoring is unavailable');
             }
@@ -182,20 +216,108 @@ export async function installPublicSdkFromScript(
     runtime,
     launcher,
     registerBrandTokens,
-    destroy: () => launcher?.destroy(),
+    destroy: () => {
+      runtime?.destroyDelivery();
+      launcher?.destroy();
+    },
   };
+}
+
+type PublicSdkEligibility = 'proceed' | 'stop' | 'disabled';
+
+/**
+ * Read the cacheable eligibility digest and decide whether this page is worth a
+ * bootstrap.
+ *
+ * Deliberately total: nothing in here throws, and every uncertain outcome
+ * resolves to `proceed`. It is an optimisation, and an optimisation that can
+ * break delivery is not one.
+ */
+export async function readPublicSdkEligibility(
+  config: PublicLoaderConfig,
+  pageIntent: PublicBootstrapPageIntent,
+): Promise<PublicSdkEligibility> {
+  const page = readPageEligibilityContext(pageIntent.href, pageIntent.origin ?? '');
+  try {
+    const url = new URL(
+      `/v1/sdk/installations/${encodeURIComponent(config.installationId)}/eligibility`,
+      config.apiBaseUrl,
+    );
+    const response = await fetch(url, { credentials: 'omit' });
+    if (!response.ok) return 'proceed';
+    const digest: unknown = await response.json();
+    if (!isEligibilityDigest(digest, config.installationId)) return 'proceed';
+    if (!digest.enabled) return 'disabled';
+    const scope = digest.scope;
+    if (scope.kind === 'none') return 'stop';
+    if (scope.kind === 'all') return 'proceed';
+    // Without a usable page context there is nothing to match against, so the
+    // patterns cannot rule this page out.
+    if (!page) return 'proceed';
+    return scope.patterns.some((entry) => patternMatchesPage(entry.pattern, entry.mode, page))
+      ? 'proceed'
+      : 'stop';
+  } catch {
+    return 'proceed';
+  }
+}
+
+interface EligibilityDigestShape {
+  enabled: boolean;
+  scope:
+    | { kind: 'none' }
+    | { kind: 'all' }
+    | { kind: 'patterns'; patterns: { pattern: string; mode: 'exact' | 'prefix' | 'contains' }[] };
+}
+
+/**
+ * Structural check on the digest.
+ *
+ * Strict about shape but forgiving about outcome: anything unrecognised makes
+ * the caller proceed to the bootstrap, so a future digest version can be rolled
+ * out without stranding older loaders on cached copies they cannot read.
+ */
+function isEligibilityDigest(
+  value: unknown,
+  installationId: string,
+): value is EligibilityDigestShape {
+  if (!record(value)) return false;
+  if (value['schemaVersion'] !== '1' || value['installationId'] !== installationId) return false;
+  if (typeof value['enabled'] !== 'boolean') return false;
+  const scope = value['scope'];
+  if (!record(scope)) return false;
+  if (scope['kind'] === 'none' || scope['kind'] === 'all') return true;
+  if (scope['kind'] !== 'patterns' || !Array.isArray(scope['patterns'])) return false;
+  return scope['patterns'].every(
+    (entry: unknown) =>
+      record(entry) &&
+      typeof entry['pattern'] === 'string' &&
+      (entry['mode'] === 'exact' || entry['mode'] === 'prefix' || entry['mode'] === 'contains'),
+  );
 }
 
 function createRequest(
   installationId: string,
   intent: PublicBootstrapPageIntent,
-): { installationId: string; href?: string; origin?: string } {
+  assignmentKey?: string,
+): { installationId: string; assignmentKey?: string; href?: string; origin?: string } {
   const href = nonEmpty(intent.href);
   const origin = nonEmpty(intent.origin);
   if (origin && !isExactOrigin(origin)) {
     throw new Error('Lodariq public SDK bootstrap page intent is invalid');
   }
-  return { installationId, ...(href ? { href } : {}), ...(origin ? { origin } : {}) };
+  return {
+    installationId,
+    ...(assignmentKey ? { assignmentKey } : {}),
+    ...(href ? { href } : {}),
+    ...(origin ? { origin } : {}),
+  };
+}
+
+function readAssignmentKey(installationId: string): Promise<string | undefined> {
+  return import('./experiment-assignment-key').then(({ readExperimentAssignmentKey }) =>
+    readExperimentAssignmentKey(installationId),
+  );
 }
 
 function readCurrentPageIntent(): PublicBootstrapPageIntent {
@@ -231,7 +353,8 @@ function isPublicContext(value: unknown, apiBaseUrl: string): value is PublicSdk
   ];
   if (!exactRecord(value, keys)) return false;
   if (
-    !isInstallationId(value['installationId']) ||
+    typeof value['installationId'] !== 'string' ||
+    !PUBLIC_INSTALLATION_ID_PATTERN.test(value['installationId']) ||
     !nonEmpty(value['environmentId']) ||
     !nonEmpty(value['correlationId']) ||
     !isExactOrigin(value['customerOrigin']) ||
@@ -243,9 +366,9 @@ function isPublicContext(value: unknown, apiBaseUrl: string): value is PublicSdk
   if (value['environment'] === 'production') {
     return value['customerOrigin'].startsWith('https://') && isDisabled(value['authoring']);
   }
-  return Boolean(
+  return (
     (value['environment'] === 'development' || value['environment'] === 'staging') &&
-    (isDisabled(value['authoring']) || isAvailable(value['authoring'], apiBaseUrl)),
+    (isDisabled(value['authoring']) || isAvailable(value['authoring'], apiBaseUrl))
   );
 }
 
@@ -255,25 +378,39 @@ function isDelivery(value: unknown, apiBaseUrl: string): boolean {
   if (value['mode'] === 'document-scoped-v2') {
     return isDocumentScopedDelivery(value, apiBaseUrl);
   }
-  if (!exactRecord(value, ['state', 'manifest', 'currentDocumentUrl', 'ingestUrl'])) return false;
+  if (
+    !exactRecord(
+      value,
+      ['state', 'manifest', 'currentDocumentUrl', 'ingestUrl'],
+      ['catalogUrl'],
+    )
+  ) {
+    return false;
+  }
   return (
     value['state'] === 'available' &&
     isAvailableManifest(value['manifest']) &&
     isApiUrl(value['currentDocumentUrl'], apiBaseUrl) &&
-    isApiUrl(value['ingestUrl'], apiBaseUrl)
+    isApiUrl(value['ingestUrl'], apiBaseUrl) &&
+    (value['catalogUrl'] === undefined || isApiUrl(value['catalogUrl'], apiBaseUrl))
   );
 }
 
 function isDocumentScopedDelivery(value: Record<string, unknown>, apiBaseUrl: string): boolean {
   if (
-    !exactRecord(value, ['state', 'mode', 'manifests', 'defaultDocumentId', 'ingestUrl']) ||
+    !exactRecord(
+      value,
+      ['state', 'mode', 'manifests', 'defaultDocumentId', 'ingestUrl'],
+      ['catalogUrl'],
+    ) ||
     value['state'] !== 'available' ||
     value['mode'] !== 'document-scoped-v2' ||
     !Array.isArray(value['manifests']) ||
     value['manifests'].length === 0 ||
     value['manifests'].length > 100 ||
     !nonEmpty(value['defaultDocumentId']) ||
-    !isApiUrl(value['ingestUrl'], apiBaseUrl)
+    !isApiUrl(value['ingestUrl'], apiBaseUrl) ||
+    (value['catalogUrl'] !== undefined && !isApiUrl(value['catalogUrl'], apiBaseUrl))
   ) {
     return false;
   }
@@ -295,42 +432,46 @@ function isDocumentScopedDelivery(value: Record<string, unknown>, apiBaseUrl: st
     workspaceIds.add(workspaceId);
   }
   const defaultDocumentId = nonEmpty(value['defaultDocumentId']);
-  return Boolean(
-    defaultDocumentId && workspaceIds.size === 1 && documentIds.has(defaultDocumentId),
-  );
+  return !!defaultDocumentId && workspaceIds.size === 1 && documentIds.has(defaultDocumentId);
 }
 
 function isAvailableManifest(value: unknown): boolean {
   if (!record(value) || !nonEmpty(value['documentId'])) return false;
   const versioned = Object.prototype.hasOwnProperty.call(value, 'schemaVersion');
   if (!versioned) {
-    return Boolean(nonEmpty(value['currentVersion']));
+    return !!nonEmpty(value['currentVersion']);
   }
   if (!nonEmpty(value['schemaVersion'])) return false;
   if (
-    !exactRecord(value, [
-      'schemaVersion',
-      'workspaceId',
-      'environmentId',
-      'documentId',
-      'state',
-      'generation',
-      'publicationId',
-      'activatedAt',
-      'artifact',
-    ])
+    !exactRecord(
+      value,
+      [
+        'schemaVersion',
+        'workspaceId',
+        'environmentId',
+        'documentId',
+        'state',
+        'generation',
+        'publicationId',
+        'activatedAt',
+        'artifact',
+      ],
+      ['activation', 'experimentAssignment', 'adaptive'],
+    )
   ) {
     return false;
   }
   const artifact = value['artifact'];
-  return Boolean(
+  return (
     value['state'] === 'active' &&
     Number.isInteger(value['generation']) &&
-    Number(value['generation']) >= 1 &&
-    nonEmpty(value['workspaceId']) &&
-    nonEmpty(value['environmentId']) &&
-    nonEmpty(value['publicationId']) &&
-    nonEmpty(value['activatedAt']) &&
+    (value['generation'] as number) >= 1 &&
+    !!nonEmpty(value['workspaceId']) &&
+    !!nonEmpty(value['environmentId']) &&
+    !!nonEmpty(value['publicationId']) &&
+    !!nonEmpty(value['activatedAt']) &&
+    (value['activation'] === undefined ||
+      exactRecord(value['activation'], ['trigger', 'audience'])) &&
     exactRecord(artifact, [
       'artifactSchemaVersion',
       'contentHash',
@@ -342,15 +483,15 @@ function isAvailableManifest(value: unknown): boolean {
       'url',
       'integrity',
     ]) &&
-    nonEmpty(artifact['artifactSchemaVersion']) &&
+    !!nonEmpty(artifact['artifactSchemaVersion']) &&
     /^sha256-[0-9a-f]{64}$/u.test(String(artifact['contentHash'])) &&
-    nonEmpty(artifact['compilerVersion']) &&
-    nonEmpty(artifact['rendererContractVersion']) &&
-    nonEmpty(artifact['themeContractVersion']) &&
-    nonEmpty(artifact['themeVersionId']) &&
+    !!nonEmpty(artifact['compilerVersion']) &&
+    !!nonEmpty(artifact['rendererContractVersion']) &&
+    !!nonEmpty(artifact['themeContractVersion']) &&
+    !!nonEmpty(artifact['themeVersionId']) &&
     /^sha256-[0-9a-f]{64}$/u.test(String(artifact['themeContentHash'])) &&
     isHttpUrl(artifact['url']) &&
-    /^sha256-[A-Za-z0-9+/]+={0,2}$/u.test(String(artifact['integrity'])),
+    /^sha256-[A-Za-z0-9+/]+={0,2}$/u.test(String(artifact['integrity']))
   );
 }
 
@@ -417,10 +558,6 @@ function isApiUrl(value: unknown, apiBaseUrl: string, pathname?: string): boolea
   }
 }
 
-function isInstallationId(value: unknown): value is string {
-  return typeof value === 'string' && PUBLIC_INSTALLATION_ID_PATTERN.test(value);
-}
-
 function isHttpUrl(value: unknown): value is string {
   const text = nonEmpty(value);
   if (!text) return false;
@@ -452,8 +589,7 @@ function isExactOrigin(value: unknown): value is string {
 
 function isUnexpiredTimestamp(value: unknown): value is string {
   if (typeof value !== 'string') return false;
-  const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp) && timestamp > Date.now();
+  return Date.parse(value) > Date.now();
 }
 
 function nonEmpty(value: unknown): string | undefined {
@@ -464,10 +600,14 @@ function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function exactRecord(value: unknown, keys: readonly string[]): value is Record<string, unknown> {
+function exactRecord(
+  value: unknown,
+  keys: readonly string[],
+  optional: readonly string[] = [],
+): value is Record<string, unknown> {
   return (
     record(value) &&
-    Object.keys(value).every((key) => keys.includes(key)) &&
+    Object.keys(value).every((key) => keys.includes(key) || optional.includes(key)) &&
     keys.every((key) => key in value)
   );
 }
@@ -484,13 +624,29 @@ function findPublicInstallScript(): HTMLScriptElement | null {
   );
 }
 
+let automaticInstallation: PublicSdkInstallation | null = null;
+let automaticNavigationWatch: PageNavigationWatch | null = null;
+let automaticInstallQueue: Promise<void> = Promise.resolve();
+
+function scheduleAutomaticInstall(script: HTMLScriptElement): void {
+  automaticInstallQueue = automaticInstallQueue
+    .then(async () => {
+      const next = await installPublicSdkFromScript({ script });
+      const previous = automaticInstallation;
+      automaticInstallation = next;
+      if (previous && previous !== next) previous.destroy();
+    })
+    .catch(() => {
+      script.setAttribute('data-lodariq-state', 'unavailable');
+    });
+}
+
 function autoInstallPublicSdk(): void {
   const script = findPublicInstallScript();
   if (!script || script.getAttribute(AUTO_INSTALL_ATTRIBUTE) === 'true') return;
   script.setAttribute(AUTO_INSTALL_ATTRIBUTE, 'true');
-  void installPublicSdkFromScript({ script }).catch(() => {
-    script.setAttribute('data-lodariq-state', 'unavailable');
-  });
+  automaticNavigationWatch ??= watchPagePathname(() => scheduleAutomaticInstall(script));
+  scheduleAutomaticInstall(script);
 }
 
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {

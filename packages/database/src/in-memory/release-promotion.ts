@@ -19,6 +19,7 @@ import {
   type PromotionResult,
 } from '../domains/releases';
 import { assertReleaseMutationGuardInput } from '../domains/authoring-policy';
+import { assertCommercialFeature } from '../domains/commercial-entitlements';
 import { clone, compareAppendOnlyRecordsNewestFirst } from '../domains/in-memory-helpers';
 import { InMemoryRepositoryReleaseApprovals } from './release-approvals';
 
@@ -83,6 +84,11 @@ export class InMemoryRepositoryReleasePromotion extends InMemoryRepositoryReleas
         throw new Error(operation.errorCode ?? 'promotion operation failed');
       }
     }
+
+    assertCommercialFeature(
+      this.resolveWorkspaceEntitlements(input.workspaceId).entitlements,
+      'release-management',
+    );
 
     const sourcePolicy = normalizeWorkspaceEnvironments([sourceEnvironment])[0];
     if (!sourcePolicy?.enabled) {

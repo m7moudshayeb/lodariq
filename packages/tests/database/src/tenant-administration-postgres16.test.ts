@@ -11,6 +11,7 @@ import {
 import * as databaseSchema from '@lodariq/database/schema';
 import { listCheckedInSqlPaths } from './migration-test-utils.js';
 import {
+  businessWorkspaceSubscriptionSql,
   createDisposablePostgresFixture,
   DISPOSABLE_POSTGRES_ENABLED,
   runtimeRoleGrantsSql,
@@ -283,10 +284,9 @@ async function attemptInvitationFunctionUse(
   try {
     await client.query('begin');
     await client.query("select set_config('lodariq.auth_user_id', $1, true)", [userId]);
-    await client.query(
-      "select set_config('lodariq.workspace_invitation_token_hash', $1, true)",
-      [tokenHash],
-    );
+    await client.query("select set_config('lodariq.workspace_invitation_token_hash', $1, true)", [
+      tokenHash,
+    ]);
     const result = await client.query<{ accepted: boolean }>(
       `select public.lodariq_accept_workspace_invitation($1, $2, $3, $4::timestamptz) as accepted`,
       [invitationId, tokenHash, userId, acceptedAt],
@@ -384,6 +384,7 @@ function seedTenantSql(): string {
     insert into workspaces (id, name, created_at, updated_at) values
       (${sqlLiteral(WORKSPACE_ID)}, 'Tenant RLS', now(), now()),
       (${sqlLiteral(OTHER_WORKSPACE_ID)}, 'Other tenant RLS', now(), now());
+    ${businessWorkspaceSubscriptionSql(WORKSPACE_ID, now.toISOString())}
     insert into workspace_memberships (workspace_id, user_id, role, created_at, updated_at) values
       (${sqlLiteral(WORKSPACE_ID)}, 'usr_pg_owner', 'owner', now(), now()),
       (${sqlLiteral(WORKSPACE_ID)}, 'usr_pg_admin', 'admin', now(), now()),

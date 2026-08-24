@@ -109,8 +109,8 @@ export const AUTHORING_WORKSPACE_CSS = `
     border-radius: 999px;
     background: var(--lq-color-primary-soft);
     color: var(--lq-color-primary);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     line-height: 1;
     padding: 4px 8px;
   }
@@ -168,7 +168,7 @@ export const AUTHORING_WORKSPACE_CSS = `
     border-radius: 8px;
     background: transparent;
     color: var(--lq-color-ink);
-    font-size: 14px;
+    font-size: var(--lq-font-md);
     padding: 8px 8px;
   }
 
@@ -242,8 +242,8 @@ export const AUTHORING_WORKSPACE_CSS = `
     gap: 12px;
     border-bottom: 1px solid var(--lq-color-border-soft);
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     padding: 4px 4px 8px;
     text-transform: none;
   }
@@ -253,7 +253,7 @@ export const AUTHORING_WORKSPACE_CSS = `
     border-radius: 8px;
     background: var(--lq-color-panel);
     color: var(--lq-color-muted);
-    font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font: var(--lq-weight-bold) var(--lq-font-xs)/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     padding: 4px 4px;
     text-transform: none;
   }
@@ -308,8 +308,8 @@ export const AUTHORING_WORKSPACE_CSS = `
   .command-copy strong {
     overflow: hidden;
     color: var(--lq-color-ink);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -318,8 +318,8 @@ export const AUTHORING_WORKSPACE_CSS = `
   .command-description {
     overflow: hidden;
     color: var(--lq-color-muted);
-    font-size: 12px;
-    font-weight: 500;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -334,7 +334,7 @@ export const AUTHORING_WORKSPACE_CSS = `
 
   .command-empty {
     color: var(--lq-color-muted);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     padding: 12px 8px;
   }
 

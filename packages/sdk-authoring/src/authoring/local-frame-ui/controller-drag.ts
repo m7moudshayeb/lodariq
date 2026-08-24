@@ -4,13 +4,25 @@ import type { BlockInsertPosition } from '../document-ops';
 export const DRAG_AUTO_SCROLL_EDGE_PX = 88;
 const AUTO_SCROLL_MAX_DELTA_PX = 28;
 
+export interface BlockDragLayout {
+  axis?: 'x' | 'y';
+  selector?: string;
+  scrollSelector?: string;
+}
+
 export function dropPosition(
   event: Event | DragEvent<HTMLElement>,
   fallback: BlockInsertPosition = 'before',
   selector = '.block[data-block-id]',
+  axis: 'x' | 'y' = 'y',
 ): BlockInsertPosition {
-  const clientY = 'clientY' in event ? event.clientY : null;
-  if (typeof clientY !== 'number' || !Number.isFinite(clientY) || clientY <= 0) return fallback;
+  const pointer =
+    axis === 'x' && 'clientX' in event
+      ? event.clientX
+      : 'clientY' in event
+        ? event.clientY
+        : null;
+  if (typeof pointer !== 'number' || !Number.isFinite(pointer) || pointer <= 0) return fallback;
 
   const targetElement =
     event.target instanceof Element ? event.target.closest<HTMLElement>(selector) : null;
@@ -21,8 +33,10 @@ export function dropPosition(
   if (!blockElement) return fallback;
 
   const rect = blockElement.getBoundingClientRect();
-  if (rect.height <= 0) return fallback;
-  return clientY > rect.top + rect.height / 2 ? 'after' : 'before';
+  const start = axis === 'x' ? rect.left : rect.top;
+  const size = axis === 'x' ? rect.width : rect.height;
+  if (size <= 0) return fallback;
+  return pointer > start + size / 2 ? 'after' : 'before';
 }
 
 export function dragAutoScrollDelta(edgeOverlap: number): number {

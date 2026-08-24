@@ -6,6 +6,22 @@ the former Phase 1 Clerk deployment as historical evidence, but active runtime c
 dependencies are Clerk-free. It also records how to prepare Sentry, Resend, and
 Stripe without claiming production capabilities before they are wired.
 
+## Deployed environments
+
+Development and staging are deployed and serving:
+
+| Environment | Dashboard                            | API                              | State            |
+| ----------- | ------------------------------------ | -------------------------------- | ---------------- |
+| Development | <https://dev-app.lodariq.io/>        | <https://dev-api.lodariq.io>     | Deployed         |
+| Staging     | <https://staging-app.lodariq.io/>    | <https://staging-api.lodariq.io> | Deployed         |
+| Production  | —                                    | —                                | Not deployed     |
+
+Both deployed environments hold real database state, so
+`packages/database/drizzle/0000_initial_baseline.sql` is immutable and schema
+changes ship as numbered forward migrations. Neither the Fly deploy workflow nor
+`.github/actions/deploy-fly` applies migrations: schema is applied deliberately,
+before the app rollout that depends on it.
+
 ## Environment topology
 
 Do not conflate where Lodariq runs with a workspace's release pipeline:
@@ -47,10 +63,11 @@ Brand/release actions appear contextually, and Phase 3 expands `New` into the
 broad outcome/type chooser. The dashboard remains setup/admin/support only, and
 a browser extension is not required for the core path.
 
-That convergence is implemented and locally verified. Deployed staging/live
-origin evidence remains open, so the historical steps below are useful only for
-reproducing the former Phase 1 path and must not be used as proof of the current
-canonical workflow.
+That convergence is implemented and locally verified, and development and
+staging are deployed. Live origin evidence on those deployments is still being
+collected, so the historical steps below remain useful only for reproducing the
+former Phase 1 path and must not be used as proof of the current canonical
+workflow.
 
 The Phase 2 local code milestone is complete: tokenized delivery/preview,
 persisted Brand workflows, atomic Product Match, exact verification,
@@ -58,7 +75,8 @@ same-artifact promotion/rollback, unpublish, Brand drift acknowledgement, and
 environment-isolated analytics all pass locally. The 2026-08-09 completion gate
 passes the full Node 24 `pnpm verify`, including 126 Vitest files / 1,064 tests,
 77 Playwright tests with four intentional skips, and a zero-vulnerability
-dependency audit. None of this is deployed evidence.
+dependency audit. That gate is local evidence; deployed evidence comes from the
+development and staging environments listed above.
 
 The owned-auth code milestone is complete and active runtime/dependencies are
 Clerk-free. Recovery/reset, the unified verification/reset outbox worker and
@@ -810,7 +828,7 @@ For a fresh staging environment:
 12. Deploy editor.
 13. Deploy API.
 14. Deploy dashboard.
-15. Check `/healthz`, `/openapi.json`, and editor `/authoring.html`.
+15. Check `/healthz`, `/v1/openapi.json`, and editor `/authoring.html`.
 16. Sign in with a reviewed isolated-environment owned-auth test account; verify
     the HttpOnly cookie, sign-out revocation, and workspace rotation.
 17. Configure the product origin and one permanent SDK installation from the
@@ -896,7 +914,7 @@ Staging health checks:
 
 ```bash
 curl -fsS https://staging-api.lodariq.io/healthz
-curl -fsS https://staging-api.lodariq.io/openapi.json
+curl -fsS https://staging-api.lodariq.io/v1/openapi.json
 curl -fsSI https://staging-app.lodariq.io
 curl -fsSI https://staging-editor.lodariq.io/authoring.html
 ```
@@ -905,7 +923,7 @@ Production health checks:
 
 ```bash
 curl -fsS https://api.lodariq.io/healthz
-curl -fsS https://api.lodariq.io/openapi.json
+curl -fsS https://api.lodariq.io/v1/openapi.json
 curl -fsSI https://app.lodariq.io
 curl -fsSI https://editor.lodariq.io/authoring.html
 ```

@@ -4,7 +4,17 @@ import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { useEffect, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Ban, Check, Code2, Copy, LoaderCircle, RefreshCw, ShieldCheck } from 'lucide-react';
+import {
+  Ban,
+  Check,
+  Code2,
+  Copy,
+  LoaderCircle,
+  Pause,
+  Play,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react';
 import type { SdkInstallationActionState } from '../app/sdk-installation-action-state';
 import { useSdkInstallationActions } from '../hooks/use-sdk-installation-actions';
 import type { PublicSdkInstallationDto } from '../lib/api';
@@ -97,6 +107,21 @@ const COPY = {
   sync: msg({ id: 'dashboard.installation.sync', message: 'Sync trusted origins' }),
   revoking: msg({ id: 'dashboard.installation.revoking', message: 'Revoking…' }),
   revoke: msg({ id: 'dashboard.installation.revoke', message: 'Revoke installation' }),
+  paused: msg({ id: 'dashboard.installation.paused', message: 'Paused' }),
+  pause: msg({ id: 'dashboard.installation.pause', message: 'Pause delivery' }),
+  pausing: msg({ id: 'dashboard.installation.pausing', message: 'Pausing…' }),
+  resume: msg({ id: 'dashboard.installation.resume', message: 'Resume delivery' }),
+  resuming: msg({ id: 'dashboard.installation.resuming', message: 'Resuming…' }),
+  pauseHint: msg({
+    id: 'dashboard.installation.pauseHint',
+    message:
+      'Pausing stops every experience on this installation within about five minutes, without a deploy or a change to your page. Reversible at any time.',
+  }),
+  pausedNotice: msg({
+    id: 'dashboard.installation.pausedNotice',
+    message:
+      'Delivery is paused. The installed script still loads, but no experience will run until you resume.',
+  }),
 } as const;
 
 /** One permanent public installation replaces per-environment runtime tokens. */
@@ -106,11 +131,19 @@ export function SdkSnippetPanel({
   workspaceId,
 }: SdkSnippetPanelProps): React.ReactElement {
   const { _ } = useLingui();
-  const { createState, createAction, syncState, syncAction, revokeState, revokeAction } =
-    useSdkInstallationActions(workspaceId);
+  const {
+    createState,
+    createAction,
+    syncState,
+    syncAction,
+    revokeState,
+    revokeAction,
+    suspensionState,
+    suspensionAction,
+  } = useSdkInstallationActions(workspaceId);
   const installations = useMemo(
-    () => mergeInstallations(installationRows, createState, syncState, revokeState),
-    [createState, installationRows, revokeState, syncState],
+    () => mergeInstallations(installationRows, createState, syncState, revokeState, suspensionState),
+    [createState, installationRows, revokeState, suspensionState, syncState],
   );
   const activeInstallations = installations.filter((installation) => !installation.revokedAt);
   const newestCreatedId =
@@ -144,7 +177,7 @@ export function SdkSnippetPanel({
     }
   }
 
-  const actionError = firstActionError(createState, syncState, revokeState);
+  const actionError = firstActionError(createState, syncState, revokeState, suspensionState);
   const actionWarning = firstActionWarning(createState, syncState);
   function renderEmptyInstallationState(): React.ReactElement {
     if (!canManageSdkInstallations) {
@@ -178,8 +211,8 @@ export function SdkSnippetPanel({
             <CardTitle className="text-base">{_(COPY.title)}</CardTitle>
             <CardDescription>{_(COPY.description)}</CardDescription>
           </div>
-          <Badge variant={selectedInstallation ? 'success' : 'info'}>
-            {installationBadgeLabel(canManageSdkInstallations, Boolean(selectedInstallation), _)}
+          <Badge variant={installationBadgeVariant(selectedInstallation)}>
+            {installationBadgeLabel(canManageSdkInstallations, selectedInstallation, _)}
           </Badge>
         </summary>
 
@@ -281,6 +314,12 @@ export function SdkSnippetPanel({
                 )}
               </section>
 
+              {selectedInstallation.suspendedAt ? (
+                <p className="rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] p-3 text-sm text-[color:var(--warning-fg)]">
+                  {_(COPY.pausedNotice)}
+                </p>
+              ) : null}
+
               {canManageSdkInstallations ? (
                 <div className="flex flex-wrap gap-2">
                   <form action={syncAction}>
@@ -290,6 +329,25 @@ export function SdkSnippetPanel({
                       value={selectedInstallation.installationId}
                     />
                     <SyncOriginsButton />
+                  </form>
+                  {/*
+                    The kill switch sits beside Sync rather than under Advanced
+                    with Revoke. Someone reaches for it while their page is
+                    misbehaving, and a control you have to go looking for is not
+                    a control you can rely on in that moment.
+                  */}
+                  <form action={suspensionAction}>
+                    <input
+                      name="installationId"
+                      type="hidden"
+                      value={selectedInstallation.installationId}
+                    />
+                    <input
+                      name="suspended"
+                      type="hidden"
+                      value={selectedInstallation.suspendedAt ? 'false' : 'true'}
+                    />
+                    <SuspensionButton suspended={Boolean(selectedInstallation.suspendedAt)} />
                   </form>
                   <details className="group">
                     <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
@@ -305,6 +363,9 @@ export function SdkSnippetPanel({
                       <RevokeInstallationButton />
                     </form>
                   </details>
+                  <p className="w-full text-xs leading-5 text-muted-foreground">
+                    {_(COPY.pauseHint)}
+                  </p>
                 </div>
               ) : (
                 <ReadOnlyInstallationNotice hasInstallation />
@@ -335,13 +396,27 @@ function ReadOnlyInstallationNotice({
   );
 }
 
+/**
+ * Paused wins over every other label, including view-only.
+ *
+ * Someone glancing at this panel while their page misbehaves needs to see that
+ * Lodariq is already off before they read anything else about it.
+ */
 function installationBadgeLabel(
   canManage: boolean,
-  hasInstallation: boolean,
+  installation: PublicSdkInstallationDto | undefined,
   translate: Translate,
 ): string {
+  if (installation?.suspendedAt) return translate(COPY.paused);
   if (!canManage) return translate(COPY.viewOnly);
-  return hasInstallation ? translate(COPY.connected) : translate(COPY.notInstalled);
+  return installation ? translate(COPY.connected) : translate(COPY.notInstalled);
+}
+
+function installationBadgeVariant(
+  installation: PublicSdkInstallationDto | undefined,
+): 'success' | 'warning' | 'info' {
+  if (installation?.suspendedAt) return 'warning';
+  return installation ? 'success' : 'info';
 }
 
 type InstallationActionState = SdkInstallationActionState;
@@ -393,6 +468,25 @@ function SyncOriginsButton(): React.ReactElement {
         <RefreshCw aria-hidden="true" />
       )}
       {pending ? _(COPY.syncing) : _(COPY.sync)}
+    </Button>
+  );
+}
+
+function SuspensionButton({ suspended }: { suspended: boolean }): React.ReactElement {
+  const { _ } = useLingui();
+  const { pending } = useFormStatus();
+  const label = suspended ? COPY.resume : COPY.pause;
+  const pendingLabel = suspended ? COPY.resuming : COPY.pausing;
+  return (
+    <Button type="submit" variant={suspended ? 'default' : 'outline'} disabled={pending}>
+      {pending ? (
+        <LoaderCircle className="animate-spin" aria-hidden="true" />
+      ) : suspended ? (
+        <Play aria-hidden="true" />
+      ) : (
+        <Pause aria-hidden="true" />
+      )}
+      {pending ? _(pendingLabel) : _(label)}
     </Button>
   );
 }

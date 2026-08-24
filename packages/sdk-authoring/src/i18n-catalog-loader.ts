@@ -17,5 +17,10 @@ const AUTHORING_CATALOG_LOADERS = {
 
 export async function loadAuthoringCatalog(locale: SupportedLocale): Promise<AuthoringCatalog> {
   const loader = AUTHORING_CATALOG_LOADERS[locale as keyof typeof AUTHORING_CATALOG_LOADERS];
-  return loader ? (await loader()).default : EMPTY_AUTHORING_CATALOG;
+  if (!loader) return EMPTY_AUTHORING_CATALOG;
+  const [catalog, fallback] = await Promise.all([
+    loader(),
+    import('./i18n-catalogs/roadmap-fallback'),
+  ]);
+  return { ...fallback.AUTHORING_ROADMAP_FALLBACK_CATALOG, ...catalog.default };
 }

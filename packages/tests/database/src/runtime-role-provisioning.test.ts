@@ -20,6 +20,18 @@ describe('runtime database role provisioning script', () => {
       'publication_verifications',
       'release_approvals',
       'analytics_events',
+      'effective_entitlement_snapshots',
+      'workspace_usage_ledger',
+      'ai_credit_ledger',
+      'delivery_transition_history',
+      'analytics_export_audit_events',
+      'governance_audit_events',
+      'webhook_events',
+      'data_residency_migration_history',
+      'data_residency_migration_evidence',
+      'analytics_warehouse_sync_runs',
+      'accessibility_sweeps',
+      'accessibility_finding_events',
     ]) {
       expect(source).toContain(`'${table}'`);
     }
@@ -29,7 +41,9 @@ describe('runtime database role provisioning script', () => {
     expect(source).toContain(
       "grant update (${releaseOperationLifecycleColumns.map(quoteIdent).join(', ')})",
     );
-    expect(source).toContain("has_column_privilege(${roleName}, 'release_operations', 'reason', 'UPDATE')");
+    expect(source).toContain(
+      "has_column_privilege(${roleName}, 'release_operations', 'reason', 'UPDATE')",
+    );
   });
 
   it('keeps enterprise audit append-only and validation evidence operator-managed', () => {
@@ -38,6 +52,11 @@ describe('runtime database role provisioning script', () => {
     expect(source).toContain("const operatorManagedTables = ['enterprise_validation_evidence']");
     expect(source).toContain('revoke insert, update, delete on table');
     expect(source).toContain("has_table_privilege(${roleName}, ${table}, 'INSERT')");
+  });
+
+  it('grants the scoped creator-seat counter used behind row-level security', () => {
+    const source = readFileSync(scriptPath, 'utf8');
+    expect(source).toContain("'public.lodariq_count_creator_seats(text)'");
   });
 
   it('fails closed without an admin DATABASE_URL', () => {

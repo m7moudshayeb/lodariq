@@ -60,6 +60,23 @@ const MediaHeightPx = Type.Integer({
   maximum: MEDIA_HEIGHT_PX_LIMITS.max,
 });
 
+const MediaLocale = Type.String({ minLength: 2, maxLength: 35 });
+export const LocalizedMediaVariant = Type.Object(
+  {
+    locale: MediaLocale,
+    assetId: ASSET_ID,
+    captionsAssetId: Type.Optional(ASSET_ID),
+    accessibilityName: Type.String({ minLength: 1, maxLength: 300 }),
+  },
+  { $id: 'LocalizedMediaVariant', additionalProperties: false },
+);
+export type LocalizedMediaVariant = Static<typeof LocalizedMediaVariant>;
+
+const LocalizedMediaProperties = {
+  localeVariants: Type.Optional(Type.Array(Type.Ref(LocalizedMediaVariant), { maxItems: 50 })),
+  fallbackLocale: Type.Optional(MediaLocale),
+} as const;
+
 export const MediaPresentation = Type.Union(
   [
     Type.Object(
@@ -71,6 +88,7 @@ export const MediaPresentation = Type.Union(
         heightPx: Type.Optional(MediaHeightPx),
         fit: Type.Optional(MediaFit),
         widthPercent: Type.Optional(MediaWidthPercent),
+        ...LocalizedMediaProperties,
       },
       { additionalProperties: false },
     ),
@@ -85,6 +103,7 @@ export const MediaPresentation = Type.Union(
         heightPx: Type.Optional(MediaHeightPx),
         fit: Type.Optional(MediaFit),
         widthPercent: Type.Optional(MediaWidthPercent),
+        ...LocalizedMediaProperties,
       },
       { additionalProperties: false },
     ),
@@ -93,6 +112,38 @@ export const MediaPresentation = Type.Union(
 );
 export type MediaPresentation = Static<typeof MediaPresentation>;
 
+/** Selects only approved locale media metadata; the base asset remains the explicit fallback. */
+export function resolveMediaPresentationForLocale(
+  media: MediaPresentation,
+  locale: string | undefined,
+): MediaPresentation {
+  if (!locale || !media.localeVariants?.length) return structuredClone(media);
+  const normalizedLocale = locale.toLowerCase();
+  const exact = media.localeVariants.find(
+    (variant) => variant.locale.toLowerCase() === normalizedLocale,
+  );
+  const language = normalizedLocale.split('-')[0];
+  const languageMatch = media.localeVariants.find(
+    (variant) => variant.locale.toLowerCase().split('-')[0] === language,
+  );
+  const fallback = media.fallbackLocale
+    ? media.localeVariants.find(
+        (variant) => variant.locale.toLowerCase() === media.fallbackLocale!.toLowerCase(),
+      )
+    : undefined;
+  const variant = exact ?? languageMatch ?? fallback;
+  if (!variant) return structuredClone(media);
+  const selected = {
+    ...structuredClone(media),
+    assetId: variant.assetId,
+    accessibilityName: variant.accessibilityName,
+  } as MediaPresentation;
+  if ('captionsAssetId' in variant && variant.captionsAssetId) {
+    if ('captionsAssetId' in selected) selected.captionsAssetId = variant.captionsAssetId;
+  }
+  return selected;
+}
+
 /** Closed form-control recipe. Values stay in the player; Lodariq does not read a customer database. */
 export const FORM_FIELD_CONTROL_VALUES = ['checkbox', 'text', 'radio'] as const;
 export type FormFieldControl = (typeof FORM_FIELD_CONTROL_VALUES)[number];
@@ -100,9 +151,32 @@ export const FORM_FIELD_SIZE_VALUES = ['compact', 'regular'] as const;
 export type FormFieldSize = (typeof FORM_FIELD_SIZE_VALUES)[number];
 export const FORM_FIELD_RADIUS_VALUES = ['theme', 'square', 'soft', 'round'] as const;
 export type FormFieldRadius = (typeof FORM_FIELD_RADIUS_VALUES)[number];
+
+/**
+ * How the label and its control sit together.
+ *
+ * `hidden` keeps the label in the document and takes it off the screen — the
+ * accessible name is never dropped, only the visible caption, so a field styled
+ * down to a bare box still announces what it asks for.
+ */
+export const FORM_FIELD_LABEL_PLACEMENT_VALUES = ['above', 'beside', 'hidden'] as const;
+export type FormFieldLabelPlacement = (typeof FORM_FIELD_LABEL_PLACEMENT_VALUES)[number];
+export const FORM_FIELD_LABEL_SIZE_VALUES = ['small', 'regular', 'large'] as const;
+export type FormFieldLabelSize = (typeof FORM_FIELD_LABEL_SIZE_VALUES)[number];
+export const FORM_FIELD_LABEL_WEIGHT_VALUES = ['regular', 'medium', 'bold'] as const;
+export type FormFieldLabelWeight = (typeof FORM_FIELD_LABEL_WEIGHT_VALUES)[number];
+/** How much of the card the control itself takes. */
+export const FORM_FIELD_CONTROL_WIDTH_VALUES = ['full', 'half', 'auto'] as const;
+export type FormFieldControlWidth = (typeof FORM_FIELD_CONTROL_WIDTH_VALUES)[number];
+export const FORM_FIELD_GAP_PX_LIMITS = { min: 0, max: 24 } as const;
+
 const FORM_FIELD_CONTROL_SET = new Set<string>(FORM_FIELD_CONTROL_VALUES);
 const FORM_FIELD_SIZE_SET = new Set<string>(FORM_FIELD_SIZE_VALUES);
 const FORM_FIELD_RADIUS_SET = new Set<string>(FORM_FIELD_RADIUS_VALUES);
+const FORM_FIELD_LABEL_PLACEMENT_SET = new Set<string>(FORM_FIELD_LABEL_PLACEMENT_VALUES);
+const FORM_FIELD_LABEL_SIZE_SET = new Set<string>(FORM_FIELD_LABEL_SIZE_VALUES);
+const FORM_FIELD_LABEL_WEIGHT_SET = new Set<string>(FORM_FIELD_LABEL_WEIGHT_VALUES);
+const FORM_FIELD_CONTROL_WIDTH_SET = new Set<string>(FORM_FIELD_CONTROL_WIDTH_VALUES);
 const FORM_FIELD_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/u;
 const FORM_FIELD_NAME_PATTERN = /^[a-z][a-z0-9_]{0,63}$/u;
 const FORM_FIELD_OPTION_ID_PATTERN = /^[a-z][a-z0-9_]{0,63}$/u;
@@ -131,6 +205,25 @@ export const FormFieldPresentation = Type.Object(
     borderColor: Type.Optional(Type.String({ pattern: '^#[0-9a-fA-F]{6}$' })),
     size: Type.Optional(Type.Union(FORM_FIELD_SIZE_VALUES.map((value) => Type.Literal(value)))),
     radius: Type.Optional(Type.Union(FORM_FIELD_RADIUS_VALUES.map((value) => Type.Literal(value)))),
+    labelPlacement: Type.Optional(
+      Type.Union(FORM_FIELD_LABEL_PLACEMENT_VALUES.map((value) => Type.Literal(value))),
+    ),
+    labelSize: Type.Optional(
+      Type.Union(FORM_FIELD_LABEL_SIZE_VALUES.map((value) => Type.Literal(value))),
+    ),
+    labelWeight: Type.Optional(
+      Type.Union(FORM_FIELD_LABEL_WEIGHT_VALUES.map((value) => Type.Literal(value))),
+    ),
+    controlWidth: Type.Optional(
+      Type.Union(FORM_FIELD_CONTROL_WIDTH_VALUES.map((value) => Type.Literal(value))),
+    ),
+    /** Space between the label and its control, in CSS px. */
+    gapPx: Type.Optional(
+      Type.Integer({
+        minimum: FORM_FIELD_GAP_PX_LIMITS.min,
+        maximum: FORM_FIELD_GAP_PX_LIMITS.max,
+      }),
+    ),
   },
   { $id: 'FormFieldPresentation', additionalProperties: false },
 );
@@ -267,7 +360,7 @@ export function sanitizeResponsiveStepPresentation(
 }
 
 export function sanitizeMediaPresentation(value: unknown): MediaPresentation | undefined {
-  return checkedClone<MediaPresentation>(MediaPresentation, value);
+  return checkedClone<MediaPresentation>(MediaPresentation, value, [LocalizedMediaVariant]);
 }
 
 export function sanitizeFormFieldPresentation(value: unknown): FormFieldPresentation | undefined {
@@ -307,6 +400,35 @@ export function sanitizeFormFieldPresentation(value: unknown): FormFieldPresenta
   }
   if (typeof record.radius === 'string' && FORM_FIELD_RADIUS_SET.has(record.radius)) {
     next.radius = record.radius as FormFieldRadius;
+  }
+  if (
+    typeof record.labelPlacement === 'string' &&
+    FORM_FIELD_LABEL_PLACEMENT_SET.has(record.labelPlacement)
+  ) {
+    next.labelPlacement = record.labelPlacement as FormFieldLabelPlacement;
+  }
+  if (typeof record.labelSize === 'string' && FORM_FIELD_LABEL_SIZE_SET.has(record.labelSize)) {
+    next.labelSize = record.labelSize as FormFieldLabelSize;
+  }
+  if (
+    typeof record.labelWeight === 'string' &&
+    FORM_FIELD_LABEL_WEIGHT_SET.has(record.labelWeight)
+  ) {
+    next.labelWeight = record.labelWeight as FormFieldLabelWeight;
+  }
+  if (
+    typeof record.controlWidth === 'string' &&
+    FORM_FIELD_CONTROL_WIDTH_SET.has(record.controlWidth)
+  ) {
+    next.controlWidth = record.controlWidth as FormFieldControlWidth;
+  }
+  if (
+    typeof record.gapPx === 'number' &&
+    Number.isInteger(record.gapPx) &&
+    record.gapPx >= FORM_FIELD_GAP_PX_LIMITS.min &&
+    record.gapPx <= FORM_FIELD_GAP_PX_LIMITS.max
+  ) {
+    next.gapPx = record.gapPx;
   }
   return next;
 }

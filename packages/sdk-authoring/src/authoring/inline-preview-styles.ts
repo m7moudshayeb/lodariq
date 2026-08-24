@@ -1,5 +1,6 @@
 import { createNonceStyleElement } from '@lodariq/schema/dom';
 import {
+  AUTHORING_TYPOGRAPHY_CSS_PROPERTIES,
   AUTHORING_CONTEXT_SURFACE_TOKENS,
   CREATOR_CHROME_FONT_STACK,
 } from '../creator-chrome-tokens';
@@ -34,6 +35,7 @@ export function createInlineEditorStyles(
       }
 
       [${attributes.toolbar}="true"] {
+        ${AUTHORING_TYPOGRAPHY_CSS_PROPERTIES}
         position: sticky;
         bottom: calc(
           var(--lq-tour-composition-padding, var(--lq-tour-spacing)) * -1
@@ -91,7 +93,7 @@ export function createInlineEditorStyles(
         background: transparent;
         box-shadow: none;
         color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
-        font: 600 12px/1.2 ${CREATOR_CHROME_FONT_STACK};
+        font: var(--lq-weight-semibold) var(--lq-font-sm)/1.2 ${CREATOR_CHROME_FONT_STACK};
         cursor: pointer;
       }
 
@@ -224,7 +226,7 @@ export function createInlineEditorStyles(
         background: ${AUTHORING_CONTEXT_SURFACE_TOKENS.surface};
         color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
         content: attr(data-tooltip);
-        font: 600 11px/1.2 ${CREATOR_CHROME_FONT_STACK};
+        font: var(--lq-weight-semibold) var(--lq-font-sm)/1.2 ${CREATOR_CHROME_FONT_STACK};
         opacity: 0;
         padding: 6px 8px;
         pointer-events: none;

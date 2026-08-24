@@ -2,7 +2,7 @@ import {
   analyzeTourDocumentFlow,
   analyzeTourFlow,
   type BasicVisualPreflightIssue,
-  type CompiledDocumentV4,
+  type CompiledDocumentV5,
   type LodariqDocument,
   type TourFlowIssue,
 } from '@lodariq/schema';
@@ -23,7 +23,7 @@ export interface TourDocumentFlowIssue {
 }
 
 /** Pure graph validation derived from compiled action edges. */
-export function validateCompiledTourFlow(artifact: CompiledDocumentV4): FlowIssue[] {
+export function validateCompiledTourFlow(artifact: CompiledDocumentV5): FlowIssue[] {
   const completionStepId =
     artifact.completion?.type === 'showStep' ? artifact.completion.stepId : undefined;
   const analysis = analyzeTourFlow(

@@ -33,9 +33,13 @@ agents working in the repo.
 - The customer-page host may hold only short-lived bootstrap/activation grants
   in memory. Hand activation to the exact `editor.lodariq.io` iframe once; the
   iframe owns the document-scoped authoring-session bearer in memory.
-- Keep the launcher and authoring popup draggable and modeless. The customer page
-  outside visible popup bounds must remain interactive; target selection must
-  collapse/move the popup and restore the same state.
+- Keep the launcher, filmstrip, pulses, and overlay editor iframe modeless. Only
+  visible chrome pixels intercept input; the customer page outside those bounds
+  stays interactive. Target selection collapses overlay chrome to a movable chip
+  and restores the same draft/step. The floating editor panel is not the
+  authoring surface. Flow, translation, batch, appearance, release, and review
+  open in an explicit operations modal. Do not mount Lexical or the session
+  bearer on the customer page.
 - Follow the provisionally selected Editorial Air visual direction in
   `docs/product-design/design-system-exploration-2026-08-06/README.md`: a
   light-first, release-led dashboard; restrained glass only for creator chrome;

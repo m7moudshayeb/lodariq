@@ -55,6 +55,7 @@ export function toWorkspaceEnvironment(
       ? { promotionSourceEnvironmentId: environment.promotionSourceEnvironmentId }
       : {}),
     releasePolicy: environment.releasePolicy,
+    governanceCapabilities: [...environment.governanceCapabilities],
     createdAt: toIsoString(environment.createdAt),
     updatedAt: toIsoString(environment.updatedAt),
   };

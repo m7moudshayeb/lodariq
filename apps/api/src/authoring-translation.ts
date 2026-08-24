@@ -8,6 +8,7 @@ import {
   type LodariqDocument,
   type LocalizedBlockContent,
 } from '@lodariq/schema';
+import type { MeasuredProviderUsage } from './authoring-assist';
 
 const DEEPL_FREE_API_ORIGIN = 'https://api-free.deepl.com';
 const DEEPL_PRO_API_ORIGIN = 'https://api.deepl.com';
@@ -40,8 +41,14 @@ export interface AuthoringTranslationProviderInput {
 }
 
 export interface AuthoringTranslationProvider {
-  translateTexts: (input: AuthoringTranslationProviderInput) => Promise<string[]>;
+  translateTexts: (
+    input: AuthoringTranslationProviderInput,
+  ) => Promise<{ texts: string[]; usage: MeasuredProviderUsage & { usageUnit: 'characters' } }>;
 }
+
+export type AuthoringTranslationExecutionResult = AuthoringTranslationResult & {
+  providerUsage?: MeasuredProviderUsage;
+};
 
 export class AuthoringTranslationFailure extends Error {
   constructor(
@@ -73,7 +80,7 @@ export async function translateMissingAuthoringCopy(
   document: LodariqDocument,
   targetLocaleValue: string,
   provider: AuthoringTranslationProvider,
-): Promise<AuthoringTranslationResult> {
+): Promise<AuthoringTranslationExecutionResult> {
   const next = structuredClone(document);
   const localization = resolveDocumentLocalization(next);
   const sourceLocale = requireSupportedLocale(localization.defaultLocale);
@@ -113,12 +120,13 @@ export async function translateMissingAuthoringCopy(
     };
   }
 
-  const translated = await provider.translateTexts({
+  const providerResult = await provider.translateTexts({
     sourceLocale,
     targetLocale,
     texts: segments.map((segment) => segment.text),
     context: translationContext(next, targetLocale),
   });
+  const translated = providerResult.texts;
   if (translated.length !== segments.length) {
     throw new AuthoringTranslationFailure('invalid_provider_response');
   }
@@ -151,6 +159,7 @@ export async function translateMissingAuthoringCopy(
     translatedTitle,
     translatedBlockCount: localizedBlocks.length,
     translatedCharacterCount,
+    providerUsage: providerResult.usage,
   };
 }
 
@@ -192,7 +201,16 @@ export function createDeepLAuthoringTranslationProvider(
           ...result.map((text, index) => restoreTranslationPlaceholders(text, masked[index]!)),
         );
       }
-      return translated;
+      return {
+        texts: translated,
+        usage: {
+          provider: 'deepl',
+          usageUnit: 'characters',
+          inputUnits: input.texts.reduce((total, text) => total + text.length, 0),
+          outputUnits: translated.reduce((total, text) => total + text.length, 0),
+          providerCostMicros: 0,
+        },
+      };
     },
   };
 }

@@ -4,12 +4,24 @@ import type {
   ManifestPointer,
   SdkAnalyticsEvent,
 } from '@lodariq/schema';
+import { hostSafe, setHostErrorSink } from '../host-safety';
 import { SDK_VERSION } from '../version';
 import { createRuntimeAnalyticsEvent, type RuntimeAnalyticsDocumentPointer } from './analytics';
 import { activeContentLocale, clearActiveContentLocale } from './content-locale-state';
+import {
+  createLocalExperienceProgressStore,
+  type ExperienceOutcome,
+  type ExperienceProgressRecord,
+  type ExperienceProgressStore,
+} from './experience-progress';
 import { publishNamedRuntimeEvent } from './named-events';
 
 export type { RuntimeAnalyticsDocumentPointer } from './analytics';
+export type {
+  ExperienceOutcome,
+  ExperienceProgressRecord,
+  ExperienceProgressStore,
+} from './experience-progress';
 
 /**
  * Production runtime/player surface (PRD §9.3).
@@ -24,6 +36,15 @@ export interface IdentifyTraits {
   [key: string]: unknown;
 }
 
+const FORM_RESPONSES_PATH = '/v1/sdk/form-responses';
+
+export interface SubmittedFormResponse {
+  readonly stepId: string;
+  readonly blockId: string;
+  readonly label: string;
+  readonly answer: string;
+}
+
 export interface RuntimeConfig {
   workspaceId: string;
   environment: 'development' | 'staging' | 'production';
@@ -36,8 +57,12 @@ export interface RuntimeConfig {
   authorizationToken?: string;
   /** Revocable public installation identity used by the permanent SDK path. */
   publicInstallationId?: string;
+  /** Anonymous browser seed used only for server-resolved experiment assignment. */
+  assignmentKey?: string | undefined;
   /** Active document pointers used only as untrusted ingestion assertions. */
   analyticsPointers?: readonly RuntimeAnalyticsDocumentPointer[];
+  /** Swap point for the server-side per-user store; defaults to the local one. */
+  experienceProgressStore?: ExperienceProgressStore;
 }
 
 export interface RuntimeObservabilityEvent {
@@ -58,6 +83,8 @@ export interface RuntimeErrorContext {
   documentId?: string;
   stepId?: string;
   correlationId?: string;
+  /** Names the host-page callback whose boundary caught this error. */
+  hostCallback?: string;
 }
 
 /** Bounded resolver fields accepted by the runtime telemetry adapter. */
@@ -84,18 +111,38 @@ interface TourResumeState {
 
 export class LodariqRuntime {
   private traits: IdentifyTraits | null = null;
+  private engagementKey: Promise<string | null> | null = null;
+  private readonly pendingEngagementEvents = new Set<Promise<void>>();
   private readonly queue: Array<SdkAnalyticsEvent | AnalyticsEvent> = [];
   private readonly analyticsPointers = new Map<string, RuntimeAnalyticsDocumentPointer>();
+  private readonly experienceProgress: ExperienceProgressStore;
 
   constructor(private readonly config: RuntimeConfig) {
+    this.experienceProgress =
+      config.experienceProgressStore ??
+      createLocalExperienceProgressStore({
+        workspaceId: config.workspaceId,
+        environment: config.environment,
+      });
     for (const pointer of config.analyticsPointers ?? []) this.registerAnalyticsPointer(pointer);
     if (typeof window !== 'undefined') {
-      window.addEventListener('pagehide', () => this.flush(true));
+      // pagehide fires inside the browser's unload sequence on the customer's
+      // page; a throw here would surface as their error, not ours.
+      window.addEventListener(
+        'pagehide',
+        hostSafe('runtime.pagehide', () => this.flush(true)),
+      );
     }
+    // Route every boundary-caught error into this runtime's reporter. Handlers
+    // installed before any runtime existed start reporting from here on.
+    setHostErrorSink((error, context) =>
+      this.reportError(error, { phase: 'runtime', hostCallback: context.label }),
+    );
   }
 
   identify(traits: IdentifyTraits): void {
     this.traits = traits;
+    this.engagementKey = pseudonymousEngagementKey(this.config.workspaceId, traits.userId);
   }
 
   /** Snapshot of explicitly supplied identify traits for closed flow predicates. */
@@ -109,7 +156,7 @@ export class LodariqRuntime {
     const requestedDocumentId =
       typeof props?.['documentId'] === 'string' ? props['documentId'].trim() : undefined;
     const pointer = this.resolveAnalyticsPointer(requestedDocumentId);
-    const contentLocale = name.startsWith('tour_') ? activeContentLocale() : null;
+    const contentLocale = isExperienceRuntimeEvent(name) ? activeContentLocale() : null;
     const event = createRuntimeAnalyticsEvent({
       name,
       sdkVersion: SDK_VERSION,
@@ -120,7 +167,18 @@ export class LodariqRuntime {
         ? { props: { ...props, ...(contentLocale ? { locale: contentLocale } : {}) } }
         : {}),
     });
-    if (this.config.ingestUrl) this.queue.push(event);
+    if (this.config.ingestUrl) {
+      if (name === 'experience_shown' && this.engagementKey && 'pointer' in event) {
+        const pending = this.engagementKey
+          .then((engagementKey) => {
+            this.queue.push(engagementKey ? { ...event, engagementKey } : event);
+          })
+          .finally(() => this.pendingEngagementEvents.delete(pending));
+        this.pendingEngagementEvents.add(pending);
+      } else {
+        this.queue.push(event);
+      }
+    }
     this.emitObservability(`runtime.${name}`, {
       ...(correlationId ? { correlationId } : {}),
       ...(requestedDocumentId ? { documentId: requestedDocumentId } : {}),
@@ -167,7 +225,16 @@ export class LodariqRuntime {
     });
   }
 
-  readTourResume(manifest: ManifestPointer): TourResumeState | null {
+  /**
+   * `resolveManifestForDocument` matters on a multi-document install: the stored
+   * position may belong to an experience that is not the default one, and
+   * checking it against the default manifest would discard a perfectly good
+   * record — and, worse, delete it on the way past.
+   */
+  readTourResume(
+    manifest: ManifestPointer,
+    resolveManifestForDocument?: (documentId: string) => ManifestPointer | undefined,
+  ): TourResumeState | null {
     try {
       const raw = sessionStorage.getItem(this.tourResumeKey());
       if (!raw) return null;
@@ -175,10 +242,13 @@ export class LodariqRuntime {
       const fresh =
         typeof parsed.updatedAt === 'number' &&
         Date.now() - parsed.updatedAt <= TOUR_RESUME_MAX_AGE_MS;
+      const target =
+        (parsed.documentId ? resolveManifestForDocument?.(parsed.documentId) : undefined) ??
+        manifest;
       if (
         fresh &&
-        parsed.documentId === manifest.documentId &&
-        parsed.manifestVersion === manifest.currentVersion &&
+        parsed.documentId === target.documentId &&
+        parsed.manifestVersion === target.currentVersion &&
         typeof parsed.contentHash === 'string' &&
         typeof parsed.stepId === 'string'
       ) {
@@ -226,6 +296,44 @@ export class LodariqRuntime {
     clearActiveContentLocale();
   }
 
+  /**
+   * Has this person already finished with this experience?
+   *
+   * Fails open in both directions. No identity means no answer — null, never
+   * "suppress it" — because the alternative silently hides a live experience
+   * from someone who has never seen it. Same rule as `triggerMatchesPage`.
+   */
+  async experienceOutcome(documentId: string): Promise<ExperienceProgressRecord | null> {
+    const subject = await this.experienceProgressSubject();
+    return subject
+      ? this.experienceProgress.read(subject, documentId).catch(() => null)
+      : null;
+  }
+
+  /**
+   * Records a terminal outcome. Dismissal is deliberately not one: closing a
+   * card is "not now", and treating it as "never again" is the failure that
+   * cannot be undone from the visitor's side.
+   */
+  recordExperienceOutcome(documentId: string, outcome: ExperienceOutcome): void {
+    void this.experienceProgressSubject()
+      .then((subject) =>
+        subject
+          ? this.experienceProgress.write(subject, { documentId, outcome, at: Date.now() })
+          : null,
+      )
+      // Best-effort: a lost record shows the tour again, the safe way to be wrong.
+      .catch(() => null);
+  }
+
+  /**
+   * The same one-way key the analytics events carry, so a server store can be
+   * asked about a person without ever holding the host's raw user id.
+   */
+  private experienceProgressSubject(): Promise<string | null> {
+    return this.engagementKey ?? Promise.resolve(null);
+  }
+
   canResumeTour(resume: TourResumeState, tour: CompiledDocument): boolean {
     return (
       resume.documentId === tour.documentId &&
@@ -271,9 +379,16 @@ export class LodariqRuntime {
 
   /** Flush queued events. Uses sendBeacon on page exit (PRD §9.3). */
   flush(onExit = false): void {
+    if (this.pendingEngagementEvents.size > 0) {
+      void Promise.allSettled([...this.pendingEngagementEvents]).then(() => this.flush(onExit));
+      return;
+    }
     if (this.queue.length === 0 || !this.config.ingestUrl) return;
     const batch = this.queue.splice(0, this.queue.length);
-    const payload = JSON.stringify({ events: batch });
+    const payload = JSON.stringify({
+      ...(this.config.assignmentKey ? { assignmentKey: this.config.assignmentKey } : {}),
+      events: batch,
+    });
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (this.config.authorizationToken) {
       headers['authorization'] = `Bearer ${this.config.authorizationToken}`;
@@ -302,6 +417,46 @@ export class LodariqRuntime {
     });
   }
 
+  /**
+   * Answers go to their own endpoint, not into the analytics batch. Free text is
+   * customer content: it must not sit in a queue that is also flushed by
+   * `sendBeacon` on exit, and it must not be indistinguishable from an event
+   * property. The origin comes from `ingestUrl`, which is already pinned to the
+   * API host, so nothing here trusts a page-supplied URL.
+   */
+  submitFormResponses(documentId: string, responses: readonly SubmittedFormResponse[]): void {
+    if (!responses.length || !this.config.ingestUrl) return;
+    let endpoint: string;
+    try {
+      endpoint = new URL(FORM_RESPONSES_PATH, this.config.ingestUrl).toString();
+    } catch {
+      return;
+    }
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (this.config.authorizationToken) {
+      headers['authorization'] = `Bearer ${this.config.authorizationToken}`;
+    }
+    if (this.config.publicInstallationId) {
+      headers['x-lodariq-installation-id'] = this.config.publicInstallationId;
+    }
+    const occurredAt = new Date().toISOString();
+    void fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        documentId,
+        responses: responses.map((response) => ({
+          ...response,
+          ...(this.config.correlationId ? { correlationId: this.config.correlationId } : {}),
+          occurredAt,
+        })),
+      }),
+      keepalive: true,
+    }).catch(() => {
+      /* A lost answer must never break the host application. */
+    });
+  }
+
   getTraits(): IdentifyTraits | null {
     return this.traits;
   }
@@ -326,6 +481,34 @@ export class LodariqRuntime {
   ): RuntimeAnalyticsDocumentPointer | undefined {
     if (requestedDocumentId) return this.analyticsPointers.get(requestedDocumentId);
     return this.analyticsPointers.values().next().value;
+  }
+}
+
+function isExperienceRuntimeEvent(name: string): boolean {
+  return (
+    name === 'experience_shown' ||
+    name === 'target_resolution' ||
+    name.startsWith('tour_') ||
+    name.startsWith('announcement_') ||
+    name.startsWith('hotspot_') ||
+    name.startsWith('survey_') ||
+    name.startsWith('checklist_')
+  );
+}
+
+async function pseudonymousEngagementKey(
+  workspaceId: string,
+  userId: string,
+): Promise<string | null> {
+  try {
+    const value = new TextEncoder().encode(`${workspaceId}\0${userId}`);
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', value);
+    const hex = [...new Uint8Array(digest)]
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
+    return `eng_${hex}`;
+  } catch {
+    return null;
   }
 }
 

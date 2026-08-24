@@ -47,6 +47,11 @@
       "types": "./dist/lodariq-runtime.d.ts",
       "import": "./dist/lodariq-runtime.js"
     },
+    "./demo-player": {
+      "source": "./src/demo-player.ts",
+      "types": "./dist/lodariq-demo-player.d.ts",
+      "import": "./dist/lodariq-demo-player.js"
+    },
     "./lodariq-local-dev": {
       "source": "./src/local-dev/index.ts",
       "types": "./dist/lodariq-local-dev.d.ts",
@@ -86,6 +91,11 @@
       "source": "./src/renderers/tour.ts",
       "types": "./dist/renderers/tour.d.ts",
       "import": "./dist/renderers/tour.js"
+    },
+    "./renderers/adaptive-tour": {
+      "source": "./src/renderers/adaptive-tour.ts",
+      "types": "./dist/renderers/adaptive-tour.d.ts",
+      "import": "./dist/renderers/adaptive-tour.js"
     },
     "./renderers/tour-choreography": {
       "source": "./src/renderers/tour-choreography.ts",

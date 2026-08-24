@@ -7,7 +7,7 @@ import {
   type BrandThemeSnapshot,
   type AuthoringDiagnosticAttributes,
   type AuthoringDiagnosticEventName,
-  type CompiledDocument,
+  type NewCompiledDocument,
   type LodariqDocument as LodariqDocumentType,
 } from '@lodariq/schema';
 
@@ -84,7 +84,7 @@ export function importDocument(json: string): LodariqDocumentType {
 export async function compilePreview(
   doc: LodariqDocumentType,
   theme: BrandThemeSnapshot = LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
-): Promise<CompiledDocument> {
+): Promise<NewCompiledDocument> {
   return compileDocument({
     document: doc,
     theme,

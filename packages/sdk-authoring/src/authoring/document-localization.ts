@@ -17,17 +17,23 @@ export function normalizeAuthoringDocumentLocalization(document: LodariqDocument
     canonicalContentLocale(localization.defaultLocale) ?? DEFAULT_CONTENT_LOCALE;
   const blockIds = new Set<string>();
   visitBlocks(next.blocks, (block) => blockIds.add(block.id));
+  const targetIds = new Set(next.targets.map((target) => target.id));
   const variants = new Map<string, DocumentLocaleVariant>();
   for (const candidate of localization.variants) {
     const locale = canonicalContentLocale(candidate.locale);
     if (!locale || locale === defaultLocale || variants.has(locale)) continue;
     const requestedFallback = canonicalContentLocale(candidate.fallbackLocale);
+    // Overrides are dropped with their targets, exactly as translations are with blocks.
+    const targetOverrides = (candidate.targetOverrides ?? []).filter(
+      (override) => targetIds.has(override.targetId) && targetIds.has(override.replacementTargetId),
+    );
     variants.set(locale, {
       locale,
       fallbackLocale:
         requestedFallback && requestedFallback !== locale ? requestedFallback : defaultLocale,
       ...(candidate.title !== undefined ? { title: candidate.title } : {}),
       blocks: candidate.blocks.filter((block) => blockIds.has(block.blockId)),
+      ...(targetOverrides.length > 0 ? { targetOverrides } : {}),
     });
   }
   for (const variant of variants.values()) {
@@ -124,4 +130,60 @@ function visitBlocks(blocks: readonly LodariqBlock[], visit: (block: LodariqBloc
     visit(block);
     visitBlocks(block.children, visit);
   }
+}
+
+/**
+ * Adds an empty variant so the language shows up before a word is written.
+ *
+ * Copy already creates one on demand, but a language that only appears once you
+ * have translated something into it means `Add a language` looks like it did
+ * nothing. Returns the document unchanged for the default locale, which is not a
+ * variant, and for a tag that is not canonical.
+ */
+export function addAuthoringDocumentLocale(
+  document: LodariqDocument,
+  locale: string,
+): LodariqDocument {
+  const canonical = canonicalContentLocale(locale);
+  if (!canonical) return document;
+  const next = normalizeAuthoringDocumentLocalization(document);
+  if (isDefaultDocumentLocale(next, canonical)) return next;
+  mutableVariant(next, canonical);
+  return next;
+}
+
+/** Points one step's target at a different element for a single locale. */
+export function setAuthoringLocalizedTarget(
+  document: LodariqDocument,
+  locale: string,
+  targetId: string,
+  replacementTargetId: string | null,
+): LodariqDocument {
+  const next = normalizeAuthoringDocumentLocalization(document);
+  if (isDefaultDocumentLocale(next, locale)) return next;
+  const variant = mutableVariant(next, locale);
+  const overrides = (variant.targetOverrides ?? []).filter(
+    (override) => override.targetId !== targetId,
+  );
+  if (replacementTargetId && replacementTargetId !== targetId) {
+    overrides.push({ targetId, replacementTargetId });
+  }
+  if (overrides.length > 0) variant.targetOverrides = overrides;
+  else delete variant.targetOverrides;
+  return next;
+}
+
+/** The replacement this locale uses for a shared target, if any. */
+export function authoringLocalizedTarget(
+  document: LodariqDocument,
+  locale: string,
+  targetId: string,
+): string | null {
+  const variant = document.localization?.variants.find(
+    (candidate) => canonicalContentLocale(candidate.locale) === canonicalContentLocale(locale),
+  );
+  return (
+    variant?.targetOverrides?.find((override) => override.targetId === targetId)
+      ?.replacementTargetId ?? null
+  );
 }

@@ -7,9 +7,14 @@ import {
   type RuntimeLifecycleHints,
   type TargetInspectAction,
   type TargetIdentityV2,
+  type TargetLocalizedEvidence,
+  type TargetApproach,
+  sanitizeTargetApproach,
 } from '@lodariq/schema';
+import { TARGET_MAX_LOCALE_VARIANTS } from '@lodariq/schema/target-runtime';
 import {
   blocksReferenceTarget,
+  documentWithBlocks,
   createTourStep,
   duplicateTopLevelBlock,
   hasBlock,
@@ -73,18 +78,47 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
     if (blockId) this.startTargetPick(blockId);
   }
 
+  /**
+   * A step inserted where the creator pointed, not at the end (§4.5), then the
+   * picker — creating a step and choosing what it points at is one gesture.
+   */
+  insertStepBeforeAndChooseTarget(neighbourStepId: string): void {
+    if (!this.allowDocumentStructureMutation()) return;
+    const index = this.documentState.blocks.findIndex((block) => block.id === neighbourStepId);
+    if (index < 0) {
+      this.appendStepAndChooseTarget();
+      return;
+    }
+    const block = createTourStep(index);
+    this.recordChange();
+    const blocks = [...this.documentState.blocks];
+    blocks.splice(index, 0, block);
+    this.documentState = { ...this.documentState, blocks: renumberTourSteps(blocks) };
+    this.afterDocumentMutation();
+    this.clearSlash();
+    this.selectedBlockId = block.id;
+    this.services.saveDocument(this.documentState);
+    this.setStatus(authoringText('Added step'));
+    this.recordMetric('block.inserted');
+    this.sendPreviewPatch(block.id, [{ op: 'insertBlock', block }]);
+    this.startTargetPick(block.id);
+  }
+
   moveTopLevelBlock(blockId: string, direction: BlockDirection): void {
     if (!this.allowDocumentStructureMutation()) return;
     const blocks = moveTopLevelBlocks(this.documentState.blocks, blockId, direction);
     if (!blocks) return;
-    this.recordChange();
-    this.documentState = { ...this.documentState, blocks: renumberTourSteps(blocks) };
-    this.afterDocumentMutation();
-    this.services.saveDocument(this.documentState);
-    this.selectedBlockId = blockId;
+    this.commitCoordinatedMutation({
+      blockId,
+      operations: [{ op: 'moveBlock', direction }],
+      reduce: (document) => {
+        const moved = moveTopLevelBlocks(document.blocks, blockId, direction);
+        return moved ? { ...document, blocks: renumberTourSteps(moved) } : document;
+      },
+      scope: 'structure',
+      status: authoringText('Moved step'),
+    });
     this.focusBlock(blockId);
-    this.setStatus(authoringText('Moved step'));
-    this.sendPreviewPatch(blockId, [{ op: 'moveBlock', direction }]);
   }
 
   duplicateTopLevelBlock(blockId: string): void {
@@ -115,13 +149,7 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
     if (!blocks) return;
     const nextSelection = blocks[Math.min(blockIndex, blocks.length - 1)]?.id ?? null;
     this.recordChange();
-    this.documentState = {
-      ...this.documentState,
-      blocks: renumberTourSteps(blocks),
-      targets: this.documentState.targets.filter((target) =>
-        blocksReferenceTarget(blocks, target.id),
-      ),
-    };
+    this.documentState = documentWithBlocks(this.documentState, renumberTourSteps(blocks));
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
     this.selectedBlockId = nextSelection;
@@ -144,16 +172,17 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
       position,
     );
     if (!blocks) return;
-    this.recordChange();
-    this.documentState = { ...this.documentState, blocks: renumberTourSteps(blocks) };
-    this.afterDocumentMutation();
-    this.services.saveDocument(this.documentState);
-    this.selectedBlockId = blockId;
+    this.commitCoordinatedMutation({
+      blockId,
+      operations: [{ op: 'reorderBlock', beforeBlockId: targetBlockId, position }],
+      reduce: (document) => {
+        const reordered = reorderTopLevelBlocks(document.blocks, blockId, targetBlockId, position);
+        return reordered ? { ...document, blocks: renumberTourSteps(reordered) } : document;
+      },
+      scope: 'structure',
+      status: authoringText('Moved step'),
+    });
     this.focusBlock(blockId);
-    this.setStatus(authoringText('Moved step'));
-    this.sendPreviewPatch(blockId, [
-      { op: 'reorderBlock', beforeBlockId: targetBlockId, position },
-    ]);
   }
 
   removeTargetFromBlock(blockId: string, targetId: string): void {
@@ -181,6 +210,33 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
           authoringText('Placement removed, but the live preview did not confirm the change'),
         ),
     );
+  }
+
+  /**
+   * Record what a target's control says in a language it was never captured in.
+   * Silent and additive: never overwrites a known locale, never asks the author.
+   */
+  protected learnTargetLanguage(targetId: string, learned?: TargetLocalizedEvidence): void {
+    if (!learned) return;
+    const target = this.targetById(targetId);
+    const identity = target?.identity;
+    if (!identity || identity.localizedEvidence.length >= TARGET_MAX_LOCALE_VARIANTS) return;
+    if (identity.localizedEvidence.some((entry) => entry.locale === learned.locale)) return;
+    this.documentState = {
+      ...this.documentState,
+      targets: this.documentState.targets.map((entry) =>
+        entry.id === targetId
+          ? {
+              ...entry,
+              identity: {
+                ...identity,
+                localizedEvidence: [...identity.localizedEvidence, learned],
+              },
+            }
+          : entry,
+      ),
+    };
+    this.services.saveDocument(this.documentState);
   }
 
   toggleTargetAdvanced(targetId: string): void {
@@ -235,6 +291,104 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
       }
       return next;
     });
+  }
+
+  setTargetApproach(targetId: string, approach: TargetApproach | undefined): void {
+    const target = this.targetById(targetId);
+    if (!target) return;
+    const nextApproach = approach ? sanitizeTargetApproach(approach) : undefined;
+    if (approach && !nextApproach) return;
+    this.recordChange();
+    this.documentState = {
+      ...this.documentState,
+      targets: this.documentState.targets.map((item) => {
+        if (item.id !== targetId) return item;
+        if (nextApproach) return { ...item, approach: nextApproach };
+        return { ...item, approach: undefined };
+      }),
+    };
+    this.afterDocumentMutation();
+    this.services.saveDocument(this.documentState);
+    const blockId =
+      firstBlockIdForTarget(this.documentState.blocks, targetId) ?? this.documentState.id;
+    this.sendPreviewPatch(blockId, [
+      nextApproach
+        ? { op: 'setTargetApproach', targetId, approach: nextApproach }
+        : { op: 'setTargetApproach', targetId },
+    ]);
+  }
+
+  setTargetApproachLabel(targetId: string, legIndex: number, label: string): void {
+    const approach = this.targetById(targetId)?.approach;
+    const trimmed = label.trim();
+    if (!approach || !trimmed || legIndex < 0 || legIndex >= approach.legs.length) return;
+    const legs = approach.legs.map((leg, index) =>
+      index === legIndex ? { ...leg, label: trimmed.slice(0, 120) } : structuredClone(leg),
+    );
+    this.setTargetApproach(targetId, { legs });
+    this.setStatus(authoringText('Approach updated'));
+  }
+
+  moveTargetApproachLeg(targetId: string, legIndex: number, direction: 'up' | 'down'): void {
+    const approach = this.targetById(targetId)?.approach;
+    if (!approach) return;
+    const destination = legIndex + (direction === 'up' ? -1 : 1);
+    if (legIndex < 0 || destination < 0 || destination >= approach.legs.length) return;
+    const legs = structuredClone(approach.legs);
+    const [leg] = legs.splice(legIndex, 1);
+    if (!leg) return;
+    legs.splice(destination, 0, leg);
+    this.setTargetApproach(targetId, { legs });
+    this.setStatus(authoringText('Approach updated'));
+  }
+
+  removeTargetApproachLeg(targetId: string, legIndex: number): void {
+    const approach = this.targetById(targetId)?.approach;
+    if (!approach || legIndex < 0 || legIndex >= approach.legs.length) return;
+    const legs = approach.legs
+      .filter((_, index) => index !== legIndex)
+      .map((leg) => structuredClone(leg));
+    this.setTargetApproach(targetId, legs.length ? { legs } : undefined);
+    this.setStatus(authoringText(legs.length ? 'Approach updated' : 'Approach removed'));
+  }
+
+  replayTargetApproach(stepId: string, targetId: string): void {
+    const target = this.targetById(targetId);
+    if (!target?.approach) return;
+    this.setStatus(authoringText('Replaying approach…'));
+    void this.sendPreviewRequest('approach', stepId).then(
+      () => {
+        const current = this.targetById(targetId)?.approach;
+        if (current) this.setTargetApproach(targetId, { ...current, lastOutcome: 'pass' });
+        this.setStatus(authoringText('Approach passed'));
+      },
+      () => {
+        const current = this.targetById(targetId)?.approach;
+        if (current) this.setTargetApproach(targetId, { ...current, lastOutcome: 'fail' });
+        this.setStatus(authoringText('Approach needs repair'));
+      },
+    );
+  }
+
+  /** §4.3's target kind, asked for by the on-page ring (§4.4). */
+  inspectTarget(stepId: string, section?: string): void {
+    this.selectBlock(stepId);
+    this.targetInspectRequest = {
+      stepId,
+      ...(section ? { section } : {}),
+      token: ++this.targetInspectToken,
+    };
+    // The ledger only hears about explicit inspections, so a target the ring is
+    // drawn around still read as "not looked at yet" until this ran.
+    this.verifyActiveTarget();
+    this.emit();
+  }
+
+  /** Asks the host to resolve the selected step's target and file the result. */
+  protected verifyActiveTarget(): void {
+    const step = this.selectedTourStep();
+    const targetId = step ? firstTargetIdInBlock(step) : null;
+    if (step && targetId) this.requestTargetInspection(step.id, targetId, 'health');
   }
 
   startTargetPick(blockId: string): void {

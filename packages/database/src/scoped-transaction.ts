@@ -24,11 +24,18 @@ export const LODARIQ_SET_PASSWORD_CHALLENGE_HASH_SETTING = 'lodariq.set_password
 export const LODARIQ_AUTH_RATE_BUCKET_HASH_SETTING = 'lodariq.auth_rate_bucket_hash';
 export const LODARIQ_AUTH_RATE_PRUNE_BEFORE_SETTING = 'lodariq.auth_rate_prune_before';
 export const LODARIQ_AUTH_OUTBOX_WORKER_SETTING = 'lodariq.auth_outbox_worker';
+export const LODARIQ_DELIVERY_WORKER_SETTING = 'lodariq.delivery_worker';
+export const LODARIQ_ANALYTICS_EXPORT_WORKER_SETTING = 'lodariq.analytics_export_worker';
+export const LODARIQ_WEBHOOK_WORKER_SETTING = 'lodariq.webhook_worker';
+export const LODARIQ_BILLING_WORKER_SETTING = 'lodariq.billing_worker';
+export const LODARIQ_DATA_RESIDENCY_WORKER_SETTING = 'lodariq.residency_worker';
+export const LODARIQ_ANALYTICS_WAREHOUSE_WORKER_SETTING = 'lodariq.warehouse_worker';
 export const LODARIQ_AUTH_MAINTENANCE_SETTING = 'lodariq.auth_maintenance_worker';
 export const LODARIQ_AUTH_DELIVERY_OUTBOX_ID_SETTING = 'lodariq.auth_delivery_outbox_id';
 export const LODARIQ_WORKSPACE_INVITATION_TOKEN_HASH_SETTING =
   'lodariq.workspace_invitation_token_hash';
 export const LODARIQ_OIDC_STATE_HASH_SETTING = 'lodariq.oidc_state_hash';
+export const LODARIQ_DEMO_PUBLIC_SETTING = 'lodariq.demo_public';
 
 export interface WorkspaceScopeExecutor {
   execute(statement: SQL): Promise<unknown>;
@@ -49,6 +56,106 @@ export async function runWithWorkspaceScope<TTransaction extends WorkspaceScopeE
 
   return runner.transaction(async (transaction) => {
     await transaction.execute(setWorkspaceScopeStatement(workspaceId));
+    return operation(transaction);
+  });
+}
+
+export async function runWithDemoPublicScope<TTransaction extends WorkspaceScopeExecutor, TResult>(
+  runner: WorkspaceScopedTransactionRunner<TTransaction>,
+  operation: (transaction: TTransaction) => Promise<TResult>,
+): Promise<TResult> {
+  return runner.transaction(async (transaction) => {
+    await transaction.execute(sql`select set_config(${LODARIQ_DEMO_PUBLIC_SETTING}, 'true', true)`);
+    return operation(transaction);
+  });
+}
+
+export async function runWithDeliveryWorkerScope<
+  TTransaction extends WorkspaceScopeExecutor,
+  TResult,
+>(
+  runner: WorkspaceScopedTransactionRunner<TTransaction>,
+  operation: (transaction: TTransaction) => Promise<TResult>,
+): Promise<TResult> {
+  return runner.transaction(async (transaction) => {
+    await transaction.execute(
+      sql`select set_config(${LODARIQ_DELIVERY_WORKER_SETTING}, 'true', true)`,
+    );
+    return operation(transaction);
+  });
+}
+
+export async function runWithAnalyticsExportWorkerScope<
+  TTransaction extends WorkspaceScopeExecutor,
+  TResult,
+>(
+  runner: WorkspaceScopedTransactionRunner<TTransaction>,
+  operation: (transaction: TTransaction) => Promise<TResult>,
+): Promise<TResult> {
+  return runner.transaction(async (transaction) => {
+    await transaction.execute(
+      sql`select set_config(${LODARIQ_ANALYTICS_EXPORT_WORKER_SETTING}, 'true', true)`,
+    );
+    return operation(transaction);
+  });
+}
+
+export async function runWithWebhookWorkerScope<
+  TTransaction extends WorkspaceScopeExecutor,
+  TResult,
+>(
+  runner: WorkspaceScopedTransactionRunner<TTransaction>,
+  operation: (transaction: TTransaction) => Promise<TResult>,
+): Promise<TResult> {
+  return runner.transaction(async (transaction) => {
+    await transaction.execute(
+      sql`select set_config(${LODARIQ_WEBHOOK_WORKER_SETTING}, 'true', true)`,
+    );
+    return operation(transaction);
+  });
+}
+
+export async function runWithBillingWorkerScope<
+  TTransaction extends WorkspaceScopeExecutor,
+  TResult,
+>(
+  runner: WorkspaceScopedTransactionRunner<TTransaction>,
+  operation: (transaction: TTransaction) => Promise<TResult>,
+): Promise<TResult> {
+  return runner.transaction(async (transaction) => {
+    await transaction.execute(
+      sql`select set_config(${LODARIQ_BILLING_WORKER_SETTING}, 'true', true)`,
+    );
+    return operation(transaction);
+  });
+}
+
+export async function runWithDataResidencyWorkerScope<
+  TTransaction extends WorkspaceScopeExecutor,
+  TResult,
+>(
+  runner: WorkspaceScopedTransactionRunner<TTransaction>,
+  operation: (transaction: TTransaction) => Promise<TResult>,
+): Promise<TResult> {
+  return runner.transaction(async (transaction) => {
+    await transaction.execute(
+      sql`select set_config(${LODARIQ_DATA_RESIDENCY_WORKER_SETTING}, 'true', true)`,
+    );
+    return operation(transaction);
+  });
+}
+
+export async function runWithAnalyticsWarehouseWorkerScope<
+  TTransaction extends WorkspaceScopeExecutor,
+  TResult,
+>(
+  runner: WorkspaceScopedTransactionRunner<TTransaction>,
+  operation: (transaction: TTransaction) => Promise<TResult>,
+): Promise<TResult> {
+  return runner.transaction(async (transaction) => {
+    await transaction.execute(
+      sql`select set_config(${LODARIQ_ANALYTICS_WAREHOUSE_WORKER_SETTING}, 'true', true)`,
+    );
     return operation(transaction);
   });
 }

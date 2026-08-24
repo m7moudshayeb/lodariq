@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { deriveAnalyticsAudienceSegment } from '@lodariq/database';
 import {
   resolveAuthoritativeAnalyticsBatch,
   type ActiveAnalyticsPointer,
@@ -7,6 +8,11 @@ import {
 
 const CONTENT_HASH = `sha256-${'a'.repeat(64)}`;
 const ROLLBACK_CONTENT_HASH = `sha256-${'b'.repeat(64)}`;
+const AUDIENCE_SEGMENT = {
+  id: `audseg_${'c'.repeat(64)}`,
+  definitionVersion: 1 as const,
+  ruleCount: 2,
+};
 
 const scope = {
   workspaceId: 'wk_authoritative',
@@ -20,6 +26,7 @@ const activePointer: ActiveAnalyticsPointer = {
   generation: 4,
   publicationId: 'pub_welcome_4',
   contentHash: CONTENT_HASH,
+  audienceSegment: AUDIENCE_SEGMENT,
 };
 
 function event(pointer: ActiveAnalyticsPointer = activePointer) {
@@ -54,6 +61,7 @@ describe('authoritative analytics identity', () => {
         publicationId: 'pub_welcome_4',
         contentHash: CONTENT_HASH,
         pointerGeneration: 4,
+        audienceSegment: AUDIENCE_SEGMENT,
         name: 'tour_started',
         stepId: 'step_intro',
         sdkVersion: '0.0.0-test',
@@ -71,17 +79,83 @@ describe('authoritative analytics identity', () => {
       ...event(),
       props: { safe: true, nested: { environment_id: 'env_spoofed' } },
     };
+    const segmentSpoof = { ...event(), audienceSegment: { id: 'audseg_spoofed' } };
     const result = await resolveAuthoritativeAnalyticsBatch(
       scope,
-      [topLevelSpoof, nestedSpoof],
+      [topLevelSpoof, nestedSpoof, segmentSpoof],
       async () => Promise.resolve(activePointer),
     );
 
     expect(result.events).toEqual([]);
     expect(result.result).toEqual({
       accepted: 0,
-      rejected: 2,
-      diagnostics: [{ code: 'identity_forbidden', count: 2 }],
+      rejected: 3,
+      diagnostics: [{ code: 'identity_forbidden', count: 3 }],
+    });
+  });
+
+  it('derives the same value-free segment identity for equivalent audience rules', () => {
+    const rules = [
+      { source: 'identify' as const, key: 'plan', operator: 'equals' as const, value: 'growth' },
+      { source: 'event' as const, key: 'invited_teammate', operator: 'exists' as const },
+    ];
+    const first = deriveAnalyticsAudienceSegment({ rules });
+    const reordered = deriveAnalyticsAudienceSegment({ rules: [...rules].reverse() });
+    const changed = deriveAnalyticsAudienceSegment({
+      rules: [{ ...rules[0]!, value: 'business' }, rules[1]!],
+    });
+    const unicodeEquivalent = [
+      { source: 'identify' as const, key: 'cafe\u0301', operator: 'equals' as const, value: 'oui' },
+    ];
+    const maximumRules = Array.from({ length: 50 }, (_unused, index) => ({
+      source: 'identify' as const,
+      key: `attribute_${String(index)}`,
+      operator: 'equals' as const,
+      value: index,
+    }));
+
+    expect(first).toEqual(reordered);
+    expect(first).toMatchObject({ definitionVersion: 1, ruleCount: 2 });
+    expect(changed.id).not.toBe(first.id);
+    expect(JSON.stringify(first)).not.toContain('growth');
+    expect(JSON.stringify(first)).not.toContain('invited_teammate');
+    expect(deriveAnalyticsAudienceSegment({ rules: unicodeEquivalent })).toEqual(
+      deriveAnalyticsAudienceSegment({
+        rules: [{ ...unicodeEquivalent[0]!, key: 'café' }],
+      }),
+    );
+    expect(deriveAnalyticsAudienceSegment({ rules: maximumRules })).toEqual(
+      deriveAnalyticsAudienceSegment({ rules: [...maximumRules].reverse() }),
+    );
+    expect(deriveAnalyticsAudienceSegment({ rules: maximumRules }).ruleCount).toBe(50);
+  });
+
+  it('rejects client arm claims and stamps the server-resolved assignment', async () => {
+    const pointer = { ...activePointer, experimentId: 'exp_server' };
+    const spoofed = { ...event(pointer), props: { armId: 'B' } };
+    const rejected = await resolveAuthoritativeAnalyticsBatch(
+      scope,
+      [spoofed],
+      async () => pointer,
+      async () => ({ experimentId: 'exp_server', armId: 'A', allocationRevision: 3 }),
+    );
+    expect(rejected.result).toEqual({
+      accepted: 0,
+      rejected: 1,
+      diagnostics: [{ code: 'identity_forbidden', count: 1 }],
+    });
+
+    const accepted = await resolveAuthoritativeAnalyticsBatch(
+      scope,
+      [event(pointer)],
+      async () => pointer,
+      async () => ({ experimentId: 'exp_server', armId: 'A', allocationRevision: 3 }),
+    );
+    expect(accepted.events[0]).toMatchObject({
+      experimentId: 'exp_server',
+      armId: 'A',
+      experimentAllocationRevision: 3,
+      props: { trigger: 'manual', attempts: 1 },
     });
   });
 
@@ -150,6 +224,7 @@ describe('authoritative analytics identity', () => {
       { ...event(), props: { auth: 'Bearer live.session.jwt' } },
       { ...event(), props: { owner: 'owner@example.com' } },
       { ...event(), props: { host: 'customer.example' } },
+      { ...event(), props: { traits: { plan: 'growth' } } },
       { ...event(), props: { values: Array.from({ length: 33 }, (_, index) => index) } },
     ];
     const result = await resolveAuthoritativeAnalyticsBatch(scope, candidates, async () =>
@@ -159,8 +234,8 @@ describe('authoritative analytics identity', () => {
     expect(result.events).toEqual([]);
     expect(result.result).toEqual({
       accepted: 0,
-      rejected: 5,
-      diagnostics: [{ code: 'event_invalid', count: 5 }],
+      rejected: 6,
+      diagnostics: [{ code: 'event_invalid', count: 6 }],
     });
   });
 

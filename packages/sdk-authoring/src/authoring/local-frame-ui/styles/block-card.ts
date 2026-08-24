@@ -26,14 +26,14 @@ export const AUTHORING_BLOCK_CARD_CSS = `
 
   .block-action-menu-header span {
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
   }
 
   .block-action-menu-header strong {
     color: var(--lq-color-ink);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
   }
 
   .block-action-menu-item {
@@ -58,7 +58,7 @@ export const AUTHORING_BLOCK_CARD_CSS = `
   .block[data-block-type="paragraph"] .block-title strong,
   .block[data-block-type="button"] .block-title strong {
     color: var(--lq-color-ink-soft);
-    font-weight: 600;
+    font-weight: var(--lq-weight-semibold);
   }
 
   .block-body,
@@ -116,7 +116,7 @@ export const AUTHORING_BLOCK_CARD_CSS = `
     border-radius: 8px;
     background: transparent;
     color: var(--lq-color-ink);
-    font-size: 14px;
+    font-size: var(--lq-font-md);
     padding: 8px 8px 8px 4px;
   }
 
@@ -170,8 +170,8 @@ export const AUTHORING_BLOCK_CARD_CSS = `
     border-radius: 8px;
     background: transparent;
     color: var(--lq-color-muted);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     padding: 0;
   }
 
@@ -217,7 +217,7 @@ export const AUTHORING_BLOCK_CARD_CSS = `
   }
 
   .step-command-menu .command-menu-header {
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     padding: 4px 4px 8px;
   }
 
@@ -257,11 +257,11 @@ export const AUTHORING_BLOCK_CARD_CSS = `
   }
 
   .step-command-menu .command-copy strong {
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .step-command-menu .command-copy small {
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
   }
 
   .step-command-menu .command-description {

@@ -261,6 +261,12 @@ export function registerTenantAdministrationRoutes(
           message: 'This account already belongs to the workspace',
         });
       }
+      if (result.status === 'seat_limit_reached') {
+        return reply.code(409).send({
+          error: 'commercial_entitlement_exceeded',
+          message: 'This workspace has reached its creator seat limit',
+        });
+      }
       return reply.code(400).send({
         error: 'invitation_invalid_or_expired',
         message: 'This invitation is invalid, expired, or does not match your verified email',
@@ -581,6 +587,12 @@ function sendTenantMutationResult(reply: FastifyReply, result: TenantMutationRes
     return reply.code(409).send({
       error: 'final_owner_required',
       message: 'Transfer ownership before removing or demoting the final owner',
+    });
+  }
+  if (result === 'seat_limit_reached') {
+    return reply.code(409).send({
+      error: 'commercial_entitlement_exceeded',
+      message: 'The workspace creator-seat limit has been reached',
     });
   }
   return reply.code(409).send({
