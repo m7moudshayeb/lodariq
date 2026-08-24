@@ -31,6 +31,13 @@ export interface BillingPortalSessionInput {
   workspaceId: string;
   userId: string;
   returnUrl: string;
+  /**
+   * The provider's own customer id. Every portal API authenticates the link
+   * against it, and an adapter cannot derive it from `workspaceId` — the
+   * mapping lives in `workspace_billing_accounts`, which providers cannot read.
+   */
+  providerCustomerId: string;
+  providerSubscriptionId?: string;
 }
 
 export interface BillingUsageSubmissionInput {
@@ -43,6 +50,9 @@ export interface BillingUsageSubmissionInput {
   idempotencyKey: string;
   /** Aborts before the lease expires, so a hung provider cannot cause the race. */
   signal: AbortSignal;
+  /** Usage is billed against the provider's subscription, not the workspace. */
+  providerCustomerId: string;
+  providerSubscriptionId?: string;
 }
 
 export interface BillingUsageSubmissionResult {

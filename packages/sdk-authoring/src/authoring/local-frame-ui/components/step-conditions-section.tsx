@@ -76,7 +76,6 @@ export function StepConditionsSection({
             <button
               aria-label={authoringText('Remove rule')}
               className="inspector-numbered-remove"
-              data-action="step-condition-remove"
               onClick={() => commit(undefined)}
               type="button"
             >
@@ -93,11 +92,11 @@ export function StepConditionsSection({
         <TypedRuleField kind={typing} onCancel={() => setTyping(null)} onCommit={commit} />
       ) : null}
       <div className="inspector-menu">
-        <button data-action="step-condition-add" onClick={open('rule')} type="button">
+        <button onClick={open('rule')} type="button">
           <Plus size={14} strokeWidth={2.2} aria-hidden="true" />
           {showWhen ? authoringText('Change the rule…') : authoringText('Add a rule…')}
         </button>
-        <button data-action="step-condition-test-user" onClick={open('test-user')} type="button">
+        <button onClick={open('test-user')} type="button">
           <User size={14} strokeWidth={2.2} aria-hidden="true" />
           {authoringText('Change the test user')}
         </button>

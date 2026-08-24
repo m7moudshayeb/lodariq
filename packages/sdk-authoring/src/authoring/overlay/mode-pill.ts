@@ -50,6 +50,7 @@ const DEFAULT_STATE: ModePillState = {
   experienceType: 'tour',
   experienceTypes: [],
   recording: false,
+  canvasZoomable: false,
   environments: ['Dev', 'Staging'],
   launcherActions: [],
 };
@@ -396,6 +397,7 @@ function isSameState(a: ModePillState, b: ModePillState): boolean {
     a.draftDiverged === b.draftDiverged &&
     a.experienceType === b.experienceType &&
     a.recording === b.recording &&
+    a.canvasZoomable === b.canvasZoomable &&
     sameStrings(a.environments, b.environments) &&
     sameStrings(a.launcherActions, b.launcherActions) &&
     a.experienceTypes.length === b.experienceTypes.length &&
@@ -692,12 +694,23 @@ function renderMenu(state: ModePillState, corner: OverlayChromeCorner): string {
     {
       rows: [
         { key: 'toggle-panels', label: panels, shortcut: '⌘⇧\\', icon: OVERLAY_GLYPHS.eye },
-        { key: 'zoom-in', label: MODE_PILL_COPY.zoomCanvasIn, icon: OVERLAY_GLYPHS.zoomIn },
-        { key: 'zoom-out', label: MODE_PILL_COPY.zoomCanvasOut, icon: OVERLAY_GLYPHS.zoomOut },
+        {
+          key: 'zoom-in',
+          label: MODE_PILL_COPY.zoomCanvasIn,
+          icon: OVERLAY_GLYPHS.zoomIn,
+          disabled: !state.canvasZoomable,
+        },
+        {
+          key: 'zoom-out',
+          label: MODE_PILL_COPY.zoomCanvasOut,
+          icon: OVERLAY_GLYPHS.zoomOut,
+          disabled: !state.canvasZoomable,
+        },
         {
           key: 'zoom-reset',
           label: MODE_PILL_COPY.resetCanvasZoom,
           icon: OVERLAY_GLYPHS.refresh,
+          disabled: !state.canvasZoomable,
         },
         { key: 'keyboard-map', label: KEYBOARD_MAP_COPY.title, icon: OVERLAY_GLYPHS.help },
         { key: 'restart', label: MODE_PILL_COPY.restart, icon: OVERLAY_GLYPHS.refresh },
@@ -708,6 +721,7 @@ function renderMenu(state: ModePillState, corner: OverlayChromeCorner): string {
           icon: OVERLAY_GLYPHS.external,
         },
       ],
+      ...(state.canvasZoomable ? {} : { note: MODE_PILL_COPY.canvasZoomUnavailable }),
     },
   ].filter((group) => group.rows.length > 0);
 

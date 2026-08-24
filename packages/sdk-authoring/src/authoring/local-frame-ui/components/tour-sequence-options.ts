@@ -31,8 +31,6 @@ export const TOOLTIP_POSITION_OPTIONS = [
 
 export const TEXT_SIZE_OPTIONS = TEXT_FONT_SIZE_VALUES;
 export type StoryboardToolMode = 'content' | 'placement' | 'popup';
-export const CANVAS_ZOOM_LEVELS = [60, 70, 80, 90, 100, 110, 120] as const;
-export const DEFAULT_CANVAS_ZOOM = 80;
 
 export const POPUP_RESIZE_CORNERS = [
   { value: 'north-west', label: authoringText('top left') },

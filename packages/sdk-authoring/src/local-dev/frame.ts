@@ -1,5 +1,6 @@
 import {
   AUTHORING_RESOURCE_LIMITS,
+  LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   type AuthoringMediaAssetKind,
   type AuthoringMediaAssetResource,
   type GenerateNarrationResult,
@@ -33,7 +34,15 @@ import {
   loadLocalMediaAssetResources,
   saveLocalMediaAssetRecord,
 } from './local-media-store';
+import {
+  hydrateLocalAuthoringResources,
+  localDraftCheckpoints,
+  localStepStyleRecipes,
+  saveLocalAuthoringResources,
+} from './local-resource-store';
 import { mockAssistProposal } from './mock-assist';
+import { createLocalDevOperations } from './mock-operations';
+import { createLocalDevBrandServices } from './mock-brand';
 import { estimateCueMs, splitNarrationCues } from '../authoring/narration/narration-rehearsal';
 
 export interface MountLocalAuthoringDevFrameOptions {
@@ -52,7 +61,7 @@ export interface MountLocalAuthoringDevFrameOptions {
 export async function mountLocalAuthoringDevFrame(
   options: MountLocalAuthoringDevFrameOptions,
 ): Promise<void> {
-  await hydrateLocalMediaAssets();
+  await Promise.all([hydrateLocalMediaAssets(), hydrateLocalAuthoringResources()]);
   const services = createLocalAuthoringDevFrameServices(options.services);
   const ownerWindow = options.root.ownerDocument.defaultView;
   const frameContext = localFrameContextFromLocation(ownerWindow);
@@ -85,6 +94,16 @@ export async function mountLocalAuthoringDevFrame(
       { id: 'local-neutral', name: 'Local neutral', locale: 'en-US', gender: 'neutral' },
     ];
   }
+  /*
+   * WIRE_BE: the Operations boundary is a per-session host service. Absent, the
+   * frame silently disables nine tabs; present and stubbed, every one of them can
+   * be designed against.
+   */
+  if (!services.operations) {
+    services.operations = createLocalDevOperations({
+      document: () => services.loadDocument(activeDocument.id) ?? activeDocument,
+    });
+  }
   const sessionId = options.sessionId ?? frameContext.sessionId ?? LOCAL_AUTHORING_SESSION_ID;
   const directHostServices = connectLocalPanelHostServices({
     activeDocument,
@@ -95,6 +114,7 @@ export async function mountLocalAuthoringDevFrame(
     sessionId,
     targetOrigin: options.targetOrigin,
   });
+  installLocalBrandServices(services, options.previewTheme, directHostServices);
   try {
     await mountLocalAuthoringFrame({
       root: options.root,
@@ -124,10 +144,33 @@ interface LocalPanelHostServiceOptions {
   targetOrigin?: string;
 }
 
+/**
+ * The Brand seam, when the host is not supplying one.
+ *
+ * `sampleProductStyle` is the host panel's real element picker, reached over the
+ * bridge; the rest is local. With no workspace theme the accessible fallback is
+ * the baseline — the same one the runtime paints with — and the state keeps
+ * saying so until a match is adopted.
+ */
+function installLocalBrandServices(
+  services: LocalAuthoringFrameServices,
+  previewTheme: BrandThemeSnapshot | undefined,
+  directHostServices: DirectAuthoringHostServiceHandle | null,
+): void {
+  if (services.getBrandWorkflowState) return;
+  const sampleProductStyle = directHostServices?.services.sampleProductStyle;
+  const brand = createLocalDevBrandServices({
+    initialTheme: previewTheme ?? (LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1 as BrandThemeSnapshot),
+    ...(previewTheme ? {} : { fallbackTheme: true }),
+    ...(sampleProductStyle ? { sampleProductStyle } : {}),
+  });
+  Object.assign(services, brand);
+}
+
 function connectLocalPanelHostServices(
   options: LocalPanelHostServiceOptions,
 ): DirectAuthoringHostServiceHandle | null {
-  if (options.frameMode !== 'panel' || options.services.runLocaleLayoutQa) return null;
+  if (options.frameMode !== 'panel') return null;
   const peerWindow = options.peerWindow ?? parentWindow(options.ownerWindow);
   const targetOrigin = options.targetOrigin ?? parentOrigin(options.ownerWindow);
   if (!peerWindow || !targetOrigin) return null;
@@ -141,8 +184,10 @@ function connectLocalPanelHostServices(
     documentId: options.activeDocument.id,
     publishToStaging: false,
     localeLayoutQa: true,
+    /* The host already answers this; only the frame never asked. */
+    sampleProductStyle: true,
   });
-  if (handle.services.runLocaleLayoutQa) {
+  if (handle.services.runLocaleLayoutQa && !options.services.runLocaleLayoutQa) {
     options.services.runLocaleLayoutQa = handle.services.runLocaleLayoutQa;
   }
   const stop = () => handle.stop();
@@ -228,6 +273,15 @@ function createLocalAuthoringDevFrameServices(
     importDocument,
     resetDocuments: resetLocalDocuments,
     compilePreview,
+    /*
+     * WIRE_BE: the hosted editor persists these through the control plane. The
+     * local trio keeps them in IndexedDB instead, so a named style or a
+     * checkpoint is still there after a refresh — a checkpoint you cannot come
+     * back to is not a checkpoint.
+     */
+    loadStepStyleRecipes: localStepStyleRecipes,
+    loadDraftCheckpoints: localDraftCheckpoints,
+    saveAuthoringResources: saveLocalAuthoringResources,
     loadMediaAssets: () =>
       [...localMediaAssets.values()].map(({ resource }) => structuredClone(resource)),
     loadMediaAssetPreview: async (asset) => {

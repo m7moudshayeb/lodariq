@@ -648,17 +648,10 @@ describe('operations sections', () => {
   it('adds a language as an empty draft and reports layout for each locale', async () => {
     const { saveDocument } = await openOperations({ tab: 'translation' });
     await vi.waitFor(() => expect(document.querySelector('.operations-language')).not.toBeNull());
-    const add = document.querySelector<HTMLButtonElement>('[aria-label="Add a language"]');
+    const add = document.querySelector<HTMLSelectElement>('select[aria-label="Add a language"]');
     if (!add) throw new Error('add-language control missing');
-    add.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
-    await vi.waitFor(() => expect(document.querySelector('[role="listbox"]')).not.toBeNull(), {
-      timeout: 5_000,
-    });
-    const japanese = [...document.querySelectorAll<HTMLButtonElement>('[role="option"]')].find(
-      (option) => option.textContent?.includes('日本語'),
-    );
-    if (!japanese) throw new Error('Japanese locale option missing');
-    japanese.click();
+    add.value = 'ja';
+    add.dispatchEvent(new Event('change', { bubbles: true }));
 
     await vi.waitFor(() => expect(saveDocument).toHaveBeenCalledOnce());
     const saved = saveDocument.mock.calls[0]?.[0] as LodariqDocument;

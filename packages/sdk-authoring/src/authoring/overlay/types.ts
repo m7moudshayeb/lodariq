@@ -17,7 +17,6 @@ export interface OverlayShellCallbacks {
   /** The lock band's way out: your own copy of a step someone else holds (§15.2). */
   onDuplicateStep: (stepId: string) => void;
   onClose: () => void;
-  onCollapse: () => void;
   onExitPreview: () => void;
   onMoveStep: (stepId: string, direction: 'up' | 'down') => void;
   onCloseOperations: () => void;

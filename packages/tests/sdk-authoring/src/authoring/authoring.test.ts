@@ -367,7 +367,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     panel.close();
   });
 
-  it('collapses the overlay editor on the first outside click', () => {
+  it('leaves the customer page interactive while the overlay editor is open', () => {
     const panel = openLocalAuthoringPanel(
       {
         sessionId: LOCAL_AUTHORING_SESSION_ID,
@@ -392,9 +392,13 @@ describe('local authoring panel (PRD §16.1)', () => {
     const pointerDown = new Event('pointerdown', { bubbles: true, cancelable: true });
     Object.defineProperty(pointerDown, 'button', { value: 0 });
     pageButton.dispatchEvent(pointerDown);
+    pageButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
-    expect(host.getAttribute('data-lodariq-shell')).toBe('collapsed');
-    expect(click).not.toHaveBeenCalled();
+    /* The shell is modeless: the creator navigates the product with the editor
+       still open, so an outside press must reach the page untouched. */
+    expect(host.getAttribute('data-lodariq-shell')).toBe('overlay');
+    expect(pointerDown.defaultPrevented).toBe(false);
+    expect(click).toHaveBeenCalledTimes(1);
     pageButton.remove();
     panel.close();
   });

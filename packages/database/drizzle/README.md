@@ -48,6 +48,7 @@ migration.
 0038_hot_query_indexes.sql
 0039_analytics_events_indexes.sql
 0040_dead_letter_and_rotation.sql
+0041_analytics_events_partitioning.sql   (approved for controlled rollout, applied nowhere)
 ```
 
 ## Where each environment sits
@@ -211,6 +212,30 @@ Development was migrated on 2026-08-24. Staging remains at `0034`; repeat the
 same snapshot, approval, execution, and verification procedure there only after
 development's hosted deployment matches the current source and passes the full
 service probe.
+
+**The development gate cleared on 2026-08-24.** `lodariq-api-dev` release `v15`
+carries the current source, `/readyz` returns `200`, and `/v1/openapi.json`
+returns `200` — the `404` recorded below was the previous release, not a missing
+route. Staging is unblocked.
+
+Staging is deployed and migrated in that order, and the order matters. The
+deploy workflow applies no migrations, so shipping this branch's code to an
+environment still at `0034` breaks anything reading `webhook_endpoints` or
+`analytics_warehouse_destinations`: Drizzle's bare `.select()` names
+`previous_secret_version`, `secret_overlap_until`, `dead_lettered_at` and
+`dead_letter_reason`, and `0040` is what creates them. Migrate first, then
+deploy — the reverse of what the code-first instinct suggests.
+
+1. Run **Deploy existing Fly apps** with `target: staging` only after step 6.
+2. Snapshot staging and record the exact name.
+3. Run the three `0036` preflight counts below; all must be zero.
+4. Apply `0035` → `0036` → `0037` → `0038` with an owner URL.
+5. Apply `0039` alone (no transaction), then confirm
+   `select indexrelid::regclass from pg_index where not indisvalid;` is empty.
+   Do not rerun `0039` blind — `if not exists` will not repair an invalid index
+   that already owns the name.
+6. Apply `0040`.
+7. Deploy, then probe `/readyz` and `/v1/openapi.json` on the staging API.
 
 Development execution record:
 
@@ -426,3 +451,51 @@ The live check verifies that tenant tables have RLS enabled and forced, the
 runtime database role does not have `BYPASSRLS`, workspace-scoped reads cannot
 cross tenants, unscoped reads fail closed, and narrow public/session lookup
 policies expose only their bound context.
+
+## Approved for controlled rollout: 0041 analytics_events partitioning
+
+`0041_analytics_events_partitioning.sql` is authored, tested against a scratch
+database, and applied nowhere. It carries explicit approval metadata, so
+`pnpm migrations:check` passes. The approval is for a controlled maintenance
+window and does not substitute for a fresh snapshot, row-count comparison, or
+postflight verification.
+
+It is not part of the `0035`-`0040` batch and must be applied separately, only
+after `0035`-`0040` have been verified. Stop ingestion, snapshot the target,
+run the file on its own, compare the printed pre/post row counts, and keep
+`analytics_events_pre_partition` until the partitioned table has been observed
+in production-like traffic.
+
+What it does, and why it is in its own category:
+
+- Rebuilds `analytics_events` as a table partitioned monthly on `occurred_at`,
+  because retention on the largest table in the system has to be
+  `drop partition` rather than a `DELETE` sweep.
+- **Changes the primary key** from `(id)` to `(id, occurred_at)`. PostgreSQL
+  requires the partition key in every unique constraint. Nothing looks a row up
+  by bare `id` today, but nothing may assume `id` alone is unique afterwards.
+- **Requires a maintenance window.** Partitioning in place is impossible; the
+  table is copied and swapped under `ACCESS EXCLUSIVE`, and ingestion must be
+  stopped for the duration.
+- Leaves `analytics_events_pre_partition` in place as the rollback. Rename it
+  back to recover the previous shape with every row. Drop it only after the
+  application has been observed reading and writing the partitioned table.
+
+Verified on a scratch database at `0040`: 120 rows across four months copied
+into 18 partitions with the counts matching, partition pruning confirmed in the
+query plan, insert routing confirmed, and the check constraints and index
+column lists diffed against the original table until identical. RLS is
+re-enabled and re-forced and both workspace policies are recreated on the parent
+**and on every partition** — a rebuild drops all of it, and a partition reached
+by its own name enforces its own policies, not the parent's. The
+`*-postgres16` tenant isolation suites cover this.
+
+Retention itself already ships: `maintainAnalyticsEventPartitions` runs on the
+analytics export worker's tick, creates partitions three months ahead, and drops
+those older than thirteen months. It returns immediately while the table is not
+partitioned, so it is inert until this migration is applied.
+
+Still open after it lands: workspaces whose `analyticsRetentionDays` is shorter
+than the partition span. Partitions are time-based and global, so a shorter
+per-workspace retention needs a bounded per-workspace delete alongside the
+partition drop.

@@ -102,6 +102,7 @@ export function createAnalyticsExportWorker(
 
   const runOnce = async (): Promise<number> => {
     const now = (options.clock?.() ?? new Date()).toISOString();
+    await maintainPartitions(options, now);
     const jobs = await options.repository.claimAnalyticsExportJobs({
       workerId,
       now,
@@ -277,4 +278,23 @@ function generateExportInWorker(
       settle(() => reject(error));
     }
   });
+}
+
+/**
+ * H12 retention, on this worker's own tick.
+ *
+ * Same reasoning as the webhook delivery sweep: a separate process for one
+ * maintenance call is more moving parts than the problem deserves, and this
+ * worker already owns the analytics lifecycle. It is a no-op until `0041`
+ * partitions the table.
+ */
+async function maintainPartitions(
+  options: AnalyticsExportWorkerOptions,
+  now: string,
+): Promise<void> {
+  try {
+    await options.repository.maintainAnalyticsEventPartitions({ now });
+  } catch {
+    /* Retention must never stop exports; the next tick tries again. */
+  }
 }

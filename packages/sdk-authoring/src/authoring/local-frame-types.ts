@@ -225,7 +225,12 @@ export interface LocalAuthoringFrameServices {
   saveDocument: (doc: LodariqDocument) => void;
   /** Optional authoring-only workspace resource; recipes contain semantic style fields only. */
   loadStepStyleRecipes?: () => readonly AuthoringStepStyleRecipe[];
-  saveStepStyleRecipes?: (recipes: readonly AuthoringStepStyleRecipe[]) => void;
+  /*
+   * There was a `saveStepStyleRecipes` here too, declared and called three times
+   * and assigned by nothing in the repo — not even the hosted editor. Recipes are
+   * saved with the checkpoints by `saveAuthoringResources` below, which is the
+   * atomic write the control plane actually offers.
+   */
   loadDraftCheckpoints?: () => readonly AuthoringDraftCheckpointResource[];
   loadMediaAssets?: () => readonly AuthoringMediaAssetResource[];
   /** Persists the complete bounded workspace/document resource set atomically. */

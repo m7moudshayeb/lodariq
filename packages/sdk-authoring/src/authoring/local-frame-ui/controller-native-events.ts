@@ -23,6 +23,40 @@ import {
   primeDragTransfer,
 } from './controller-drag';
 
+/** Actions owned by the controller's native-event bridge. Unknown actions must
+ * fall through to React so component-local handlers keep working in embedded
+ * authoring frames and in synthetic browser interactions. */
+export const NATIVE_CLICK_ACTIONS: ReadonlySet<string> = new Set([
+  'toggle-workspace',
+  'append-step',
+  'undo',
+  'redo',
+  'save',
+  'export',
+  'import',
+  'reset',
+  'compile',
+  'preview-current',
+  'preview-full',
+  'export-metrics',
+  'target-pick',
+  'target-change',
+  'target-view',
+  'target-test',
+  'target-health',
+  'target-advanced',
+  'target-remove',
+  'presentation-anchor-pick',
+  'presentation-anchor-reset',
+  'move-block',
+  'duplicate-block',
+  'delete-block',
+  'move-step-content',
+  'duplicate-step-content',
+  'delete-step-content',
+  'transform-block',
+]);
+
 export abstract class ControllerNativeEventsFeature extends ControllerLifecycleFeature {
   protected abstract activateActionButton(button: HTMLButtonElement, action: string): void;
   protected abstract appendPastedBlocks(blocksToAdd: LodariqBlock[]): void;
@@ -147,7 +181,7 @@ export abstract class ControllerNativeEventsFeature extends ControllerLifecycleF
     }
 
     const action = button.dataset['action'];
-    if (!action) return;
+    if (!action || !NATIVE_CLICK_ACTIONS.has(action)) return;
     event.preventDefault();
     event.stopPropagation();
     this.activateActionButton(button, action);

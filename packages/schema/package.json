@@ -92,6 +92,11 @@
       "types": "./dist/product-capability-inventory.d.ts",
       "import": "./dist/product-capability-inventory.js"
     },
+    "./product-style-theme": {
+      "source": "./src/product-style-theme.ts",
+      "types": "./dist/product-style-theme.d.ts",
+      "import": "./dist/product-style-theme.js"
+    },
     "./accessibility-governance": {
       "source": "./src/accessibility-governance.ts",
       "types": "./dist/accessibility-governance.d.ts",

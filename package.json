@@ -2,7 +2,7 @@
   "name": "lodariq",
   "version": "0.0.0",
   "private": true,
-  "description": "Lodariq — universal product-content platform (interactive demos, tours, onboarding, announcements, surveys, hotspots, knowledge widgets) built on one document-driven authoring model.",
+  "description": "Lodariq \u2014 universal product-content platform (interactive demos, tours, onboarding, announcements, surveys, hotspots, knowledge widgets) built on one document-driven authoring model.",
   "type": "module",
   "packageManager": "pnpm@9.15.9",
   "engines": {
@@ -19,14 +19,17 @@
     "lint": "turbo run lint",
     "test": "pnpm run i18n:compile && turbo run test",
     "test:e2e": "pnpm run i18n:compile && pnpm run e2e:prepare && playwright test",
+    "record:authoring": "playwright test --config scripts/record-authoring/playwright.config.ts && node scripts/record-authoring/post-process.mjs",
     "size": "turbo run size",
-    "boundaries": "pnpm run i18n:compile && depcruise --config .dependency-cruiser.cjs packages apps",
+    "boundaries": "pnpm run i18n:compile && pnpm run boundaries:only",
+    "boundaries:only": "depcruise --config .dependency-cruiser.cjs packages apps",
     "architecture:check": "node scripts/check-architecture.mjs",
     "tokens:check": "node scripts/check-design-tokens.mjs",
     "i18n:compile": "pnpm --filter @lodariq/dashboard i18n:compile",
     "e2e:prepare": "turbo run build --filter=@lodariq/api^... --filter=@lodariq/dashboard^... --filter=@lodariq/fixture-host^... --filter=@lodariq/customer-like-host^...",
     "i18n:check": "pnpm --filter @lodariq/dashboard i18n:check && node scripts/check-localization-catalogs.mjs",
-    "knip:check": "pnpm run i18n:compile && knip --dependencies",
+    "knip:check": "pnpm run i18n:compile && pnpm run knip:only",
+    "knip:only": "knip --dependencies",
     "styles:check": "stylelint \"apps/**/src/**/*.css\" \"packages/sdk-authoring/src/authoring/local-frame-ui/styles/*.ts\"",
     "migrations:check": "pnpm --filter @lodariq/database check:migrations",
     "db:provision:runtime-role": "pnpm --filter @lodariq/database provision:runtime-role",
@@ -48,7 +51,8 @@
     "audit:security": "pnpm audit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "pnpm run i18n:check && pnpm run typecheck && pnpm run lint && pnpm run boundaries && pnpm run architecture:check && pnpm run knip:check && pnpm run styles:check && pnpm run tokens:check && pnpm run migrations:check && pnpm run test && pnpm run build && pnpm run size && pnpm sdk:prepare-assets && pnpm run audit:security"
+    "verify": "node scripts/verify.mjs",
+    "verify:serial": "pnpm run i18n:check && pnpm run typecheck && pnpm run lint && pnpm run boundaries && pnpm run architecture:check && pnpm run knip:check && pnpm run styles:check && pnpm run tokens:check && pnpm run test && pnpm run build && pnpm run size && pnpm sdk:prepare-assets && pnpm run audit:security && pnpm run migrations:check"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

@@ -285,13 +285,13 @@ export function MobileWorkspaceHeader({
         <div className="fixed inset-0 z-50 md:hidden">
           <div
             aria-hidden="true"
-            className="absolute inset-0 size-full bg-[rgba(12,33,28,.38)] backdrop-blur-[2px]"
+            className="absolute inset-0 size-full bg-[rgba(20,22,28,.38)] backdrop-blur-[2px]"
             onClick={() => closeDrawer(true)}
           />
           <aside
             aria-label={_(DASHBOARD_NAVIGATION_MESSAGES.workspace)}
             aria-modal="true"
-            className="relative z-10 flex h-dvh max-h-dvh w-[min(320px,calc(100vw-48px))] flex-col overflow-y-auto overscroll-contain border-e border-border bg-card shadow-[0_18px_60px_rgba(12,33,28,.2)] ltr:me-auto rtl:ms-auto"
+            className="relative z-10 flex h-dvh max-h-dvh w-[min(320px,calc(100vw-48px))] flex-col overflow-y-auto overscroll-contain border-e border-border bg-card shadow-[0_18px_60px_rgba(20,22,28,.2)] ltr:me-auto rtl:ms-auto"
             id="mobile-workspace-navigation"
             ref={drawerRef}
             role="dialog"

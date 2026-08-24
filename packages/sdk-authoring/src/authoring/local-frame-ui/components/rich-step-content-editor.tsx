@@ -20,11 +20,7 @@ import type { AiAssistRequest } from '../../ai/assist-contract';
 import { AssistPreview, AssistPrompt } from './assist-preview';
 import { ContextualPropertyTray } from './contextual-property-tray';
 import { PopupPointerArrow } from './popup-pointer-arrow';
-import {
-  DEFAULT_CANVAS_ZOOM,
-  POPUP_RESIZE_CORNERS,
-  type StoryboardToolMode,
-} from './tour-sequence-options';
+import { POPUP_RESIZE_CORNERS, type StoryboardToolMode } from './tour-sequence-options';
 import { claimContextualSurface } from '../../contextual-surface-coordinator';
 import { CanvasZoomControl } from './canvas-zoom-control';
 import { StepPlacementEditor } from './step-placement-editor';
@@ -68,7 +64,8 @@ export function RichStepContentEditor({
   const richContentValue = tooltip.children.filter((block) =>
     RICH_CONTENT_BLOCK_TYPES.has(block.type),
   );
-  const [canvasZoom, setCanvasZoom] = useState(DEFAULT_CANVAS_ZOOM);
+  /* Held by the controller so the mode pill's zoom rows move this canvas too. */
+  const canvasZoom = snapshot.canvasZoomPercent;
   const [popupSelected, setPopupSelected] = useState(false);
   const [toolbarHost, setToolbarHost] = useState<HTMLElement | null>(null);
   const [assistPromptOpen, setAssistPromptOpen] = useState(false);
@@ -203,7 +200,7 @@ export function RichStepContentEditor({
   return (
     <div className="rich-step-editor">
       <div className="rich-content-editor-chrome">
-        <CanvasZoomControl value={canvasZoom} onChange={setCanvasZoom} />
+        <CanvasZoomControl value={canvasZoom} onChange={(next) => controller.setCanvasZoom(next)} />
         <div data-rich-content-toolbar-slot="" ref={setToolbarHost} />
       </div>
       <div

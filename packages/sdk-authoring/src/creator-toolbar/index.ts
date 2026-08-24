@@ -475,17 +475,12 @@ export function installCreatorToolbar(
    */
   let pendingOpen: { kind: ExperienceMenuKind; anchor: HTMLButtonElement } | null = null;
 
-  const openExperienceMenu = (kind: ExperienceMenuKind, anchor: HTMLButtonElement): void => {
-    if (flyout) {
-      flyout.open(kind, anchor);
-      return;
-    }
-    pendingOpen = { kind, anchor };
+  const loadExperienceMenu = (): void => {
     flyoutLoading ??= import('../experience-menu')
       .then((menu) => {
-        // The launcher may have been removed while the chunk was in flight —
-        // a route change, or a host tearing authoring down. Building the menu
-        // now would leave it on the page with nothing to remove it.
+        // The launcher may be removed while the chunk is in flight — a route
+        // change, or a host tearing authoring down. Building the menu now would
+        // leave it on the page with nothing to remove it.
         if (disposed) return;
         // The stylesheet rides with the module for the same reason the module
         // does: a customer's page should not carry a menu's CSS to render none.
@@ -507,6 +502,15 @@ export function installCreatorToolbar(
         flyoutLoading = null;
         dispatchAuthoringError(doc, error);
       });
+  };
+
+  const openExperienceMenu = (kind: ExperienceMenuKind, anchor: HTMLButtonElement): void => {
+    if (flyout) {
+      flyout.open(kind, anchor);
+      return;
+    }
+    pendingOpen = { kind, anchor };
+    loadExperienceMenu();
   };
 
   const actionContext: CreatorLauncherActionContext = {
@@ -563,6 +567,9 @@ export function installCreatorToolbar(
   launcher.append(button, palette);
   container.appendChild(launcher);
   applyAuthoringLocale(launcher);
+  // The launcher is authoring-only, so warming its shared menu here removes a
+  // cold-click wait without putting creator code on ordinary customer pages.
+  loadExperienceMenu();
   const stopInteractions = attachLauncherInteractions(launcher, button, () => flyout, doc);
   /*
    * The panel's menu carries the same two rows once it covers the launcher, and
@@ -913,25 +920,24 @@ function launcherActionHandler(
       dismissLauncherPalette(context.launcher, context.launcherButton, context.flyout());
     },
     /*
-     * Both menus are usually already open on hover by the time a click lands.
-     * Toggling is what makes the click meaningful anyway: it is how a creator
-     * who opened one from the keyboard closes it again. Before the module has
-     * arrived there is nothing to toggle, so the click opens instead.
+     * Hover is allowed to open these categories, so the click that follows it
+     * must be idempotent. Toggling here made a normal pointer click close the
+     * menu hover had just opened, forcing creators to click twice.
      */
-    'experiences-on-page': () => toggleExperienceMenu('experiences-on-page', actionButton, context),
-    'new-experience': () => toggleExperienceMenu('new-experience', actionButton, context),
+    'experiences-on-page': () => openExperienceMenu('experiences-on-page', actionButton, context),
+    'new-experience': () => openExperienceMenu('new-experience', actionButton, context),
   };
   return handlers[actionId];
 }
 
-function toggleExperienceMenu(
+function openExperienceMenu(
   kind: ExperienceMenuKind,
   actionButton: HTMLButtonElement,
   context: CreatorLauncherActionContext,
 ): void {
   const flyout = context.flyout();
   if (flyout) {
-    flyout.toggle(kind, actionButton);
+    flyout.open(kind, actionButton, { focus: true });
     return;
   }
   context.openExperienceMenu(kind, actionButton);

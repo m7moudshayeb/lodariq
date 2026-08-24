@@ -68,6 +68,7 @@ import {
   PasswordHashAdmissionGate,
   verifyOwnedPassword,
   emitAuthRecoveryEvent,
+  type OwnedAuthSessionContext,
   type EmailVerificationDeliveryCapability,
   type PasswordHashAdmissionGateLike,
 } from '../auth';
@@ -963,6 +964,8 @@ export async function requireOwnedSession(
     const authenticated = await authenticateOwnedSession(repository, request);
     return authenticated;
   } catch (error) {
+    const developmentSession = developmentHeaderSession(request);
+    if (developmentSession) return developmentSession;
     if (error instanceof AuthError) {
       reply.header('set-cookie', serializeExpiredAuthSessionCookie());
       await reply.code(error.statusCode).send({ error: 'unauthorized', message: error.message });
@@ -970,6 +973,68 @@ export async function requireOwnedSession(
     }
     throw error;
   }
+}
+
+/**
+ * The local dashboard runs without a browser session cookie when header auth
+ * is enabled. Tenant and enterprise routes still require an owned-session
+ * shape, so provide that shape only in the explicitly non-production header
+ * mode. Production and cookie-auth requests always take the normal path.
+ */
+function developmentHeaderSession(request: FastifyRequest): OwnedAuthSessionContext | null {
+  if (process.env.NODE_ENV === 'production' || process.env.LODARIQ_AUTH_MODE !== 'headers') {
+    return null;
+  }
+  if (readAuthSessionToken(request)) return null;
+
+  const userId =
+    readDevelopmentHeader(request, 'x-lodariq-user-id') ??
+    process.env.LODARIQ_DEV_USER_ID ??
+    process.env.LODARIQ_DASHBOARD_USER_ID ??
+    'user_local_dev';
+  const workspaceId =
+    readDevelopmentHeader(request, 'x-lodariq-workspace-id') ??
+    process.env.LODARIQ_DEV_WORKSPACE_ID ??
+    process.env.LODARIQ_WORKSPACE_ID ??
+    'wk_local_dev';
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const session: AuthSessionRecord = {
+    id: 'authsess_dev_header_session',
+    userId,
+    tokenHash: 'dev-header-session',
+    activeWorkspaceId: workspaceId,
+    identityId: null,
+    authenticationMethod: 'password',
+    assuranceLevel: 'aal2',
+    authenticatedAt: nowIso,
+    durationPolicy: 'standard',
+    createdAt: nowIso,
+    lastSeenAt: nowIso,
+    idleExpiresAt: new Date(now.getTime() + 60 * 60 * 1_000).toISOString(),
+    absoluteExpiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1_000).toISOString(),
+    revokedAt: null,
+  };
+
+  return {
+    rawToken: 'dev-header-session',
+    tokenHash: session.tokenHash,
+    session,
+    user: {
+      id: userId,
+      legacyIdentityId: null,
+      email: `${userId}@localhost.invalid`,
+      name: 'Local developer',
+      emailVerifiedAt: nowIso,
+      createdAt: nowIso,
+    },
+  };
+}
+
+function readDevelopmentHeader(request: FastifyRequest, name: string): string | undefined {
+  const value = request.headers[name];
+  if (Array.isArray(value)) return value[0]?.trim() || undefined;
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 async function loadSessionSnapshot(

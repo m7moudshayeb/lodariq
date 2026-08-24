@@ -14,6 +14,7 @@ import {
   type LodariqDocument,
   type ProductStyleSource,
 } from '@lodariq/schema';
+import { mergeProductStyleTokensIntoDraft } from '@lodariq/schema/product-style-theme';
 import type {
   AuthoringSessionRecord,
   ControlPlaneRepository,
@@ -22,7 +23,6 @@ import type {
   WorkspaceThemeRecord,
 } from '@lodariq/database';
 import { createWorkspaceThemeDraftPreviewSnapshot } from '@lodariq/database';
-import { mergeProductStyleTokensIntoDraft } from './product-style-theme';
 import { enqueueGovernanceWebhookEvent } from './governance-events';
 import type { BrandDriftEmailNotifier } from './brand-drift-email';
 import type { ObservabilitySink } from './observability';

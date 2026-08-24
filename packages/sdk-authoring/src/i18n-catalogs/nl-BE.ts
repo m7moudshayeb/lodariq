@@ -114,7 +114,6 @@ const NL_BE_CATALOG: AuthoringCatalog = {
   Click: 'Klik',
   Drawer: 'Lade',
   'Experience behavior updated': 'Ervaringsgedrag bijgewerkt',
-  'Allow visitors to dismiss': 'Bezoekers toestaan te sluiten',
   'Show announcement': 'Aankondiging tonen',
   'Every eligible visit': 'Bij elk geschikt bezoek',
   'Once per session': 'Eén keer per sessie',
@@ -131,10 +130,8 @@ const NL_BE_CATALOG: AuthoringCatalog = {
   Responses: 'Antwoorden',
   'One submission per visitor': 'Eén inzending per bezoeker',
   'Allow repeat submissions': 'Herhaalde inzendingen toestaan',
-  'Require an answer before submitting': 'Een antwoord vereisen vóór verzenden',
   'Use action conditions to branch after a response.':
     'Gebruik actievoorwaarden om na een antwoord te vertakken.',
-  'Show checklist progress': 'Voortgang van checklist tonen',
   'The checklist completes when every item is checked.':
     'De checklist is voltooid wanneer elk item is aangevinkt.',
   'Edit this content on the card.': 'Bewerk deze inhoud op de kaart.',
@@ -2879,6 +2876,39 @@ const NL_BE_CATALOG: AuthoringCatalog = {
   'Always the first one': 'Altijd het eerste',
   'This is one of several items in a list. Which one did you mean?':
     'Dit is een van meerdere items in een lijst. Welk item bedoelde je?',
+  Dismissing: 'Sluiten',
+  Locked: 'Vergrendeld',
+  Allowed: 'Toegestaan',
+  'An answer is': 'Een antwoord is',
+  Progress: 'Voortgang',
+  'Who sees this is set by the experience audience, not by the card.':
+    'Wie dit ziet, bepaalt het publiek van de ervaring, niet de kaart.',
+  'Write the tooltip on the card; the marker sets where it opens.':
+    'Schrijf de tooltip op de kaart; de markering bepaalt waar hij opent.',
+  'Edit the question and its answers on the card.': 'Bewerk de vraag en de antwoorden op de kaart.',
+  'Add, reorder and word the items on the card.':
+    'Voeg items toe, herschik ze en formuleer ze op de kaart.',
+  'Read the ticked steps in one column each.': 'Lees de aangevinkte stappen, elk in een kolom.',
+  'The card is shown at the size it will ship. Use your browser zoom to read it larger.':
+    'De kaart wordt getoond op de grootte waarmee ze wordt gepubliceerd. Gebruik de zoom van je browser om ze groter te lezen.',
+  'The preview could not restart with the new Brand theme.':
+    'De voorbeeldweergave kon niet opnieuw starten met het nieuwe Brand-thema.',
+  Environments: 'Omgevingen',
+  'No environment is selected yet.': 'Er is nog geen omgeving geselecteerd.',
+  'Everyone who reaches the page sees this.': 'Iedereen die de pagina bereikt, ziet dit.',
+  'Step indicator': 'Stapindicator',
+  'Indicator position': 'Positie van de indicator',
+  Wording: 'Formulering',
+  'Set once for the whole tour, not per step.':
+    'Eén keer ingesteld voor de hele rondleiding, niet per stap.',
+  'Preparing Flow Map': 'Stroomkaart wordt voorbereid',
+  Count: 'Aantal',
+  Dots: 'Stippen',
+  Bar: 'Balk',
+  'Own line': 'Eigen regel',
+  'With the buttons': 'Bij de knoppen',
+  '1 of 5': '1 van 5',
+  'Step 1 of 5': 'Stap 1 van 5',
 };
 
 export default NL_BE_CATALOG;

@@ -448,6 +448,14 @@ export interface LocalAuthoringFrameSnapshot {
     readonly result?: AccessibilitySweepResult;
   };
   activeStepId?: string | null;
+  /**
+   * One canvas zoom for two surfaces: the mode pill's zoom rows and the
+   * storyboard's own control. The control held it in local state, so the pill
+   * wrote a number nothing rendered.
+   */
+  canvasZoomPercent: number;
+  /** True while product clicks are being turned into steps (§4.4c). */
+  recordingSteps: boolean;
   deliveryCapabilities: Set<AuthoringDeliveryCapability>;
   contentLocale: string;
   /** Voices this session may offer. Empty when no narration provider is configured. */

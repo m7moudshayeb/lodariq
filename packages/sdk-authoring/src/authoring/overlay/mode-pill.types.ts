@@ -39,6 +39,8 @@ export interface ModePillState {
   readonly experienceTypes: readonly { readonly type: string; readonly label: string }[];
   /** Recording turns one menu row into its own stop control (§4.1). */
   readonly recording: boolean;
+  /** True only while a surface that honours `--storyboard-canvas-zoom` is mounted. */
+  readonly canvasZoomable: boolean;
   /** Selectable environments. `Production` is always printed, always disabled. */
   readonly environments: readonly string[];
   /**

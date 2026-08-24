@@ -245,6 +245,17 @@ kbd {
   color: var(--ink-strong);
 }
 
+.button.outline {
+  border-color: var(--accent);
+  color: var(--ink-strong);
+  font-weight: 600;
+  box-shadow: 0 0 0 3px rgba(124, 140, 255, 0.14);
+}
+
+.button.outline:hover {
+  background: rgba(124, 140, 255, 0.1);
+}
+
 .button.quiet {
   color: var(--muted);
 }
@@ -336,27 +347,135 @@ kbd {
 
 .hero {
   position: relative;
-  padding: 96px 0 112px;
+  padding: 96px 0 0;
   overflow: clip;
 }
 
-.hero-glow {
+/* Bounds the clip to the copy block, so nothing ghosts behind the demo window. */
+.hero-stage {
+  position: relative;
+}
+
+/*
+ * The radial glow this replaced said nothing. Flat graphite, a fine grain and
+ * a shallow uplight give the poster type a ground to sit on instead.
+ */
+.hero-field {
   position: absolute;
-  inset: -20% -10% auto;
-  height: 720px;
+  /* Negative top reclaims the hero's own padding so the field reaches the header. */
+  inset: -96px 0 0;
   pointer-events: none;
   background:
-    radial-gradient(560px 380px at 24% 30%, rgba(124, 140, 255, 0.17), transparent 70%),
-    radial-gradient(640px 420px at 78% 12%, rgba(110, 126, 242, 0.1), transparent 70%),
-    radial-gradient(420px 320px at 62% 52%, rgba(62, 207, 142, 0.05), transparent 70%);
+    repeating-linear-gradient(to right, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 96px),
+    repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 96px);
+}
+
+.hero-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.hero-uplight {
+  position: absolute;
+  inset: auto 0 0;
+  height: 62%;
+  background: radial-gradient(120% 100% at 50% 100%, rgba(124, 140, 255, 0.1), transparent 68%);
+}
+
+/*
+ * The clip is masked into the graphite on every edge, so it has no frame of its
+ * own — it reads as the surface the headline sits on, not a second panel.
+ */
+.hero-clip {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: min(62%, 1040px);
+  overflow: hidden;
+  opacity: 0.3;
+  -webkit-mask-image: linear-gradient(to right, transparent 6%, #000 82%, #000 94%, transparent),
+    linear-gradient(to bottom, transparent, #000 18%, #000 70%, transparent);
+  mask-image: linear-gradient(to right, transparent 6%, #000 82%, #000 94%, transparent),
+    linear-gradient(to bottom, transparent, #000 18%, #000 70%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+
+/*
+ * The capture is of a light product UI and the hero is graphite, so it is
+ * inverted back to a dark surface rather than laid on as a bright rectangle.
+ * The hue rotation undoes the colour flip that inverting alone would cause.
+ */
+.hero-clip-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: left top;
+  filter: invert(1) hue-rotate(180deg) saturate(0.6) brightness(0.92) contrast(0.9);
+}
+
+.hero-clip-toggle {
+  position: absolute;
+  right: max(var(--space-5), calc(50vw - 540px));
+  bottom: var(--space-4);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font: 500 12px/1 var(--font);
+  color: var(--muted);
+  cursor: pointer;
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  transition:
+    color var(--motion),
+    border-color var(--motion);
+}
+
+.hero-clip-toggle:hover {
+  color: var(--ink-strong);
+  border-color: var(--muted);
+}
+
+.hero-clip-toggle-glyph {
+  width: 8px;
+  height: 9px;
+  background: currentColor;
+  /* Two bars for pause; one triangle for play. */
+  clip-path: polygon(0 0, 3px 0, 3px 9px, 0 9px, 5px 0, 8px 0, 8px 9px, 5px 9px);
+}
+
+.hero-clip-toggle[data-paused='true'] .hero-clip-toggle-glyph {
+  clip-path: polygon(0 0, 8px 4.5px, 0 9px);
 }
 
 .hero-copy {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* Holds the demo window at the fold so it peeks rather than stops the page. */
+  min-height: min(58vh, 560px);
+}
+
+.hero-rule {
+  width: 100%;
+  max-width: 588px;
+  height: 0;
+  margin: var(--space-6) 0 0;
+  border: 0;
+  border-top: 1px solid var(--border-strong);
 }
 
 .eyebrow {
   display: inline-flex;
+  align-self: flex-start;
   align-items: center;
   gap: var(--space-2);
   margin-bottom: var(--space-5);
@@ -378,9 +497,11 @@ kbd {
   background: var(--mint);
 }
 
-.hero h1 {
-  max-width: 16ch;
-  font-size: clamp(40px, 6.4vw, 72px);
+.hero-title {
+  /* Sized so "Nobody noticed." holds one line at the shell's 1080px. */
+  font-size: clamp(40px, 9.1vw, 131px);
+  line-height: 0.92;
+  letter-spacing: -0.022em;
 }
 
 .lede {
@@ -396,7 +517,7 @@ kbd {
   flex-wrap: wrap;
   gap: var(--space-3);
   margin-top: var(--space-6);
-  margin-bottom: 80px;
+  margin-bottom: var(--space-7);
 }
 
 /* ── demo panel ──────────────────────────────────────────────────────── */
@@ -950,7 +1071,8 @@ kbd {
 
 .pains {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Four pains now, so the same 2x2 the use-case grid uses. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
   margin-top: var(--space-7);
 }
@@ -1398,6 +1520,16 @@ kbd {
 
   .hero {
     padding-top: 56px;
+  }
+
+  .hero-copy {
+    min-height: 0;
+  }
+
+  /* A half-width clip behind body copy at this size only costs legibility. */
+  .hero-clip,
+  .hero-clip-toggle {
+    display: none;
   }
 
   .steps,

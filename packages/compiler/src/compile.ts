@@ -268,7 +268,7 @@ function compileExperienceBehavior(document: LodariqDocument): CompiledExperienc
     throw new Error(`Unsupported delivery experience type: ${document.type}`);
   }
   const behavior = sanitizeExperienceBehavior(document.type, document.experience);
-  if (behavior.type === 'tour') return { type: 'tour', surface: 'popup' };
+  if (behavior.type === 'tour') return { ...behavior, surface: 'popup' };
   if (behavior.type === 'announcement') {
     const surface = document.surfaceForm ?? 'modal';
     if (surface !== 'modal' && surface !== 'banner' && surface !== 'slideIn') {

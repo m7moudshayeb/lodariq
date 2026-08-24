@@ -402,6 +402,94 @@ a tour tooltip. The two geometry lines are the proof: a banner is 960 wide at
 `top: 12` and a modal is 520 centered, identically with and without a target.
 `SHOT=1` writes one screenshot per surface.
 
+## The one that answers "does the mode pill still print rows that do nothing?"
+
+`t50-chrome-wiring.mjs` opens the pill menu in the shell's shadow root and reads
+back the three canvas-zoom rows and the record row.
+
+```bash
+pnpm --filter @lodariq/sdk-authoring build
+SDK_PORT=5177 ASSERT=1 node docs/product-design/prototypes/qa/t50-chrome-wiring.mjs
+```
+
+The zoom rows were live and moved nothing: `zoomCanvas()` wrote a controller
+field no snapshot carried, and the only surface that honours
+`--storyboard-canvas-zoom` is not on screen in overlay editing at all. It cannot
+be: the card is drawn at the size it will ship and `frame-layout.ts` owns its
+box, so scaling only Lodariq's card would make it lie about the shipped size.
+They are drawn disabled now, with that reason printed under the group — which is
+also the answer the creator wanted (use the browser's own zoom). The frame
+publishes `canvasZoomable` on `authoring.shell.capabilities`, so a workspace that
+does honour a canvas zoom flips them back on without touching the pill.
+
+## The one that answers "does an announcement's inspector look like a tour's?"
+
+`t51-inspector-parity.mjs` opens the step inspector for each non-tour experience
+type and fails on any control that is not one the tour uses.
+
+```bash
+pnpm --filter @lodariq/sdk-authoring build
+SDK_PORT=5177 ASSERT=1 node docs/product-design/prototypes/qa/t51-inspector-parity.mjs
+```
+
+`experience-behavior-section.tsx` was the only inspector code not built from the
+shared property controls — a bare `<select>` in `.storyboard-property-row` and a
+bare checkbox in `.storyboard-property-toggle`, **neither class defined by any
+stylesheet in the repo**. So announcement, hotspot, survey and checklist opened
+their inspector on unstyled browser widgets.
+
+Two traps this script had to learn. The app replaces its own URL with a hash
+route on boot, so `page.reload()` drops `?scenario=` and the host silently opens
+the tour fixture instead — navigate again rather than reload. And count the
+shared rows *inside the type's own section*: every type carries the shared Style
+stack, so a panel-wide count stays healthy even when the behaviour body rendered
+nothing, which is exactly how an earlier version of this script passed against
+the code it was written to catch.
+
+## The one that answers "did Product match actually land?"
+
+`t52-product-match.mjs` runs a match, waits for the outcome, and measures the
+card it was supposed to restyle.
+
+```bash
+pnpm --filter @lodariq/sdk-authoring build
+SDK_PORT=5177 ASSERT=1 node docs/product-design/prototypes/qa/t52-product-match.mjs
+```
+
+Adopting a match reported "Product match was saved, but the preview could not
+refresh" about a preview that had refreshed. The host's `theme.preview.apply`
+handler *returned* the replay promise, and a returned promise holds the bridge
+ack until it settles (see the bridge's `onMessage`), against a 2s budget in the
+frame. A replay is compile + resolve + play. The error arrived at **2075ms with
+the repainted dialog already on the page**. The handler acks the apply now — it
+is complete the moment the theme is stored — and fires the replay separately,
+so a genuine replay failure is a host toast rather than a lie about the apply.
+Saved at ~400ms after, and the card takes the product's radius and fonts.
+
+The script asserts the timing as well as the outcome: a failure landing between
+1.9s and 2.6s is called out by name, because that is the ack budget coming back.
+
+## The one that answers "is my saved style still there tomorrow?"
+
+`t53-resources-persist.mjs` creates a named style, reloads the whole page, and
+looks for it again.
+
+```bash
+pnpm --filter @lodariq/sdk-authoring build
+SDK_PORT=5177 ASSERT=1 node docs/product-design/prototypes/qa/t53-resources-persist.mjs
+```
+
+The reload is the entire point — an in-memory stand-in passes every other check.
+Local dev answered none of `loadStepStyleRecipes`, `loadDraftCheckpoints` or
+`saveAuthoringResources`, so a style lived until the next refresh and the row
+offering to create one was a control that undid itself. They are backed by the
+same IndexedDB the media library uses, one database over.
+
+Two traps. "Step settings" *toggles*, so re-opening an inspector that is already
+open closes it. And `Custom` is not a saved style — it is offered only while the
+step matches nothing, so creating a style *removes* it and a naive length
+comparison sees no change; count the named rows.
+
 ## The rest
 
 Named per task, matching `../../authoring-chrome-migration-handoff.md` §9:

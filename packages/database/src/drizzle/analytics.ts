@@ -31,8 +31,148 @@ import {
   toIsoString,
 } from './helpers';
 import { DrizzleRepositoryAuthoringSessions } from './authoring-sessions';
+import {
+  ANALYTICS_EVENT_PARTITION_MONTHS_AHEAD,
+  ANALYTICS_EVENT_RETENTION_MONTHS,
+  addUtcMonths,
+  analyticsPartitionName,
+  retentionCutoffMonth,
+  upcomingPartitionMonths,
+  type AnalyticsPartitionMaintenanceInput,
+  type AnalyticsPartitionMaintenanceResult,
+} from '../domains/analytics-partitions';
+
+function resultRows(result: unknown): Record<string, unknown>[] {
+  if (Array.isArray(result)) return result as Record<string, unknown>[];
+  const rows = (result as { rows?: unknown } | null)?.rows;
+  return Array.isArray(rows) ? (rows as Record<string, unknown>[]) : [];
+}
 
 export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessions {
+  /**
+   * Creates upcoming monthly partitions and drops fully expired ones.
+   *
+   * DDL, so it runs unscoped — there is no tenant here, and a partition holds
+   * every workspace's events for its month. Returns empty until `0041` makes
+   * the table partitioned, so this is safe to ship ahead of that migration.
+   */
+  async maintainAnalyticsEventPartitions(
+    input: AnalyticsPartitionMaintenanceInput,
+  ): Promise<AnalyticsPartitionMaintenanceResult> {
+    const now = new Date(input.now);
+    if (!Number.isFinite(now.getTime())) throw new Error('partition maintenance now is invalid');
+    const [partitioned] = resultRows(
+      await this.database.execute(
+        sql`select relkind = 'p' as partitioned from pg_class where relname = 'analytics_events'`,
+      ),
+    );
+    if (partitioned?.partitioned !== true) return { created: [], dropped: [] };
+
+    const created: string[] = [];
+    for (const month of upcomingPartitionMonths(
+      now,
+      input.monthsAhead ?? ANALYTICS_EVENT_PARTITION_MONTHS_AHEAD,
+    )) {
+      const name = analyticsPartitionName(month);
+      const upperBound = addUtcMonths(month, 1);
+      await this.database.execute(
+        sql`create table if not exists ${sql.identifier(name)}
+            partition of analytics_events
+            for values from (${month.toISOString()}) to (${upperBound.toISOString()})`,
+      );
+      await this.applyPartitionRowSecurity(name);
+      created.push(name);
+    }
+
+    /*
+     * Detach before drop. A drop alone takes an ACCESS EXCLUSIVE lock on the
+     * parent for its duration, which stalls every insert; `detach concurrently`
+     * does not, and the detached table then drops on its own.
+     */
+    const cutoff = retentionCutoffMonth(
+      now,
+      input.retentionMonths ?? ANALYTICS_EVENT_RETENTION_MONTHS,
+    );
+    const dropped: string[] = [];
+    for (const name of await this.expiredPartitionNames(cutoff)) {
+      await this.database.execute(
+        sql`alter table analytics_events detach partition ${sql.identifier(name)} concurrently`,
+      );
+      await this.database.execute(sql`drop table if exists ${sql.identifier(name)}`);
+      dropped.push(name);
+    }
+    return { created, dropped };
+  }
+
+  /**
+   * A new partition inherits no row security, and a partition reached by its
+   * own name enforces its own policies rather than the parent's. Without this,
+   * every month created after `0041` would be readable across tenants by
+   * anything holding SELECT on it.
+   */
+  private async applyPartitionRowSecurity(name: string): Promise<void> {
+    const partition = sql.identifier(name);
+    await this.database.execute(sql`alter table ${partition} enable row level security`);
+    await this.database.execute(sql`alter table ${partition} force row level security`);
+    /*
+     * `create policy` has no `if not exists`, and this runs on every tick over
+     * partitions that mostly already exist, so ask first.
+     */
+    const existing = new Set(
+      resultRows(
+        await this.database.execute(
+          sql`select policyname from pg_policies
+              where schemaname = current_schema() and tablename = ${name}`,
+        ),
+      )
+        .map((row) => row.policyname)
+        .filter((policy): policy is string => typeof policy === 'string'),
+    );
+    if (!existing.has('analytics_events_workspace_isolation')) {
+      await this.database.execute(
+        sql`create policy analytics_events_workspace_isolation on ${partition}
+            for select using (workspace_id = current_setting('lodariq.workspace_id', true))`,
+      );
+    }
+    if (!existing.has('analytics_events_workspace_insert')) {
+      await this.database.execute(
+        sql`create policy analytics_events_workspace_insert on ${partition}
+            for insert with check (workspace_id = current_setting('lodariq.workspace_id', true))`,
+      );
+    }
+  }
+
+  /**
+   * Partitions whose entire range is older than the cutoff.
+   *
+   * Read from the catalog rather than by name arithmetic: a partition created
+   * by hand, or with a different span, must not be missed or mis-parsed. The
+   * DEFAULT partition has no bounds and is never returned.
+   */
+  private async expiredPartitionNames(cutoff: Date): Promise<string[]> {
+    const rows = resultRows(
+      await this.database.execute(
+        sql`select child.relname as name,
+                   pg_get_expr(child.relpartbound, child.oid) as bound
+            from pg_inherits
+            join pg_class parent on parent.oid = pg_inherits.inhparent
+            join pg_class child on child.oid = pg_inherits.inhrelid
+            where parent.relname = 'analytics_events'`,
+      ),
+    );
+    const expired: string[] = [];
+    for (const row of rows) {
+      const name = typeof row.name === 'string' ? row.name : null;
+      const bound = typeof row.bound === 'string' ? row.bound : '';
+      if (!name || bound.includes('DEFAULT')) continue;
+      const upper = /TO \('([^']+)'\)/u.exec(bound)?.[1];
+      const upperBound = upper ? new Date(upper) : null;
+      if (!upperBound || !Number.isFinite(upperBound.getTime())) continue;
+      if (upperBound.getTime() <= cutoff.getTime()) expired.push(name);
+    }
+    return expired;
+  }
+
   async createVisualCheckRun(input: CreateVisualCheckRunInput): Promise<VisualCheckRunRecord> {
     assertVisualCheckReport(input.report);
     if (!/^sha256-[0-9a-f]{64}$/u.test(input.contentHash)) {

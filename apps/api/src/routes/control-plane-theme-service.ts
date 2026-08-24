@@ -11,8 +11,8 @@ import {
   validate,
   type ProductStyleProposal,
 } from '@lodariq/schema';
+import { mergeProductStyleTokensIntoDraft } from '@lodariq/schema/product-style-theme';
 import type { FastifyReply } from 'fastify';
-import { mergeProductStyleTokensIntoDraft } from '../product-style-theme';
 
 interface ApplyProductStyleProposalInput {
   repository: ControlPlaneRepository;

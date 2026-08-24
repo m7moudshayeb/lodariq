@@ -117,10 +117,7 @@ import {
   stepPageDestination,
   PreviewPageUnreachableError,
 } from './preview-page-navigation';
-import {
-  clearDraftPreviewResume,
-  writeDraftPreviewResume,
-} from './preview-resume';
+import { clearDraftPreviewResume, writeDraftPreviewResume } from './preview-resume';
 import { publishTargetRingState } from './overlay/target-ring';
 import { stepEditability, type PresenceState } from './presence/presence-model';
 import type { OverlayShell } from './overlay/types';
@@ -680,7 +677,6 @@ function openAuthoringPanel(
     onDeleteStep: (stepId) => sendShellStepCommand('remove', stepId),
     onDuplicateStep: (stepId) => sendShellStepCommand('duplicate', stepId),
     onClose: () => close(),
-    onCollapse: () => collapseOverlayEditor(),
     onExitPreview: () => leaveInteractivePreview(),
     onMoveStep: (stepId, direction) =>
       sendShellStepCommand(direction === 'up' ? 'move-up' : 'move-down', stepId),
@@ -1189,10 +1185,30 @@ function openAuthoringPanel(
           );
           previewTheme = structuredClone(message.previewTheme);
           previewThemeRevision = message.draftRevision;
+          /*
+           * Fired, not awaited — and this is the whole point of the two lines
+           * above being the acknowledgement.
+           *
+           * A returned promise holds the ack until it settles (see the bridge's
+           * `onMessage` handling), and the frame budgets 2s for this one. A
+           * replay is compile + resolve + play, which is routinely more than
+           * that: measured at 2075ms with the refreshed dialog already on the
+           * page. So the creator was told "Product match was saved, but the
+           * preview could not refresh" about a preview that had refreshed.
+           *
+           * The frame asked whether this theme was taken. It was, above. What
+           * the replay then does is the host's business, and the host is where a
+           * replay failure is worth saying out loud.
+           */
           if (changed && (previewPending || previewPresented)) {
-            return playPreviewDocument({
+            void playPreviewDocument({
               stepId: pendingInlinePreviewStepId(),
               rejectOnFailure: true,
+            }).catch(() => {
+              overlayShell?.notify(
+                authoringText('The preview could not restart with the new Brand theme.'),
+                { kind: 'warning' },
+              );
             });
           }
           return;
@@ -1266,6 +1282,12 @@ function openAuthoringPanel(
         }
         if (message.type === AUTHORING_SHELL_CAPABILITIES_TYPE) {
           overlayShell?.setAssistAvailable(message.assist);
+          if (typeof message.recording === 'boolean') {
+            overlayShell?.setPillState({ recording: message.recording });
+          }
+          if (typeof message.canvasZoomable === 'boolean') {
+            overlayShell?.setPillState({ canvasZoomable: message.canvasZoomable });
+          }
           return;
         }
         if (message.type === AUTHORING_SHELL_PALETTE_OPEN_TYPE) {
@@ -1781,11 +1803,6 @@ function openAuthoringPanel(
       command,
       ...(stepId ? { stepId } : {}),
     });
-  }
-
-  function collapseOverlayEditor(): void {
-    overlayShell?.setPresentation('collapsed');
-    sendShellStepCommand('collapse', currentHeaderStepId ?? undefined);
   }
 
   function openOperations(tab?: string): void {
@@ -3068,7 +3085,8 @@ const COACH_TIP_DELAY_MS = 700;
 function previewFailureMessage(error: unknown): string {
   const name = error instanceof Error ? error.name : '';
   const message = error instanceof Error ? error.message : '';
-  return name === 'TourPresentationUnavailableError' && message.includes('target could not be resolved')
+  return name === 'TourPresentationUnavailableError' &&
+    message.includes('target could not be resolved')
     ? authoringText('Preview stopped: this step points at something that is not on this page.')
     : authoringText('Preview could not start.');
 }

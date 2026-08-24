@@ -57,6 +57,9 @@ import {
   type BrandDriftEmailNotifier,
 } from './brand-drift-email';
 import { assertBillingProviderId, type CommercialBillingProvider } from './commercial-billing';
+import { createPaddleBillingProviderFromEnvironment } from './commercial-billing-paddle';
+import { createNeonR2DataResidencyProviderFromEnvironment } from './data-residency-neon-r2';
+import { createAnalyticsWarehouseProvidersFromEnvironment } from './analytics-warehouse-bigquery';
 import {
   createCommercialBillingWorker,
   type CommercialBillingWorker,
@@ -167,10 +170,23 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
       ? undefined
       : (options.brandDriftEmailNotifier ??
         createBrandDriftEmailNotifierFromEnvironment(process.env));
-  const billingProvider = options.billingProvider ?? undefined;
+  /*
+   * `null` means the caller is deliberately running without a provider — a test,
+   * or a tier with billing off. `undefined` means "use whatever is configured",
+   * and each factory returns undefined unless its credentials are all present.
+   */
+  const billingProvider =
+    options.billingProvider === null
+      ? undefined
+      : (options.billingProvider ?? createPaddleBillingProviderFromEnvironment(process.env));
   if (billingProvider) assertBillingProviderId(billingProvider);
-  const dataResidencyProvider = options.dataResidencyProvider ?? undefined;
-  const analyticsWarehouseProviders = options.analyticsWarehouseProviders ?? [];
+  const dataResidencyProvider =
+    options.dataResidencyProvider === null
+      ? undefined
+      : (options.dataResidencyProvider ?? createNeonR2DataResidencyProviderFromEnvironment(process.env));
+  const analyticsWarehouseProviders =
+    options.analyticsWarehouseProviders ??
+    createAnalyticsWarehouseProvidersFromEnvironment(process.env);
   const webAuthnConfiguration =
     options.webAuthnConfiguration === undefined
       ? readWebAuthnConfiguration(process.env)

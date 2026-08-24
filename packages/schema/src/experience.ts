@@ -6,6 +6,14 @@ export const HOTSPOT_MARKER_FORMS = ['pulse', 'dot', 'ring', 'number'] as const;
 export const HOTSPOT_ACTIVATION_MODES = ['click', 'hover', 'focus'] as const;
 export const SURVEY_SUBMISSION_MODES = ['once', 'repeatable'] as const;
 
+export const TOUR_STEP_INDICATOR_STYLES = ['none', 'count', 'dots', 'bar'] as const;
+/** `inline` shares the action row; `block` takes its own line above the actions. */
+export const TOUR_STEP_INDICATOR_PLACEMENTS = ['block', 'inline'] as const;
+/** Wording preset for the `count` style. Localized at render time — never authored free text. */
+export const TOUR_STEP_INDICATOR_COUNT_FORMS = ['bare', 'labeled'] as const;
+/** Past this many steps a dot row stops being readable, so `dots` degrades to `count`. */
+export const TOUR_STEP_INDICATOR_DOTS_MAX_STEPS = 8;
+
 export const AnnouncementBehavior = Type.Object(
   {
     type: Type.Literal('announcement'),
@@ -47,7 +55,22 @@ export const ChecklistBehavior = Type.Object(
 export type ChecklistBehavior = Static<typeof ChecklistBehavior>;
 
 export const TourBehavior = Type.Object(
-  { type: Type.Literal('tour') },
+  {
+    type: Type.Literal('tour'),
+    /**
+     * Step position indicator. Absent — or `none` — renders the card exactly as it
+     * did before this field existed, which is what every pre-existing tour gets.
+     */
+    stepIndicator: Type.Optional(
+      Type.Union(TOUR_STEP_INDICATOR_STYLES.map((value) => Type.Literal(value))),
+    ),
+    stepIndicatorPlacement: Type.Optional(
+      Type.Union(TOUR_STEP_INDICATOR_PLACEMENTS.map((value) => Type.Literal(value))),
+    ),
+    stepIndicatorCountForm: Type.Optional(
+      Type.Union(TOUR_STEP_INDICATOR_COUNT_FORMS.map((value) => Type.Literal(value))),
+    ),
+  },
   { $id: 'TourBehavior', additionalProperties: false },
 );
 export type TourBehavior = Static<typeof TourBehavior>;
@@ -132,7 +155,7 @@ const CompiledBlockId = Type.String({ minLength: 1, maxLength: 128 });
 export const CompiledExperienceBehavior = Type.Union(
   [
     Type.Object(
-      { type: Type.Literal('tour'), surface: Type.Literal('popup') },
+      { ...TourBehavior.properties, surface: Type.Literal('popup') },
       { additionalProperties: false },
     ),
     Type.Object(

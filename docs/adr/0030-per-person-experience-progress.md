@@ -123,15 +123,38 @@ workspace id can confirm a match by recomputing the hash — the digest is unsal
 by design, because determinism across devices is the property being bought. Treat
 it as personal data for erasure and export purposes.
 
+## Implementation status (2026-08-24)
+
+The prerequisite in §1 has landed. `engagementKey` is now attached to the events
+that end an experience — `*_completed`, `*_skipped`, `*_dismissed`,
+`survey_submitted` — matched by exact name, because `checklist_item_completed`
+and `tour_adaptive_step_skipped` both end in a terminal word and neither ends an
+experience. It cost 53 bytes gzipped in `runtime+tour`, leaving 59 of 59,392.
+Usage metering is unaffected: it filters on `experience_shown` explicitly.
+
+§2 and §3 are still unbuilt, and one thing found while implementing §1 belongs in
+this ADR before they are:
+
+**The read path needs an index that does not exist.** `analytics_events` is
+indexed on `(workspace_id, occurred_at)` and `(document_id, occurred_at)` after
+`0039`, and on nothing that starts with `engagement_key`. The §2 lookup is on the
+delivery path, so serving it against those indexes means a scan per page load on
+the largest table in the system. Whoever builds §2 needs the index — and
+therefore a shared-environment migration — in the same change, not after it. That
+also moves the materialisation question in §2 from "when the query is too slow"
+to a decision to make up front, since the index and the rollup solve the same
+problem.
+
 ## Consequences
 
-- **Not built.** This is a design. What ships today is the device-scoped
-  `localStorage` store behind the interface, and it is honest about being a
-  stand-in.
-- The `engagementKey`-on-terminal-events change is a prerequisite and is worth
-  making early even if the rest waits: it costs almost nothing and, until it
-  lands, no amount of downstream work can answer the question, because the data
-  is not being recorded.
+- **Partly built.** §1 has landed; §2 and §3 have not. What ships today is still
+  the device-scoped `localStorage` store behind the interface, and it is honest
+  about being a stand-in.
+- The `engagementKey`-on-terminal-events change is a prerequisite and was worth
+  making early even though the rest waits: until it landed, no amount of
+  downstream work could answer the question, because the data was not being
+  recorded. It is being recorded now, so the stream accumulates history from
+  today rather than from whenever §2 ships.
 - Deriving rather than storing means the answer is only as good as ingestion.
   Events are best-effort — `sendBeacon` on exit, swallowed failures — so a lost
   `tour_completed` re-offers the tour. That is the correct direction to fail, and

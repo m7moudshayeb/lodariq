@@ -130,6 +130,12 @@ export interface FailBillingMeterBatchInput {
 
 export interface CommercialBillingRepository {
   readWorkspaceBillingOverview(workspaceId: string): Promise<BillingOverview>;
+  /**
+   * Provider-side ids for a workspace. Kept off `BillingOverview`, which is a
+   * browser response — a portal session needs the customer id, the dashboard
+   * never does.
+   */
+  readBillingAccount(workspaceId: string): Promise<BillingAccountRecord | null>;
   ingestBillingProviderEvent(
     input: NormalizedBillingProviderEvent,
   ): Promise<IngestBillingProviderEventResult>;

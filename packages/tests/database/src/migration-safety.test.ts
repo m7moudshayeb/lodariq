@@ -46,6 +46,7 @@ import {
   HOT_QUERY_INDEXES_FILE_NAME,
   ANALYTICS_EVENTS_INDEXES_FILE_NAME,
   DEAD_LETTER_AND_ROTATION_FILE_NAME,
+  ANALYTICS_EVENTS_PARTITIONING_FILE_NAME,
   listCheckedInSqlFiles,
   readInitialBaseline,
   readProviderNeutralIdentityMigration,
@@ -127,6 +128,7 @@ describe('database migration safety guard', () => {
       HOT_QUERY_INDEXES_FILE_NAME,
       ANALYTICS_EVENTS_INDEXES_FILE_NAME,
       DEAD_LETTER_AND_ROTATION_FILE_NAME,
+      ANALYTICS_EVENTS_PARTITIONING_FILE_NAME,
     ]);
   });
 
@@ -418,7 +420,7 @@ describe('database migration safety guard', () => {
     expect(migration).toContain('validate constraint publication_verifications_report_json_check;');
   });
 
-  it('passes the checked-in initial baseline', () => {
+  it('passes when all checked-in migrations carry required sign-off metadata', () => {
     expect(runMigrationCheck()).toContain('Migration safety check passed');
   });
 

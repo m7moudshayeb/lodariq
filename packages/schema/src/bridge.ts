@@ -305,6 +305,10 @@ export const AuthoringShellCapabilitiesMessage = Type.Object(
     ...BridgeEnvelope.properties,
     type: Type.Literal(AUTHORING_SHELL_CAPABILITIES_TYPE),
     assist: Type.Boolean(),
+    /* Optional so a frame built before these fields still validates here. */
+    recording: Type.Optional(Type.Boolean()),
+    /** True only while a surface that honours a canvas zoom is on screen. */
+    canvasZoomable: Type.Optional(Type.Boolean()),
   },
   { $id: 'AuthoringShellCapabilitiesMessage', additionalProperties: false },
 );

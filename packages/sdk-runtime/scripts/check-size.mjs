@@ -137,7 +137,14 @@ const checks = [
     // behind a store interface a server-backed one can replace. ~0.4 KiB, paid
     // only after an experience starts, and it is what stops a tour someone
     // already dismissed for good from being offered again on their next visit.
-    limit: 58 * 1024,
+    //
+    // Then to 60 KiB, which is two separate costs. ~0.9 KiB is the step
+    // indicator (2f64731), which landed over the 58 KiB line without this
+    // check being run. The other ~0.4 KiB is the target-resolution timing
+    // handed to onTargetResolution: ten bounded numbers per targeted step,
+    // added to answer whether the 1.5s settling window is a latency problem or
+    // a first-pass resolution failure. Drop the timing once that is answered.
+    limit: 60 * 1024,
     forbidden: productionRuntimeForbiddenPatterns(),
   },
 ];

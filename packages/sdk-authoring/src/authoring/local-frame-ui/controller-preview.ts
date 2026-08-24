@@ -54,7 +54,13 @@ export abstract class ControllerPreviewFeature extends ControllerHistoryReleaseF
         ...(accessibilityMode ? { accessibilityMode } : {}),
         ...(simulationContext ? { simulationContext } : {}),
       },
-      { timeoutMs: 2_000 },
+      /*
+       * The same 20s the step and approach modes above budget, for the same
+       * work: the host acks a preview request only once the replay has settled,
+       * and a replay is compile + resolve + play. At 2s a full preview that
+       * started perfectly well reported "Preview could not start".
+       */
+      { timeoutMs: 20_000 },
     );
   }
 
@@ -106,6 +112,7 @@ export abstract class ControllerPreviewFeature extends ControllerHistoryReleaseF
     this.canceledTargetBlockIds.add(blockId);
     this.recordMetric('target.pick.canceled');
     this.setStatus(authoringText('Placement selection canceled'));
+    this.stopStepRecording();
     this.bridge.send({
       protocol: BRIDGE_PROTOCOL_VERSION,
       sessionId: this.sessionId,

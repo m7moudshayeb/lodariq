@@ -1,13 +1,37 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DashboardEnvironmentsResponse,
   DEFAULT_ENVIRONMENT_GOVERNANCE_CAPABILITIES,
   GOVERNANCE_CAPABILITIES_BY_BASE_ROLE,
   resolveEnvironmentGovernanceCapabilities,
   resolveWorkspaceGovernanceCapabilities,
+  validate,
   validateGovernanceCapabilityProfileGrant,
 } from '@lodariq/schema';
 
 describe('governance capability profiles', () => {
+  it('dereferences governance capabilities in non-empty dashboard environment responses', () => {
+    const response = {
+      environments: [
+        {
+          id: 'env_development',
+          workspaceId: 'wk_a',
+          kind: 'development' as const,
+          name: 'Development',
+          originAllowlist: ['https://dev.example.com'],
+          governanceCapabilities: [...DEFAULT_ENVIRONMENT_GOVERNANCE_CAPABILITIES.development],
+          createdAt: '2026-08-24T00:00:00.000Z',
+          updatedAt: '2026-08-24T00:00:00.000Z',
+        },
+      ],
+    };
+
+    expect(validate(DashboardEnvironmentsResponse, response)).toEqual({
+      valid: true,
+      value: response,
+    });
+  });
+
   it('keeps viewer authority fail closed even when a forged profile requests grants', () => {
     expect(
       resolveEnvironmentGovernanceCapabilities({

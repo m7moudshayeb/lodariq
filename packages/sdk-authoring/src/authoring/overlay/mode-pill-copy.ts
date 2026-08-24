@@ -51,6 +51,15 @@ export const MODE_PILL_COPY = {
   zoomCanvasIn: authoringText('Zoom the canvas in'),
   zoomCanvasOut: authoringText('Zoom the canvas out'),
   resetCanvasZoom: authoringText('Reset canvas zoom'),
+  /**
+   * The three rows above were live and moved nothing, because the surface they
+   * act on is not on screen in overlay editing — the card is drawn at the size
+   * it will ship, and scaling only Lodariq's card would make it lie about that.
+   * Printed and disabled with the reason (§14.4), and with the answer.
+   */
+  canvasZoomUnavailable: authoringText(
+    'The card is shown at the size it will ship. Use your browser zoom to read it larger.',
+  ),
   /** The map itself moved to the big modal — see overlay/keyboard-map.ts (§10). */
   restart: authoringText('Restart from the first step'),
   expand: authoringText('Show authoring status'),

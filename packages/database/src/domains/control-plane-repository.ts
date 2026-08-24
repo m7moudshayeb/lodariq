@@ -1,3 +1,7 @@
+import type {
+  AnalyticsPartitionMaintenanceInput,
+  AnalyticsPartitionMaintenanceResult,
+} from './analytics-partitions';
 import type { ExperienceMeasurementRepository } from './experience-measurement-repository';
 import type { CommercialEntitlementRepository } from './commercial-entitlements';
 import type { CommercialBillingRepository } from './commercial-billing';
@@ -383,6 +387,10 @@ export interface ControlPlaneRepository
     input: RevokeAuthoringSessionInput,
   ): Promise<AuthoringSessionRecord | null>;
   createVisualCheckRun(input: CreateVisualCheckRunInput): Promise<VisualCheckRunRecord>;
+  /** Analytics retention: creates upcoming partitions, drops fully expired ones. */
+  maintainAnalyticsEventPartitions(
+    input: AnalyticsPartitionMaintenanceInput,
+  ): Promise<AnalyticsPartitionMaintenanceResult>;
   listVisualCheckRuns(workspaceId: string, documentId: string): Promise<VisualCheckRunRecord[]>;
   ingestAuthoritativeEvents(input: IngestAuthoritativeEventsInput): Promise<number>;
   listAnalyticsEvents(input: QueryAnalyticsEventsInput): Promise<PersistedAnalyticsEventRecord[]>;

@@ -10,7 +10,7 @@ import {
   type NodeMouseHandler,
   type ReactFlowInstance,
 } from '@xyflow/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { authoringText } from '../../../i18n';
 import {
   deriveTourFlowMap,
@@ -101,6 +101,23 @@ export function TourFlowMap({
   );
   const [selectedActionBlockId, setSelectedActionBlockId] = useState(initialActionBlockId ?? null);
   const [workbenchMode, setWorkbenchMode] = useState<TourFlowWorkbenchMode>(initialWorkbenchMode);
+  const [canvasReady, setCanvasReady] = useState(false);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const updateCanvasReady = () => {
+      const nextReady = canvas.clientWidth > 0 && canvas.clientHeight > 0;
+      setCanvasReady((currentReady) => (currentReady === nextReady ? currentReady : nextReady));
+    };
+
+    updateCanvasReady();
+    const observer = new ResizeObserver(updateCanvasReady);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     setNodes((current) => reconcileNodePositions(current, elements.nodes));
@@ -186,34 +203,40 @@ export function TourFlowMap({
         tool={tool}
       />
 
-      <div className="tour-flow-canvas" data-tool={tool}>
-        <ReactFlow<TourFlowCanvasNode, TourFlowCanvasEdge>
-          aria-label={authoringText('Flow Map')}
-          ariaLabelConfig={FLOW_ARIA_LABEL_CONFIG}
-          deleteKeyCode={null}
-          edges={edges}
-          elementsSelectable={tool === 'select'}
-          elevateEdgesOnSelect
-          fitView
-          fitViewOptions={{ maxZoom: 1, padding: 0.16 }}
-          maxZoom={1.6}
-          minZoom={0.35}
-          nodeTypes={NODE_TYPES}
-          nodes={nodes}
-          nodesConnectable={false}
-          nodesDraggable={tool === 'select'}
-          onEdgeClick={onEdgeClick}
-          onEdgesChange={onEdgesChange}
-          onInit={setInstance}
-          onNodeClick={onNodeClick}
-          onNodesChange={onNodesChange}
-          onViewportChange={(viewport) => setZoom(viewport.zoom)}
-          panOnDrag={tool === 'pan'}
-          proOptions={{ hideAttribution: true }}
-          selectionOnDrag={tool === 'select'}
-        >
-          <Background color="#cbd5d1" gap={18} size={1} variant={BackgroundVariant.Dots} />
-        </ReactFlow>
+      <div className="tour-flow-canvas" data-tool={tool} ref={canvasRef}>
+        {canvasReady ? (
+          <ReactFlow<TourFlowCanvasNode, TourFlowCanvasEdge>
+            aria-label={authoringText('Flow Map')}
+            ariaLabelConfig={FLOW_ARIA_LABEL_CONFIG}
+            deleteKeyCode={null}
+            edges={edges}
+            elementsSelectable={tool === 'select'}
+            elevateEdgesOnSelect
+            fitView
+            fitViewOptions={{ maxZoom: 1, padding: 0.16 }}
+            maxZoom={1.6}
+            minZoom={0.35}
+            nodeTypes={NODE_TYPES}
+            nodes={nodes}
+            nodesConnectable={false}
+            nodesDraggable={tool === 'select'}
+            onEdgeClick={onEdgeClick}
+            onEdgesChange={onEdgesChange}
+            onInit={setInstance}
+            onNodeClick={onNodeClick}
+            onNodesChange={onNodesChange}
+            onViewportChange={(viewport) => setZoom(viewport.zoom)}
+            panOnDrag={tool === 'pan'}
+            proOptions={{ hideAttribution: true }}
+            selectionOnDrag={tool === 'select'}
+          >
+            <Background color="#cbd5d1" gap={18} size={1} variant={BackgroundVariant.Dots} />
+          </ReactFlow>
+        ) : (
+          <div className="tour-flow-canvas-loading" role="status">
+            {authoringText('Preparing Flow Map')}
+          </div>
+        )}
 
         <TourFlowCanvasControls
           onFitView={fitView}

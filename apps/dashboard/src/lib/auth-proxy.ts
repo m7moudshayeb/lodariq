@@ -2,7 +2,7 @@ import 'server-only';
 import { createHmac } from 'node:crypto';
 import { isIP } from 'node:net';
 import { AUTH_CORRELATION_HEADER } from '@lodariq/schema';
-import { readSessionTokenFromCookieHeader } from './auth-contract';
+import { isDevelopmentHeaderAuthMode, readSessionTokenFromCookieHeader } from './auth-contract';
 import { isPasswordRecoveryEnabled } from './password-recovery-config';
 import { isPublicSignupEnabled } from './signup-config';
 import { authErrorMessageDescriptor } from '../i18n/error-messages';
@@ -40,10 +40,7 @@ export async function proxyOwnedAuthRequest(
     const upstreamHeaders = new Headers({ accept: 'application/json' });
     const contentType = request.headers.get('content-type');
     if (contentType) upstreamHeaders.set('content-type', contentType);
-    for (const name of [
-      'x-lodariq-domain-verification',
-      'x-lodariq-break-glass-request-id',
-    ]) {
+    for (const name of ['x-lodariq-domain-verification', 'x-lodariq-break-glass-request-id']) {
       const value = request.headers.get(name);
       if (value) upstreamHeaders.set(name, value.slice(0, 512));
     }
@@ -55,6 +52,16 @@ export async function proxyOwnedAuthRequest(
 
     const sessionToken = readSessionTokenFromCookieHeader(request.headers.get('cookie'));
     if (sessionToken) upstreamHeaders.set('authorization', `Bearer ${sessionToken}`);
+    if (isDevelopmentHeaderAuthMode() && !sessionToken) {
+      upstreamHeaders.set(
+        'x-lodariq-workspace-id',
+        process.env.LODARIQ_WORKSPACE_ID ?? 'wk_local_dev',
+      );
+      upstreamHeaders.set(
+        'x-lodariq-user-id',
+        process.env.LODARIQ_DASHBOARD_USER_ID ?? 'user_local_dev',
+      );
+    }
 
     const upstream = await fetch(new URL(upstreamPath, apiBaseUrl()), {
       method: request.method,
@@ -91,16 +98,17 @@ export async function proxyOwnedAuthRequest(
   }
 }
 
-export async function proxyOidcCallback(
-  request: Request,
-  provider: string,
-): Promise<Response> {
+export async function proxyOidcCallback(request: Request, provider: string): Promise<Response> {
   if (provider !== 'google' && provider !== 'microsoft') return oidcFailureRedirect(request);
   const url = new URL(request.url);
   const state = url.searchParams.get('state');
   const code = url.searchParams.get('code');
   const providerError = url.searchParams.get('error');
-  if (!state || !/^[A-Za-z0-9_-]{43,256}$/u.test(state) || Boolean(code) === Boolean(providerError)) {
+  if (
+    !state ||
+    !/^[A-Za-z0-9_-]{43,256}$/u.test(state) ||
+    Boolean(code) === Boolean(providerError)
+  ) {
     return oidcFailureRedirect(request);
   }
   const description = url.searchParams.get('error_description');
@@ -130,7 +138,8 @@ export async function proxyOidcCallback(
       location: new URL(safeOidcReturnTo(payload.returnTo), request.url).toString(),
       'cache-control': 'no-store',
     });
-    for (const cookie of responseCookies(upstream.headers)) responseHeaders.append('set-cookie', cookie);
+    for (const cookie of responseCookies(upstream.headers))
+      responseHeaders.append('set-cookie', cookie);
     return new Response(null, { status: 303, headers: responseHeaders });
   } catch {
     return oidcFailureRedirect(request);
@@ -142,7 +151,11 @@ export async function proxyEnterpriseOidcCallback(request: Request): Promise<Res
   const state = url.searchParams.get('state');
   const code = url.searchParams.get('code');
   const providerError = url.searchParams.get('error');
-  if (!state || !/^[A-Za-z0-9_-]{43,256}$/u.test(state) || Boolean(code) === Boolean(providerError)) {
+  if (
+    !state ||
+    !/^[A-Za-z0-9_-]{43,256}$/u.test(state) ||
+    Boolean(code) === Boolean(providerError)
+  ) {
     return enterpriseOidcFailureRedirect(request);
   }
   const description = url.searchParams.get('error_description');

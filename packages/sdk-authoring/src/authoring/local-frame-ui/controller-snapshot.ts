@@ -543,6 +543,8 @@ export class ControllerSnapshotFeature extends ControllerAssistFeature {
       canonicalDocumentState: document.canonical,
       ...this.operationsSnapshot(),
       activeStepId: this.selectedBlockId ?? null,
+      canvasZoomPercent: this.canvasZoomPercent,
+      recordingSteps: this.recordingSteps,
       deliveryCapabilities: new Set(this.deliveryCapabilities),
       contentLocale: this.contentLocale,
       ...(this.services.narrationVoices

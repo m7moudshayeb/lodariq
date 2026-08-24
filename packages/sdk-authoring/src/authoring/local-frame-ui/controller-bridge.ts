@@ -312,6 +312,7 @@ export abstract class ControllerBridgeFeature extends ControllerChromeFeature {
       this.canceledTargetBlockIds.add(message.blockId);
       if (!alreadyCanceled) this.recordMetric('target.pick.canceled');
       this.setStatus(authoringText('Placement selection canceled'));
+      this.stopStepRecording();
       return;
     }
 
@@ -408,6 +409,8 @@ export abstract class ControllerBridgeFeature extends ControllerChromeFeature {
     if (wasTargetlessDocument && !existingTargetId) {
       void this.matchFirstTargetStyle(targetId);
     }
+    /* One answered placement arms the next, which is all "recording" ever meant. */
+    this.continueStepRecording();
     return previewConfirmation;
   }
 

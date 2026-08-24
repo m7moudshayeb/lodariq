@@ -267,7 +267,7 @@ function sectionBodies({
         </p>
       </>
     ),
-    actions: <StepActionsSection controller={controller} tooltip={tooltip} />,
+    actions: <StepActionsSection controller={controller} snapshot={snapshot} tooltip={tooltip} />,
     flow: (
       <StepFlowSection
         controller={controller}
@@ -301,7 +301,7 @@ function sectionBodies({
       <ExperienceBehaviorSection controller={controller} section="frequency" snapshot={snapshot} />
     ),
     audience: (
-      <ExperienceBehaviorSection controller={controller} section="content" snapshot={snapshot} />
+      <ExperienceBehaviorSection controller={controller} section="audience" snapshot={snapshot} />
     ),
     marker: (
       <ExperienceBehaviorSection controller={controller} section="marker" snapshot={snapshot} />

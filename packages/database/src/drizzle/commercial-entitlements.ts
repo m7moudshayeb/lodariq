@@ -52,6 +52,7 @@ import {
   billingMeterItemsMatch,
   normalizedBillingMeterItems,
   toPublicBillingMeterBatch,
+  type BillingAccountRecord,
   type BillingMeterBatchRecord,
   type ClaimBillingMeterBatchesInput,
   type CompleteBillingMeterBatchInput,
@@ -433,6 +434,28 @@ export class DrizzleRepositoryCommercialEntitlements extends DrizzleRepositoryEx
         })
         .returning({ id: workspaceUsageLedger.id });
       return Boolean(created);
+    });
+  }
+
+  async readBillingAccount(workspaceId: string): Promise<BillingAccountRecord | null> {
+    return this.scoped(workspaceId, async (tx) => {
+      const [account] = await tx
+        .select()
+        .from(workspaceBillingAccounts)
+        .where(eq(workspaceBillingAccounts.workspaceId, workspaceId))
+        .limit(1);
+      if (!account) return null;
+      return {
+        workspaceId: account.workspaceId,
+        provider: account.provider,
+        providerCustomerId: account.providerCustomerId,
+        ...(account.providerSubscriptionId
+          ? { providerSubscriptionId: account.providerSubscriptionId }
+          : {}),
+        syncedThrough: account.syncedThrough.toISOString(),
+        createdAt: account.createdAt.toISOString(),
+        updatedAt: account.updatedAt.toISOString(),
+      };
     });
   }
 

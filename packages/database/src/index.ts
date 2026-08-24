@@ -15,6 +15,7 @@ export * from './domains/assurance';
 export * from './domains/oidc';
 export * from './repository';
 export * from './neon';
+export * from './residency-data-plane';
 export * from './scoped-transaction';
 export * from './drizzle-repository';
 export * from './factory';

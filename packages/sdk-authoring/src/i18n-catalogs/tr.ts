@@ -114,7 +114,6 @@ const TR_CATALOG: AuthoringCatalog = {
   Click: 'Tıklama',
   Drawer: 'Çekmece',
   'Experience behavior updated': 'Deneyim davranışı güncellendi',
-  'Allow visitors to dismiss': 'Ziyaretçilerin kapatmasına izin ver',
   'Show announcement': 'Duyuruyu göster',
   'Every eligible visit': 'Her uygun ziyarette',
   'Once per session': 'Oturum başına bir kez',
@@ -131,10 +130,8 @@ const TR_CATALOG: AuthoringCatalog = {
   Responses: 'Yanıtlar',
   'One submission per visitor': 'Ziyaretçi başına bir gönderim',
   'Allow repeat submissions': 'Tekrarlanan gönderimlere izin ver',
-  'Require an answer before submitting': 'Göndermeden önce yanıt iste',
   'Use action conditions to branch after a response.':
     'Yanıttan sonra dallanmak için eylem koşullarını kullanın.',
-  'Show checklist progress': 'Kontrol listesi ilerlemesini göster',
   'The checklist completes when every item is checked.':
     'Her öğe işaretlendiğinde kontrol listesi tamamlanır.',
   'Edit this content on the card.': 'Bu içeriği kart üzerinde düzenleyin.',
@@ -2844,6 +2841,38 @@ const TR_CATALOG: AuthoringCatalog = {
   'Always the first one': 'Her zaman ilk öğe',
   'This is one of several items in a list. Which one did you mean?':
     'Bu, listedeki birkaç öğeden biri. Hangisini kastettiniz?',
+  Dismissing: 'Kapatma',
+  Locked: 'Kilitli',
+  Allowed: 'İzinli',
+  'An answer is': 'Yanıt',
+  Progress: 'İlerleme',
+  'Who sees this is set by the experience audience, not by the card.':
+    'Bunu kimin göreceğini kart değil, deneyimin hedef kitlesi belirler.',
+  'Write the tooltip on the card; the marker sets where it opens.':
+    'İpucunu kartta yazın; işaret nerede açılacağını belirler.',
+  'Edit the question and its answers on the card.': 'Soruyu ve yanıtlarını kartta düzenleyin.',
+  'Add, reorder and word the items on the card.': 'Maddeleri kartta ekleyin, sıralayın ve yazın.',
+  'Read the ticked steps in one column each.': 'İşaretli adımları her biri bir sütunda okuyun.',
+  'The card is shown at the size it will ship. Use your browser zoom to read it larger.':
+    'Kart, yayına gireceği boyutta gösterilir. Daha büyük okumak için tarayıcı yakınlaştırmasını kullanın.',
+  'The preview could not restart with the new Brand theme.':
+    'Önizleme yeni Brand teması ile yeniden başlatılamadı.',
+  Environments: 'Ortamlar',
+  'No environment is selected yet.': 'Henüz bir ortam seçilmedi.',
+  'Everyone who reaches the page sees this.': 'Sayfaya ulaşan herkes bunu görür.',
+  'Step indicator': 'Adım göstergesi',
+  'Indicator position': 'Gösterge konumu',
+  Wording: 'İfade',
+  'Set once for the whole tour, not per step.':
+    'Her adım için değil, turun tamamı için bir kez ayarlanır.',
+  'Preparing Flow Map': 'Akış Haritası hazırlanıyor',
+  Count: 'Sayı',
+  Dots: 'Noktalar',
+  Bar: 'Çubuk',
+  'Own line': 'Kendi satırı',
+  'With the buttons': 'Düğmelerle birlikte',
+  '1 of 5': '1 / 5',
+  'Step 1 of 5': 'Adım 1/5',
 };
 
 export default TR_CATALOG;
