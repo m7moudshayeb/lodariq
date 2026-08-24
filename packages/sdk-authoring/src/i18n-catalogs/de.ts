@@ -114,7 +114,6 @@ const DE_CATALOG: AuthoringCatalog = {
   Click: 'Klick',
   Drawer: 'Schublade',
   'Experience behavior updated': 'Experience-Verhalten aktualisiert',
-  'Allow visitors to dismiss': 'Besuchern das Schließen erlauben',
   'Show announcement': 'Ankündigung anzeigen',
   'Every eligible visit': 'Bei jedem berechtigten Besuch',
   'Once per session': 'Einmal pro Sitzung',
@@ -131,10 +130,8 @@ const DE_CATALOG: AuthoringCatalog = {
   Responses: 'Antworten',
   'One submission per visitor': 'Eine Übermittlung pro Besucher',
   'Allow repeat submissions': 'Wiederholte Übermittlungen erlauben',
-  'Require an answer before submitting': 'Vor dem Absenden eine Antwort verlangen',
   'Use action conditions to branch after a response.':
     'Verwenden Sie Aktionsbedingungen, um nach einer Antwort zu verzweigen.',
-  'Show checklist progress': 'Fortschritt der Checkliste anzeigen',
   'The checklist completes when every item is checked.':
     'Die Checkliste ist abgeschlossen, wenn alle Einträge markiert sind.',
   'Edit this content on the card.': 'Bearbeiten Sie diesen Inhalt auf der Karte.',
@@ -2921,6 +2918,41 @@ const DE_CATALOG: AuthoringCatalog = {
   'Always the first one': 'Immer das erste',
   'This is one of several items in a list. Which one did you mean?':
     'Dies ist eines von mehreren Elementen in einer Liste. Welches meinten Sie?',
+  Dismissing: 'Schließen',
+  Locked: 'Gesperrt',
+  Allowed: 'Erlaubt',
+  'An answer is': 'Eine Antwort ist',
+  Progress: 'Fortschritt',
+  'Who sees this is set by the experience audience, not by the card.':
+    'Wer dies sieht, legt die Zielgruppe der Erfahrung fest, nicht die Karte.',
+  'Write the tooltip on the card; the marker sets where it opens.':
+    'Schreiben Sie den Tooltip auf der Karte; der Marker legt fest, wo er sich öffnet.',
+  'Edit the question and its answers on the card.':
+    'Bearbeiten Sie die Frage und ihre Antworten auf der Karte.',
+  'Add, reorder and word the items on the card.':
+    'Einträge auf der Karte hinzufügen, umsortieren und formulieren.',
+  'Read the ticked steps in one column each.':
+    'Lesen Sie die ausgewählten Schritte in je einer Spalte.',
+  'The card is shown at the size it will ship. Use your browser zoom to read it larger.':
+    'Die Karte wird in der Größe gezeigt, in der sie ausgeliefert wird. Nutzen Sie den Zoom Ihres Browsers, um sie größer zu lesen.',
+  'The preview could not restart with the new Brand theme.':
+    'Die Vorschau konnte mit dem neuen Brand-Theme nicht neu gestartet werden.',
+  Environments: 'Umgebungen',
+  'No environment is selected yet.': 'Es ist noch keine Umgebung ausgewählt.',
+  'Everyone who reaches the page sees this.': 'Alle, die diese Seite erreichen, sehen dies.',
+  'Step indicator': 'Schrittanzeige',
+  'Indicator position': 'Position der Anzeige',
+  Wording: 'Formulierung',
+  'Set once for the whole tour, not per step.':
+    'Einmal für den gesamten Rundgang festgelegt, nicht pro Schritt.',
+  'Preparing Flow Map': 'Flusskarte wird vorbereitet',
+  Count: 'Anzahl',
+  Dots: 'Punkte',
+  Bar: 'Balken',
+  'Own line': 'Eigene Zeile',
+  'With the buttons': 'Bei den Schaltflächen',
+  '1 of 5': '1 von 5',
+  'Step 1 of 5': 'Schritt 1 von 5',
 };
 
 export default DE_CATALOG;

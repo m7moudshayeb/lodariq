@@ -38,6 +38,9 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
     accessibilityMode?: AuthoringAccessibilityPreviewMode,
     simulationContext?: AuthoringFlowSimulationContext,
   ): Promise<void>;
+  /** Declared here so the escape handler, which sits above the chrome feature,
+   *  can end a recording run without reaching down the chain. */
+  protected abstract stopStepRecording(): void;
   protected abstract setStatus(message: string): void;
 
   protected allowDocumentStructureMutation(): boolean {

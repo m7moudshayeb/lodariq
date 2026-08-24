@@ -98,6 +98,18 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
       correlationId: createBridgeCorrelationId('authoring_shell_capabilities'),
       type: AUTHORING_SHELL_CAPABILITIES_TYPE,
       assist: Boolean(this.services.requestAiAssist),
+      recording: this.recordingSteps,
+      /*
+       * Always false here, and deliberately sent rather than omitted.
+       *
+       * This message only goes out when the frame is hosted in a parent — that
+       * is overlay editing, where the card is drawn at the size it will ship and
+       * `frame-layout.ts` owns its box. Scaling only Lodariq's card would make it
+       * lie about the shipped size, so the pill draws the three zoom rows
+       * disabled with that reason instead of moving nothing. The field is on the
+       * message so a workspace that does honour a canvas zoom can flip it.
+       */
+      canvasZoomable: false,
     });
   }
 
@@ -271,7 +283,6 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
       extractTourStepStyle(step),
     );
     this.stepStyleRecipeByStep.set(stepId, recipe.id);
-    this.services.saveStepStyleRecipes?.(this.stepStyleRecipes.list());
     void this.persistAuthoringResources();
     this.setStatus(authoringText('Saved style recipe {name}', { name: recipe.name }));
   }
@@ -291,7 +302,6 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
     for (const [boundStepId, boundRecipeId] of this.stepStyleRecipeByStep) {
       if (boundRecipeId === prior.id) this.stepStyleRecipeByStep.set(boundStepId, recipe.id);
     }
-    this.services.saveStepStyleRecipes?.(this.stepStyleRecipes.list());
     void this.persistAuthoringResources();
     this.setStatus(authoringText('Updated style {name}', { name: recipe.name }));
     this.recordMetric('style.recipe-updated');
@@ -318,7 +328,6 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
     if (!this.supportsCommercialFeature('named-step-styles')) return;
     const recipe = this.stepStyleRecipes.get(recipeId);
     if (!recipe || !this.stepStyleRecipes.delete(recipeId)) return;
-    this.services.saveStepStyleRecipes?.(this.stepStyleRecipes.list());
     void this.persistAuthoringResources();
     this.setStatus(authoringText('Deleted style recipe {name}', { name: recipe.name }));
   }

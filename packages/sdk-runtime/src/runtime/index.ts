@@ -168,7 +168,7 @@ export class LodariqRuntime {
         : {}),
     });
     if (this.config.ingestUrl) {
-      if (name === 'experience_shown' && this.engagementKey && 'pointer' in event) {
+      if (carriesEngagementKey(name) && this.engagementKey && 'pointer' in event) {
         const pending = this.engagementKey
           .then((engagementKey) => {
             this.queue.push(engagementKey ? { ...event, engagementKey } : event);
@@ -482,6 +482,24 @@ export class LodariqRuntime {
     if (requestedDocumentId) return this.analyticsPointers.get(requestedDocumentId);
     return this.analyticsPointers.values().next().value;
   }
+}
+
+/*
+ * ADR 0030. Events that end an experience need the per-person key, or "did they
+ * finish it" cannot be answered from the stream at all. `dismissed` is included
+ * to tell "not now" apart from "never seen" — only `completed` and `skipped`
+ * are terminal when the answer is interpreted.
+ *
+ * Exact names, not a `_completed` suffix: `checklist_item_completed` and
+ * `tour_adaptive_step_skipped` both end that way and neither ends an experience.
+ */
+function carriesEngagementKey(name: string): boolean {
+  return (
+    name === 'experience_shown' ||
+    /^(?:tour|announcement|hotspot|survey|checklist)_(?:completed|skipped|dismissed|submitted)$/u.test(
+      name,
+    )
+  );
 }
 
 function isExperienceRuntimeEvent(name: string): boolean {

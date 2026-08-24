@@ -114,7 +114,6 @@ const AR_CATALOG: AuthoringCatalog = {
   Click: 'نقر',
   Drawer: 'درج',
   'Experience behavior updated': 'تم تحديث سلوك التجربة',
-  'Allow visitors to dismiss': 'السماح للزوار بالإغلاق',
   'Show announcement': 'عرض الإعلان',
   'Every eligible visit': 'في كل زيارة مؤهلة',
   'Once per session': 'مرة واحدة لكل جلسة',
@@ -131,9 +130,7 @@ const AR_CATALOG: AuthoringCatalog = {
   Responses: 'الردود',
   'One submission per visitor': 'إرسال واحد لكل زائر',
   'Allow repeat submissions': 'السماح بالإرسال المتكرر',
-  'Require an answer before submitting': 'طلب إجابة قبل الإرسال',
   'Use action conditions to branch after a response.': 'استخدم شروط الإجراءات للتفرع بعد الرد.',
-  'Show checklist progress': 'عرض تقدم قائمة التحقق',
   'The checklist completes when every item is checked.': 'تكتمل قائمة التحقق عند تحديد كل عنصر.',
   'Edit this content on the card.': 'حرّر هذا المحتوى على البطاقة.',
   'Invalid experience configuration': 'إعداد تجربة غير صالح',
@@ -2813,6 +2810,37 @@ const AR_CATALOG: AuthoringCatalog = {
   'Always the first one': 'الأول دائمًا',
   'This is one of several items in a list. Which one did you mean?':
     'هذا عنصر واحد من عدة عناصر في قائمة. أيّ واحد تقصد؟',
+  Dismissing: 'الإغلاق',
+  Locked: 'مقفل',
+  Allowed: 'مسموح',
+  'An answer is': 'الإجابة',
+  Progress: 'التقدم',
+  'Who sees this is set by the experience audience, not by the card.':
+    'من يرى هذا يحدده جمهور التجربة، وليس البطاقة.',
+  'Write the tooltip on the card; the marker sets where it opens.':
+    'اكتب التلميح على البطاقة؛ والعلامة تحدد مكان فتحه.',
+  'Edit the question and its answers on the card.': 'حرّر السؤال وإجاباته على البطاقة.',
+  'Add, reorder and word the items on the card.': 'أضف العناصر وأعد ترتيبها وصُغ نصها على البطاقة.',
+  'Read the ticked steps in one column each.': 'اقرأ الخطوات المحددة، كل خطوة في عمود.',
+  'The card is shown at the size it will ship. Use your browser zoom to read it larger.':
+    'تُعرض البطاقة بالحجم الذي ستُنشر به. استخدم تكبير المتصفح لقراءتها بحجم أكبر.',
+  'The preview could not restart with the new Brand theme.':
+    'تعذّر إعادة تشغيل المعاينة باستخدام سمة Brand الجديدة.',
+  Environments: 'البيئات',
+  'No environment is selected yet.': 'لم يتم اختيار أي بيئة بعد.',
+  'Everyone who reaches the page sees this.': 'يرى هذا كل من يصل إلى الصفحة.',
+  'Step indicator': 'مؤشر الخطوة',
+  'Indicator position': 'موضع المؤشر',
+  Wording: 'الصياغة',
+  'Set once for the whole tour, not per step.': 'يُضبط مرة واحدة للجولة بأكملها، وليس لكل خطوة.',
+  'Preparing Flow Map': 'جارٍ تحضير خريطة التدفق',
+  Count: 'العدد',
+  Dots: 'نقاط',
+  Bar: 'شريط',
+  'Own line': 'سطر خاص',
+  'With the buttons': 'مع الأزرار',
+  '1 of 5': '1 من 5',
+  'Step 1 of 5': 'الخطوة 1 من 5',
 };
 
 export default AR_CATALOG;

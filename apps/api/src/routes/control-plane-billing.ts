@@ -159,10 +159,25 @@ export function registerControlPlaneBillingRoutes(
           message: 'Billing sessions may return only to the Lodariq dashboard',
         });
       }
+      /*
+       * No account row means no provider customer exists yet, so there is no
+       * portal to open. Checkout is the route that creates one.
+       */
+      const account = await options.repository.readBillingAccount(auth.workspaceId);
+      if (!account) {
+        return reply.code(503).send({
+          error: 'billing_account_unavailable',
+          message: 'This workspace has no billing account with the provider yet',
+        });
+      }
       const session = await options.billingProvider.createPortalSession({
         workspaceId: auth.workspaceId,
         userId: auth.userId,
         returnUrl: body.returnUrl,
+        providerCustomerId: account.providerCustomerId,
+        ...(account.providerSubscriptionId
+          ? { providerSubscriptionId: account.providerSubscriptionId }
+          : {}),
       });
       return reply.code(201).send(session);
     },

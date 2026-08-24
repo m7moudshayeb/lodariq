@@ -171,6 +171,8 @@ function render(
 ): string {
   const snapshot = {
     deliveryCapabilities: new Set(CURRENT_AUTHORING_DELIVERY_CAPABILITY_METADATA.capabilities),
+    canvasZoomPercent: 80,
+    recordingSteps: false,
     contentLocale: 'en',
     documentState: {
       id: 'doc_1',

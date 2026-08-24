@@ -50,6 +50,7 @@ import {
   type AuthoringInteractionActor,
 } from '../state/interaction-machine';
 import { accessibleFallbackBrandState, initialReleaseView } from './controller-model';
+import { DEFAULT_CANVAS_ZOOM } from './canvas-zoom';
 import { resolveDocumentLocalization } from '@lodariq/schema';
 import { DocumentTransactionCoordinator } from '../document-transaction-coordinator';
 import { AuthoringTargetHealthLedger, authoringTargetIdentityKey } from '../target-health-ledger';
@@ -200,6 +201,16 @@ export abstract class ControllerBase {
   protected dragTargetBlockId: string | null = null;
 
   protected dragTargetPosition: BlockInsertPosition | null = null;
+
+  /**
+   * Chrome state that more than one feature reads: the reliability feature
+   * publishes `recordingSteps` to the host, the snapshot publishes both, and
+   * the chrome feature writes them. Declared here so all three agree, and so
+   * the first snapshot — built in this constructor — already sees the default.
+   */
+  protected canvasZoomPercent = DEFAULT_CANVAS_ZOOM;
+
+  protected recordingSteps = false;
 
   protected pendingTargetBlockId: string | null = null;
 

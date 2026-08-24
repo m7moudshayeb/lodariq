@@ -6,6 +6,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
 } from 'drizzle-orm/pg-core';
@@ -44,7 +45,14 @@ export const events = pgTable(
 export const authoritativeAnalyticsEvents = pgTable(
   'analytics_events',
   {
-    id: text('id').primaryKey(),
+    /*
+     * Not `.primaryKey()`: `0041` partitions this table by `occurred_at`, and
+     * PostgreSQL requires the partition key in every unique constraint, so the
+     * real key is `(id, occurred_at)`. Declared below. Nothing generates SQL
+     * from this — no `onConflict` targets this table — but a single-column
+     * declaration here would tell the next reader something false.
+     */
+    id: text('id').notNull(),
     workspaceId: text('workspace_id')
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
@@ -69,6 +77,7 @@ export const authoritativeAnalyticsEvents = pgTable(
     ingestedAt: timestamp('ingested_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    primaryKey({ name: 'analytics_events_pkey', columns: [table.id, table.occurredAt] }),
     foreignKey({
       name: 'analytics_events_publication_identity_fk',
       columns: [

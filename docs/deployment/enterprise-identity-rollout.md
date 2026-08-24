@@ -66,11 +66,46 @@ SAML, and SAML SLO are not supported by this rollout.
 4. Map stable IdP group ids to `admin`, `member`, or `viewer`. Owner is never a
    provisioned role.
 5. If SCIM is required, create its token, copy the one-time value directly into
-   the IdP, and clear it from operator clipboard/history. Configure:
+   the IdP, and clear it from operator clipboard/history. **The SCIM base path
+   changed and the old one is gone** — see below. Configure:
    - `externalId` as the IdP's immutable user identifier;
    - `userName` as the normalized primary work email;
    - `active` for lifecycle state; and
    - stable group ids for role mapping.
+
+### Breaking: the SCIM base path moved, with no compatibility window (M8)
+
+`c1fef3a` moved every SCIM endpoint and left nothing serving the old path:
+
+| Before             | Now                   |
+| ------------------ | --------------------- |
+| `/scim/v2/Users`     | `/v1/scim/Users`        |
+| `/scim/v2/Users/:id` | `/v1/scim/Users/:id`    |
+| `/scim/v2/ServiceProviderConfig` | `/v1/scim/ServiceProviderConfig` |
+
+An IdP still pointed at `/scim/v2/*` gets `404` on every request. SCIM is a
+push protocol, so nothing surfaces this in Lodariq: provisioning simply stops,
+and the first symptom is a new hire without an account. Okta and Entra both
+suspend a failing connector after repeated errors rather than alerting loudly.
+
+**This was a deliberate decision to accept the break rather than serve both
+paths.** Enterprise SSO and SCIM are disabled by default and are not advertised
+(see the bottom of this runbook), so the exposure is limited to any connector
+configured by hand against a deployed environment.
+
+Before enabling SCIM for anyone, and before any environment that already had it:
+
+1. Ask whether a connector was ever configured against `/scim/v2/*`. Development
+   and staging are deployed, so "no existing installs" is not an assumption
+   anyone can make from the code.
+2. If one was, update its base URL at the IdP first, then confirm a provisioning
+   run succeeds. The token does not change.
+3. If a connector was suspended by the IdP for repeated failures, re-enable it
+   there — Lodariq cannot restart it.
+
+If a compatibility window is ever wanted, it means serving both prefixes and a
+`Deprecation` header on the old one, then removing it on a published date. That
+is its own change and is not in this branch.
 
 Email or `externalId` changes require administrator reconciliation. Do not work
 around a `409` by deleting or linking a different Lodariq account.

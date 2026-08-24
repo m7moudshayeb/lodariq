@@ -132,23 +132,44 @@ Rules:
 - A mock that changes what the fixture always looks like should be **opt-in via a
   query param** (see `?lodariqPresence=demo`), so screenshots stay trustworthy.
 
-Current inventory — **52 markers** (31 `WIRE_BE`, 11 `WIRE_IFRAME`, 3 `WIRE_DB`,
-3 `WIRE_RUNTIME`, 2 `WIRE_DASHBOARD`, plus 2 bare `§3 WIRE_` cross-references that
-are prose, not seams). All 52 are in `sdk-authoring`. Regenerate with:
+Current inventory — **23 markers** (17 `WIRE_BE`, 2 `WIRE_DASHBOARD`, 2 `WIRE_DB`,
+2 `WIRE_IFRAME`), all in `sdk-authoring`. This section said 52 for a long time,
+and listed several seams that no longer exist; the count and the table below are
+generated, not maintained by hand. Regenerate both with:
 
 ```
-grep -rn "WIRE_" packages/*/src apps/*/src | grep -o "WIRE_[A-Z]*" | sort | uniq -c
+grep -rn "WIRE_[A-Z]" packages/*/src apps/*/src | grep -o "WIRE_[A-Z]*" | sort | uniq -c
 ```
 
-Grouped by what owes the wiring:
+There is **no `WIRE_RUNTIME`** in the tree. Delivery-side gaps are tracked as
+ADRs, not as markers, because the runtime is the correct behaviour by definition
+(§5) and a marker there would invite someone to "fix" delivery to match the
+editor.
 
-| Owed by          | Where                                                                                                                                                                                                                                                                                                                                                               |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WIRE_BE`        | assist provider and allowance · presence heartbeat · adaptive skipping · Brand scheme bundle · hosted evidence ledger · resolver sandbox · identify-payload traits · narration audio timing · per-locale media · description generation · Operations: plan limits, per-language pictures, session replay, return-rate, experiment assignment, demo link, a11y sweep |
-| `WIRE_DB`        | no `styleId` on the document · no disambiguation rule stored · approach legs not writable                                                                                                                                                                                                                                                                           |
-| `WIRE_DASHBOARD` | named style rows · Link block docs base                                                                                                                                                                                                                                                                                                                             |
-| `WIRE_IFRAME`    | scroll host page to element · replay an approach · template application · simulated user · palette rows that open a section instead of firing its verb · per-language card re-measurement · demo capture                                                                                                                                                            |
-| `WIRE_RUNTIME`   | adaptive delivery does not omit a step · A/B delivery does not resolve `overridesRef`                                                                                                                                                                                                                                                                               |
+| Marker           | Where                                                            | Seam                                                     |
+| ---------------- | ---------------------------------------------------------------- | -------------------------------------------------------- |
+| `WIRE_BE`        | `operations-analytics.tsx:259`                                   | workspace event catalogue is not in the Operations contract |
+| `WIRE_BE`        | `operations-analytics.tsx:360`                                   | cohort reports the frame never sees                       |
+| `WIRE_BE`        | `step-conditions-section.tsx:281`                                | real traits come from the workspace identify payload      |
+| `WIRE_BE`        | `step-flow-section.tsx:289`                                      | adaptive skipping reads product usage                     |
+| `WIRE_BE`        | `target-inspector-sections.tsx:349`                              | target health history is a server-side ledger             |
+| `WIRE_BE`        | `target-inspector-sections.tsx:503`                              | simulating a changed page needs the hosted resolver sandbox |
+| `WIRE_BE`        | `controller-operations.ts:73`                                    | same event catalogue, from the controller side            |
+| `WIRE_BE`        | `overlay/shell.ts:191`                                           | "ask a colleague" is a collaboration-channel message      |
+| `WIRE_BE`        | `rich-content-block-inspector.tsx:661`                           | asset replacement and per-locale variants                 |
+| `WIRE_BE`        | `rich-content-block-inspector.tsx:692`                           | media frame is drawn by the runtime from theme tokens     |
+| `WIRE_BE`        | `rich-content-block-inspector.tsx:786`                           | description generation is an Assist call                  |
+| `WIRE_BE`        | `rich-content-block-inspector.tsx:1106`                          | empty-field message has no schema field                   |
+| `WIRE_BE`        | `local-dev/mock-assist.ts:12`                                    | the local stand-in for `requestAiAssist`                  |
+| `WIRE_BE`        | `local-dev/mock-operations.ts:2`, `local-dev/frame.ts:92`        | the local stand-in for the Operations boundary            |
+| `WIRE_BE`        | `local-dev/mock-brand.ts:2`                                      | the local stand-in for the Brand seam                     |
+| `WIRE_BE`        | `local-dev/frame.ts:74`                                          | where the assist stand-in is installed                    |
+| `WIRE_DASHBOARD` | `toolbar-style-picker.tsx:7`                                     | named style rows the dashboard owns                       |
+| `WIRE_DASHBOARD` | `rich-content-block-handles.tsx:84`                              | a Link block's workspace docs base                        |
+| `WIRE_DB`        | `local-frame-ui/types.ts:486`                                    | the document has no `styleId`                             |
+| `WIRE_DB`        | `step-target-section.tsx:15`                                     | no disambiguation rule is stored                          |
+| `WIRE_IFRAME`    | `step-target-section.tsx:147`                                    | scrolling the host page to an element                     |
+| `WIRE_IFRAME`    | `palette-commands.ts:86`                                         | palette rows open a section instead of firing its verb    |
 
 Three things that were `WIRE_` and are not any more, so do not re-add them:
 

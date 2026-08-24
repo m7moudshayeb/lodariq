@@ -220,6 +220,51 @@ describe('Lodariq runtime analytics (PRD §16.1)', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it('carries the engagement key on terminal events but not on step-level ones', async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetch);
+    vi.stubGlobal('crypto', webcrypto);
+    const pointer = {
+      documentId: 'doc_terminal',
+      generation: 1,
+      publicationId: 'pub_terminal',
+      contentHash: `sha256-${'a'.repeat(64)}`,
+    };
+    const runtime = new LodariqRuntime({
+      workspaceId: 'wk_terminal',
+      environment: 'production',
+      ingestUrl: '/events',
+      analyticsPointers: [pointer],
+    });
+    runtime.identify({ userId: 'user_terminal' });
+
+    // ADR 0030: without a key on the terminal events, "did they finish it"
+    // cannot be answered from the stream at all.
+    const carries = ['tour_completed', 'tour_skipped', 'tour_dismissed', 'survey_submitted'];
+    // Neither of these ends an experience, though both end in a terminal word.
+    const omits = ['tour_step_changed', 'checklist_item_completed', 'tour_adaptive_step_skipped'];
+    for (const name of [...carries, ...omits]) {
+      runtime.track(name, { documentId: pointer.documentId });
+    }
+    runtime.flush();
+
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    const sent = fetch.mock.calls
+      .flatMap(
+        (call) =>
+          (JSON.parse(call[1]?.body as string) as {
+            events: Array<{ name: string; engagementKey?: string }>;
+          }).events,
+      )
+      .reduce<Record<string, string | undefined>>((accumulator, event) => {
+        accumulator[event.name] = event.engagementKey;
+        return accumulator;
+      }, {});
+
+    for (const name of carries) expect(sent[name]).toMatch(/^eng_[0-9a-f]{64}$/u);
+    for (const name of omits) expect(sent[name]).toBeUndefined();
+  });
+
   it('waits for a stable workspace-scoped engagement key before flushing shown events', async () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', fetch);

@@ -23,12 +23,29 @@ export function OperationsStoryboard({
   steps: readonly LodariqBlock[];
 }): ReactNode {
   const [compare, setCompare] = useState<readonly string[]>([]);
+  const [view, setView] = useState<StoryboardView>('all');
   const repetition = repeatedPairs(steps);
+  /*
+   * A tab the creator cannot reach is worse than no tab. Side by side needs two
+   * ticked steps and Repetition needs a repeated pair, so each falls back to the
+   * full set the moment its own precondition stops holding — including while the
+   * creator is un-ticking steps with that view open.
+   */
+  const compareReady = compare.length >= 2;
+  const activeView: StoryboardView =
+    (view === 'compare' && !compareReady) || (view === 'repetition' && repetition.length === 0)
+      ? 'all'
+      : view;
 
   const toggleCompare = (id: string): void => {
-    setCompare((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id].slice(-3),
-    );
+    setCompare((current) => {
+      const next = current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id].slice(-3);
+      // Ticking the second step is the gesture that asks for the comparison.
+      if (next.length >= 2) setView('compare');
+      return next;
+    });
   };
 
   return (
@@ -39,32 +56,42 @@ export function OperationsStoryboard({
         thing you would never think to look for.
       */}
       <div className="ops-pill-tabs">
-        <button
-          aria-pressed={compare.length === 0}
-          onClick={() => setCompare([])}
-          type="button"
-        >
+        <button aria-pressed={activeView === 'all'} onClick={() => setView('all')} type="button">
           {authoringText('All {count}', { count: steps.length })}
         </button>
-        <button aria-pressed={compare.length >= 2} disabled type="button"
-          title={authoringText('Tick two or three steps below.')}>
+        <button
+          aria-pressed={activeView === 'compare'}
+          disabled={!compareReady}
+          onClick={() => setView('compare')}
+          type="button"
+          title={
+            compareReady
+              ? authoringText('Read the ticked steps in one column each.')
+              : authoringText('Tick two or three steps below.')
+          }
+        >
           <Columns2 size={12} strokeWidth={2} aria-hidden="true" />
           {authoringText('Side by side ({count})', { count: compare.length })}
         </button>
-        <button aria-pressed={false} disabled={repetition.length === 0} type="button"
+        <button
+          aria-pressed={activeView === 'repetition'}
+          disabled={repetition.length === 0}
+          onClick={() => setView('repetition')}
+          type="button"
           title={
             repetition.length
               ? authoringText('{count} pairs of steps cover the same ground.', {
                   count: repetition.length,
                 })
               : authoringText('No two steps cover the same ground.')
-          }>
+          }
+        >
           <Search size={12} strokeWidth={2} aria-hidden="true" />
           {authoringText('Repetition ({count})', { count: repetition.length })}
         </button>
       </div>
 
-      {compare.length >= 2 ? (
+      {activeView === 'compare' ? (
         <div className="ops-box storyboard-compare" aria-label={authoringText('Side by side')}>
           <h3>{authoringText('Side by side')}</h3>
           <div className="storyboard-compare-grid">
@@ -92,6 +119,11 @@ export function OperationsStoryboard({
 
       <div className="ops-cols" data-cols="4">
         {steps.map((step, index) => {
+          /* The repetition view narrows the same grid rather than opening a
+           * fourth place to edit a step. Index stays the real step number. */
+          if (activeView === 'repetition' && !repetition.some((pair) => pair.includes(step.id))) {
+            return null;
+          }
           const targetId = targetIdOf(step);
           const health = targetId ? snapshot.targetHealth.get(targetId) : undefined;
           const shown = targetVerificationPresentation(health?.presentation ?? 'unverified');
@@ -190,6 +222,8 @@ export function OperationsStoryboard({
     </section>
   );
 }
+
+type StoryboardView = 'all' | 'compare' | 'repetition';
 
 function StoryboardFields({
   context,

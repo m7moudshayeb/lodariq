@@ -1,6 +1,11 @@
 import { authoringText } from '../../../i18n';
 import { Minus, Plus } from '../design-system';
-import { CANVAS_ZOOM_LEVELS, DEFAULT_CANVAS_ZOOM } from './tour-sequence-options';
+import {
+  CANVAS_ZOOM_LEVELS,
+  CANVAS_ZOOM_LIMITS,
+  DEFAULT_CANVAS_ZOOM,
+  nearestCanvasZoomIndex,
+} from '../canvas-zoom';
 
 export function CanvasZoomControl({
   onChange,
@@ -9,9 +14,11 @@ export function CanvasZoomControl({
   onChange: (value: number) => void;
   value: number;
 }) {
-  const currentIndex = CANVAS_ZOOM_LEVELS.findIndex((level) => level === value);
-  const minimum = 60;
-  const maximum = 120;
+  /* findIndex returned -1 for any percent off the ladder — the pill can now set
+     one — which stepped "zoom out" to the largest level. */
+  const currentIndex = nearestCanvasZoomIndex(value);
+  const minimum = CANVAS_ZOOM_LIMITS.min;
+  const maximum = CANVAS_ZOOM_LIMITS.max;
 
   return (
     <div className="storyboard-canvas-zoom" role="group" aria-label={authoringText('Canvas zoom')}>

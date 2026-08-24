@@ -117,6 +117,18 @@ const targetResolutionDiagnostic: TourTargetResolutionDiagnostic = {
   evidenceFamilies: ['configured-attribute', 'element-semantics'],
   runnerUpConfidence: 63,
   currentLocale: 'de-DE',
+  timing: {
+    totalMs: 12,
+    pageMs: 0,
+    resolversMs: 4,
+    lifecycleMs: 0,
+    approachMs: 0,
+    settleMs: 8,
+    settleAttempts: 0,
+    resolvedOnFirstPass: true,
+    approachRan: false,
+    settlingTimedOut: false,
+  },
 };
 
 const publicInstallationId = 'ins_pub_application_1234';

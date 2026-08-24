@@ -1020,6 +1020,59 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(document.querySelector('lodariq-tour')).toBeNull();
   });
 
+  it('keeps a pending step advance when a re-render interrupts the exit motion', async () => {
+    const motionDocument: NewCompiledDocument = {
+      ...outlineDisabledCompiledDoc,
+      targets: [],
+      steps: [
+        {
+          id: 'step_1',
+          body: [
+            {
+              id: 'button_1',
+              type: 'button',
+              text: 'Continue',
+              props: { action: { type: 'next' } },
+            },
+          ],
+          motion: {
+            recipe: 'fade',
+            durationMs: 10_000,
+            easing: 'standard',
+            reducedMotion: 'none',
+          },
+        },
+        {
+          id: 'step_2',
+          body: [{ id: 'heading_2', type: 'heading', text: 'Second motion step', props: {} }],
+        },
+      ],
+    };
+    const onStepChange = vi.fn();
+    const player = new TourPlayer(motionDocument, { onStepChange });
+    player.start();
+    await player.waitUntilReady();
+    const card = document
+      .querySelector('lodariq-tour')
+      ?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+
+    card?.querySelector<HTMLButtonElement>('button')?.click();
+    await vi.waitFor(() => expect(card?.dataset['lodariqMotionPhase']).toBe('exit'));
+
+    // A page round trip re-renders mid-motion. Cancelling the motion must skip
+    // the animation, not discard the advance the visitor already asked for.
+    history.pushState(null, '', '/billing');
+    await revalidationTask();
+    history.pushState(null, '', '/');
+    await revalidationTask();
+
+    // The re-render re-announces the current step, so the index is the signal.
+    expect(onStepChange.mock.calls.at(-1)?.[0]).toBe(1);
+    expect(card?.textContent).toContain('Second motion step');
+    player.stop();
+    history.replaceState(null, '', '/');
+  });
+
   it('keeps runtime chrome outside bounded product-surface zoom and restores it on stop', async () => {
     const target = document.querySelector<HTMLElement>('[data-lodariq-id="new-project"]')!;
     target.getBoundingClientRect = () => domRect({ x: 100, y: 160, width: 240, height: 48 });
@@ -1469,6 +1522,56 @@ describe('tour renderer (PRD §16.1)', () => {
     );
     expect(styles).toContain('overflow: visible;');
     player.stop();
+  });
+
+  it('reports where a targeted step spent its resolution time', async () => {
+    const onTargetResolution = vi.fn();
+    const player = new TourPlayer(outlineDisabledCompiledDoc, { onTargetResolution });
+    player.start();
+    await player.waitUntilReady();
+
+    const timing = onTargetResolution.mock.calls.at(-1)?.[1]?.timing;
+    // The target is in the page from the start, so nothing should have waited.
+    expect(timing).toMatchObject({
+      resolvedOnFirstPass: true,
+      approachRan: false,
+      settlingTimedOut: false,
+      settleAttempts: 0,
+    });
+    expect(timing.totalMs).toBeGreaterThanOrEqual(0);
+    player.stop();
+  });
+
+  it('reports a first-pass miss and the settling attempts it cost', async () => {
+    document.querySelector('[data-lodariq-id="new-project"]')?.remove();
+    const onTargetResolution = vi.fn();
+    const player = new TourPlayer(outlineDisabledCompiledDoc, { onTargetResolution });
+    player.start();
+    await new Promise((resolve) => setTimeout(resolve, 1_800));
+
+    const timing = onTargetResolution.mock.calls.at(-1)?.[1]?.timing;
+    expect(timing).toMatchObject({ resolvedOnFirstPass: false, settlingTimedOut: true });
+    expect(timing.settleAttempts).toBeGreaterThan(0);
+    expect(timing.settleMs).toBeGreaterThanOrEqual(1_000);
+    player.stop();
+  });
+
+  it('warms the click-time resolver chunks while idle and drops the work on stop', async () => {
+    const cancelIdleCallback = vi.fn();
+    let scheduled: (() => void) | null = null;
+    vi.stubGlobal('requestIdleCallback', (callback: () => void) => {
+      scheduled = callback;
+      return 7;
+    });
+    vi.stubGlobal('cancelIdleCallback', cancelIdleCallback);
+
+    const player = new TourPlayer(outlineDisabledCompiledDoc);
+    player.start();
+    await player.waitUntilReady();
+
+    expect(scheduled).toBeTypeOf('function');
+    player.stop();
+    expect(cancelIdleCallback).toHaveBeenCalledWith(7);
   });
 
   it('positions an authoring preview on the exact passive element that was just selected', async () => {

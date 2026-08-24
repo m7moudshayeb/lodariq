@@ -47,6 +47,7 @@ export const BILLING_BATCH_RECOVERY_FILE_NAME = '0037_billing_batch_recovery.sql
 export const HOT_QUERY_INDEXES_FILE_NAME = '0038_hot_query_indexes.sql';
 export const ANALYTICS_EVENTS_INDEXES_FILE_NAME = '0039_analytics_events_indexes.sql';
 export const DEAD_LETTER_AND_ROTATION_FILE_NAME = '0040_dead_letter_and_rotation.sql';
+export const ANALYTICS_EVENTS_PARTITIONING_FILE_NAME = '0041_analytics_events_partitioning.sql';
 
 export const INITIAL_BASELINE_PATH = fileURLToPath(
   new URL(`../../../database/drizzle/${INITIAL_BASELINE_FILE_NAME}`, import.meta.url),

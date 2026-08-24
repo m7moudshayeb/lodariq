@@ -76,13 +76,28 @@ if (fixtureScenario === 'commercial') {
   });
 }
 if (fixtureOperations) fixtureServices.operations = fixtureOperations;
-const fixtureDocument =
+const fixtureDocument = withRequestedDocumentId(
   fixtureScenario === 'approach'
     ? approachFixtureDocument()
     : fixtureScenario === 'experience-type'
       ? (experienceTypeFixtureDocument(fixtureParams.get('type'), fixtureParams.get('surface')) ??
         (tourFixture as LodariqDocument))
-      : (tourFixture as LodariqDocument);
+      : (tourFixture as LodariqDocument),
+);
+
+/**
+ * The host's manifest is a static file naming `doc_tour_welcome`, so authoring
+ * always opens that id however the scenario built the base document. The frame
+ * then threw "document not found" and painted nothing, which made every
+ * experience-type scenario unreachable in the panel. The host's own loader
+ * already re-ids its base document this way (`baseDocumentFor`); this is the
+ * frame's half of the same trick.
+ */
+function withRequestedDocumentId(document: LodariqDocument): LodariqDocument {
+  const requested = new URLSearchParams(window.location.search).get('lodariqDocument')?.trim();
+  if (!requested || requested === document.id) return document;
+  return { ...document, id: requested };
+}
 
 void mountLocalAuthoringDevFrame({
   root,

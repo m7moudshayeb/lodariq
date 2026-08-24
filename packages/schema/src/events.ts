@@ -153,7 +153,10 @@ export const SdkAnalyticsEvent = Type.Object(
     correlationId: Type.Optional(
       Type.String({ minLength: 1, maxLength: ANALYTICS_EVENT_LIMITS.correlationIdLength }),
     ),
-    /** Workspace-scoped one-way identity used only to coalesce shown-user usage. */
+    /**
+     * Workspace-scoped one-way identity. Coalesces shown-user usage, and on
+     * terminal events is what makes per-person progress derivable (ADR 0030).
+     */
     engagementKey: Type.Optional(AnalyticsEngagementKey),
     timestamp: Type.String({ format: 'date-time' }),
     props: Type.Optional(AnalyticsEventProperties),

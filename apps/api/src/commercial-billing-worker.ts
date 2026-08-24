@@ -53,6 +53,21 @@ export function createCommercialBillingWorker(
         });
         continue;
       }
+      /*
+       * Usage bills against the provider's subscription. Without an account row
+       * there is nothing to bill, and submitting would create a second customer.
+       */
+      const account = await options.repository.readBillingAccount(batch.workspaceId);
+      if (!account || account.provider !== options.provider.id) {
+        await options.repository.failBillingMeterBatch({
+          workspaceId: batch.workspaceId,
+          batchId: batch.id,
+          workerId,
+          errorCode: 'billing_account_unavailable',
+          failedAt: (options.clock?.() ?? new Date()).toISOString(),
+        });
+        continue;
+      }
       const abort = new AbortController();
       const timeout = setTimeout(() => abort.abort(), BILLING_SUBMISSION_TIMEOUT_MS);
       timeout.unref?.();
@@ -63,6 +78,10 @@ export function createCommercialBillingWorker(
           // replay is recognised by the provider rather than billed again.
           idempotencyKey: `${batch.id}:${batch.meterVersion}`,
           signal: abort.signal,
+          providerCustomerId: account.providerCustomerId,
+          ...(account.providerSubscriptionId
+            ? { providerSubscriptionId: account.providerSubscriptionId }
+            : {}),
         });
         await options.repository.completeBillingMeterBatch({
           workspaceId: batch.workspaceId,

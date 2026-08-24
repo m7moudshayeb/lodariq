@@ -107,7 +107,19 @@ export const BUTTON_ICON_VALUES = ['none', 'arrow-right', 'external-link', 'chec
 const BUTTON_ICON_SET = new Set<string>(BUTTON_ICON_VALUES);
 export const BUTTON_ICON_PLACEMENT_VALUES = ['start', 'end'] as const;
 const BUTTON_ICON_PLACEMENT_SET = new Set<string>(BUTTON_ICON_PLACEMENT_VALUES);
-export const TOOLTIP_WIDTH_PX_LIMITS = { min: 240, max: 720, step: 4 } as const;
+/*
+ * These bound every popup surface, not just tooltips. The ceiling was 720 while
+ * `banner` gives itself 960 by default, so a creator could not author a banner
+ * at the size the runtime actually renders it — the control stopped short of
+ * the surface's own starting width.
+ *
+ * Raising it is safe because the schema is not what protects the page: the
+ * renderer clamps to `min(var(--lq-popup-width), calc(100vw - 24px))`, so a
+ * wide value is bounded by the viewport regardless. The ceiling only has to
+ * exclude absurd values, and 1200 clears the widest surface default with room
+ * for a creator on a large screen.
+ */
+export const TOOLTIP_WIDTH_PX_LIMITS = { min: 240, max: 1_200, step: 4 } as const;
 export const TOOLTIP_HEIGHT_PX_LIMITS = { min: 160, max: 640, step: 4 } as const;
 export const TOOLTIP_ACTION_LAYOUT_VALUES = ['inline', 'stack'] as const;
 const TOOLTIP_ACTION_LAYOUT_SET = new Set<string>(TOOLTIP_ACTION_LAYOUT_VALUES);

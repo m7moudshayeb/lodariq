@@ -1,7 +1,8 @@
 import type { AuthoringCatalog } from '../i18n-catalog-types';
 
 const FR_CATALOG: AuthoringCatalog = {
-  'Applies to every step in this experience.': "S'applique à toutes les étapes de cette expérience.",
+  'Applies to every step in this experience.':
+    "S'applique à toutes les étapes de cette expérience.",
   'On this page': 'Sur cette page',
   'All tours': 'Toutes les visites',
   'No experiences on this page yet.': 'Aucune expérience sur cette page pour l’instant.',
@@ -115,7 +116,6 @@ const FR_CATALOG: AuthoringCatalog = {
   Click: 'Clic',
   Drawer: 'Tiroir',
   'Experience behavior updated': 'Comportement de l’expérience mis à jour',
-  'Allow visitors to dismiss': 'Autoriser les visiteurs à fermer',
   'Show announcement': 'Afficher l’annonce',
   'Every eligible visit': 'À chaque visite admissible',
   'Once per session': 'Une fois par session',
@@ -132,10 +132,8 @@ const FR_CATALOG: AuthoringCatalog = {
   Responses: 'Réponses',
   'One submission per visitor': 'Une réponse par visiteur',
   'Allow repeat submissions': 'Autoriser plusieurs réponses',
-  'Require an answer before submitting': 'Exiger une réponse avant l’envoi',
   'Use action conditions to branch after a response.':
     'Utilisez des conditions d’action pour créer une branche après une réponse.',
-  'Show checklist progress': 'Afficher la progression de la liste',
   'The checklist completes when every item is checked.':
     'La liste est terminée lorsque chaque élément est coché.',
   'Edit this content on the card.': 'Modifiez ce contenu sur la carte.',
@@ -2921,6 +2919,40 @@ const FR_CATALOG: AuthoringCatalog = {
   'Always the first one': 'Toujours le premier',
   'This is one of several items in a list. Which one did you mean?':
     'Il s’agit d’un des éléments d’une liste. Lequel vouliez-vous ?',
+  Dismissing: 'Fermeture',
+  Locked: 'Verrouillée',
+  Allowed: 'Autorisée',
+  'An answer is': 'Une réponse est',
+  Progress: 'Progression',
+  'Who sees this is set by the experience audience, not by the card.':
+    "Qui voit ceci dépend de l'audience de l'expérience, pas de la carte.",
+  'Write the tooltip on the card; the marker sets where it opens.':
+    "Rédigez l'infobulle sur la carte ; le marqueur définit où elle s'ouvre.",
+  'Edit the question and its answers on the card.':
+    'Modifiez la question et ses réponses sur la carte.',
+  'Add, reorder and word the items on the card.':
+    'Ajoutez, réorganisez et rédigez les éléments sur la carte.',
+  'Read the ticked steps in one column each.': 'Lisez les étapes cochées, une colonne par étape.',
+  'The card is shown at the size it will ship. Use your browser zoom to read it larger.':
+    "La carte est affichée à la taille qu'elle aura en production. Utilisez le zoom de votre navigateur pour la lire en plus grand.",
+  'The preview could not restart with the new Brand theme.':
+    "L'aperçu n'a pas pu redémarrer avec le nouveau thème Brand.",
+  Environments: 'Environnements',
+  'No environment is selected yet.': "Aucun environnement n'est encore sélectionné.",
+  'Everyone who reaches the page sees this.': 'Toute personne qui atteint la page voit ceci.',
+  'Step indicator': "Indicateur d'étape",
+  'Indicator position': "Position de l'indicateur",
+  Wording: 'Formulation',
+  'Set once for the whole tour, not per step.':
+    'Défini une fois pour toute la visite, pas par étape.',
+  'Preparing Flow Map': 'Préparation de la carte de flux',
+  Count: 'Nombre',
+  Dots: 'Points',
+  Bar: 'Barre',
+  'Own line': 'Ligne dédiée',
+  'With the buttons': 'Avec les boutons',
+  '1 of 5': '1 sur 5',
+  'Step 1 of 5': 'Étape 1 sur 5',
 };
 
 export default FR_CATALOG;

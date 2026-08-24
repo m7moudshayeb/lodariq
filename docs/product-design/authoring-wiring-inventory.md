@@ -18,6 +18,79 @@ not by whether someone remembered to leave a note.
 
 ---
 
+## Resolved on 2026-08-24
+
+Worked in a branch off `master@a8ae647`. Each item below is struck from the tier
+it was filed under; the entries are left in place so the reasoning survives.
+
+| item | what changed |
+|---|---|
+| **A1** canvas zoom | Two halves. The value is real: `canvasZoomPercent` and `recordingSteps` moved to `controller-base.ts` and are published on the snapshot, `zoomCanvas()` steps one shared ladder (`local-frame-ui/canvas-zoom.ts`, 60–120 in tens), `setCanvasZoom()` is what the storyboard's own control calls, and `CanvasZoomControl` snaps with `nearestCanvasZoomIndex` rather than `findIndex` — which returned `-1`, and so stepped "zoom out" to the largest rung, for any percent off the ladder. **The rows are drawn disabled anyway**, for the reason in A1b below. |
+| **A2** record steps | `continueStepRecording()` runs on `target.pick.result` and appends the next step; `stopStepRecording()` runs on either cancel path. The frame re-sends `authoring.shell.capabilities` with a new optional `recording` field, so the pill row finally reads "Stop recording steps" while a run is live. |
+| **A3** Side by side | The three pill tabs are a real view switcher on a `StoryboardView` state. Side by side enables at two ticked steps and ticking the second selects it; Repetition narrows the same grid instead of opening a fourth place to edit a step. Each falls back to All the moment its precondition stops holding. |
+| **B1** Match product | `local-dev/mock-brand.ts` supplies `getBrandWorkflowState`, `prepareBrandMatchProposal`, `applyBrandMatch` and `adoptBrandPreviewTheme`, and `connectLocalPanelHostServices` now asks the host for `sampleProductStyle` — **the element picker is the real one**, since `panel.ts` already answered `style.sample.start` and only the frame never asked. `mergeProductStyleTokensIntoDraft` moved from `apps/api/src/product-style-theme.ts` into `@lodariq/schema`, so the local adopt path and the control plane run one implementation. |
+| **B2** operations | `local-dev/mock-operations.ts` implements every required method and ten optional ones, derived from the document in front of the creator and a fixed epoch — no `Math.random`, so a screenshot taken twice looks the same twice. Measurement, Analytics, Sessions, A/B, Collaboration (with one lock held by someone else, so takeover is reachable), Applications, Audit, Versions, Copy fixes and the Accessibility sweep all have data. |
+| **orphan** `saveStepStyleRecipes` | Deleted. Its three call sites each sat one line above `persistAuthoringResources()`, which writes recipes and checkpoints together through `saveAuthoringResources` — the atomic write the control plane actually offers. |
+| **marker count** | `authoring-chrome-migration-handoff.md` §3 claimed 52 markers and listed seams that no longer exist. Regenerated from grep: 23, and the table is now per-marker with line numbers. |
+| **B5** saved styles / checkpoints | `local-dev/local-resource-store.ts` backs `loadStepStyleRecipes`, `loadDraftCheckpoints` and `saveAuthoringResources` with IndexedDB — the same storage the media library already uses, one database over — hydrated before mount exactly like `hydrateLocalMediaAssets`. Verified across a real page reload, with the hooks removed as a negative control: without them the style is gone and the menu is back to `Custom` alone. |
+| **preview refresh** | Adopting a match reported "Product match was saved, but the preview could not refresh" about a preview that *had* refreshed. `panel.ts`'s `theme.preview.apply` handler returned the replay promise, and a returned promise holds the bridge ack until it settles (the bridge's `onMessage`), against the frame's 2s budget; a replay is compile + resolve + play. Measured: the error at **2075ms with the repainted dialog already on the page**. The handler acks the apply — complete once the theme is stored — and fires the replay separately, surfacing a real replay failure as a host toast. Now saved at ~400ms. The same shape in `authoring.preview.request` ('full' mode budgeting 2s for work step mode already gives 20s) is matched to 20s. |
+
+### A1b. Why the zoom rows are disabled rather than wired
+
+The audit said the working zoom was "a separate local `useState` in
+`rich-step-content-editor.tsx`". Driving it in the browser turned up two things
+the static read missed.
+
+**`TourStepInspector` is exported and rendered nowhere.** It is the only route to
+`RichStepContentEditor`, which is the only consumer of `--storyboard-canvas-zoom`.
+So the zoom that "works" is unmounted in the shipped app: there is no zoomable
+canvas anywhere today.
+
+**Overlay editing cannot have one.** `frame-layout.ts` says it outright — "the
+card's position is the *runtime's* — it is where the shipped popup will appear,
+so nothing else may move it". Scaling only Lodariq's card would make the surface
+lie about the shipped size, which is the one thing that surface is for, and it
+would desynchronise the geometry the host solves the frame against.
+
+So the three rows are printed and disabled with the reason and the answer — *the
+card is shown at the size it will ship; use your browser zoom to read it larger*
+— and the frame publishes `canvasZoomable` on `authoring.shell.capabilities` so a
+workspace that does honour a canvas zoom turns them back on without the pill
+knowing anything about workspaces. `t50-chrome-wiring.mjs` holds the line.
+
+### Also fixed: the fixture host could not open a non-tour experience at all
+
+`?scenario=experience-type&type=announcement` builds an announcement base
+document, but `public/lodariq-local/manifest.json` statically names
+`doc_tour_welcome`, so authoring always opened that id and the frame threw
+"Lodariq local authoring document not found" and painted nothing. The host's own
+loader already re-ids its base document (`baseDocumentFor`); the frame now does
+the same half. Without this none of the non-tour inspectors were reachable in the
+fixture, which is presumably why they drifted unnoticed.
+
+Also fixed while in the area, from the same complaint about the inspector:
+**the non-tour experience types drew unstyled browser widgets.**
+`experience-behavior-section.tsx` was the only inspector code not built from the
+shared property controls — a bare `<select>` in `.storyboard-property-row` and a
+bare checkbox in `.storyboard-property-toggle`, **neither class defined by any
+stylesheet in the repo**. Announcement, hotspot, survey and checklist now use
+`PropertyChoiceField` exactly as the tour does: `menu` for a list of choices,
+`track` for a two-state one. The four content sections that shared one sentence
+("Edit this content on the card.") now each name what they point at.
+
+
+Not changed, with reasons:
+- **Appearance is still unreachable from overlay edit mode** — the route is
+  Operations → Appearance or ⌘K. Adding a *More actions → Customize* row is a
+  navigation decision, not a wiring one.
+- **Tier C** is untouched. Every marker there is drawn honestly.
+- **The brand-drift runtime preview** still budgets 4s for the same
+  ack-holds-the-replay shape (`controller-snapshot.ts`). It is left alone because
+  changing whether its promise is awaited changes the drift flow's own
+  contract, and no measurement here says it currently fails.
+
+---
+
 ## Tier A — dead in every session
 
 These are not waiting on a backend. Each is a control that is drawn, is

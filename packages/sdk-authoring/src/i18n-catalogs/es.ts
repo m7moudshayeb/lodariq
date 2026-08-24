@@ -115,7 +115,6 @@ const ES_CATALOG: AuthoringCatalog = {
   Click: 'Clic',
   Drawer: 'Cajón',
   'Experience behavior updated': 'Comportamiento de la experiencia actualizado',
-  'Allow visitors to dismiss': 'Permitir que los visitantes cierren',
   'Show announcement': 'Mostrar anuncio',
   'Every eligible visit': 'En cada visita apta',
   'Once per session': 'Una vez por sesión',
@@ -132,10 +131,8 @@ const ES_CATALOG: AuthoringCatalog = {
   Responses: 'Respuestas',
   'One submission per visitor': 'Un envío por visitante',
   'Allow repeat submissions': 'Permitir envíos repetidos',
-  'Require an answer before submitting': 'Exigir una respuesta antes de enviar',
   'Use action conditions to branch after a response.':
     'Usa condiciones de acción para bifurcar después de una respuesta.',
-  'Show checklist progress': 'Mostrar progreso de la lista',
   'The checklist completes when every item is checked.':
     'La lista se completa cuando todos los elementos están marcados.',
   'Edit this content on the card.': 'Edita este contenido en la tarjeta.',
@@ -2904,6 +2901,40 @@ const ES_CATALOG: AuthoringCatalog = {
   'Always the first one': 'Siempre el primero',
   'This is one of several items in a list. Which one did you mean?':
     'Este es uno de varios elementos de una lista. ¿Cuál querías?',
+  Dismissing: 'Cierre',
+  Locked: 'Bloqueado',
+  Allowed: 'Permitido',
+  'An answer is': 'Una respuesta es',
+  Progress: 'Progreso',
+  'Who sees this is set by the experience audience, not by the card.':
+    'Quién ve esto lo define el público de la experiencia, no la tarjeta.',
+  'Write the tooltip on the card; the marker sets where it opens.':
+    'Escribe la información en la tarjeta; el marcador define dónde se abre.',
+  'Edit the question and its answers on the card.':
+    'Edita la pregunta y sus respuestas en la tarjeta.',
+  'Add, reorder and word the items on the card.':
+    'Añade, reordena y redacta los elementos en la tarjeta.',
+  'Read the ticked steps in one column each.': 'Lee los pasos marcados, cada uno en una columna.',
+  'The card is shown at the size it will ship. Use your browser zoom to read it larger.':
+    'La tarjeta se muestra al tamaño con el que se publicará. Usa el zoom del navegador para verla más grande.',
+  'The preview could not restart with the new Brand theme.':
+    'La vista previa no pudo reiniciarse con el nuevo tema de Brand.',
+  Environments: 'Entornos',
+  'No environment is selected yet.': 'Todavía no se ha seleccionado ningún entorno.',
+  'Everyone who reaches the page sees this.': 'Todas las personas que llegan a la página ven esto.',
+  'Step indicator': 'Indicador de paso',
+  'Indicator position': 'Posición del indicador',
+  Wording: 'Redacción',
+  'Set once for the whole tour, not per step.':
+    'Se configura una vez para toda la gira, no por paso.',
+  'Preparing Flow Map': 'Preparando el mapa de flujo',
+  Count: 'Número',
+  Dots: 'Puntos',
+  Bar: 'Barra',
+  'Own line': 'Línea propia',
+  'With the buttons': 'Con los botones',
+  '1 of 5': '1 de 5',
+  'Step 1 of 5': 'Paso 1 de 5',
 };
 
 export default ES_CATALOG;

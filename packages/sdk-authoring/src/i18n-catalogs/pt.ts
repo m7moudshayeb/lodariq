@@ -114,7 +114,6 @@ const PT_CATALOG: AuthoringCatalog = {
   Click: 'Clique',
   Drawer: 'Gaveta',
   'Experience behavior updated': 'Comportamento da experiência atualizado',
-  'Allow visitors to dismiss': 'Permitir que os visitantes fechem',
   'Show announcement': 'Mostrar anúncio',
   'Every eligible visit': 'Em cada visita elegível',
   'Once per session': 'Uma vez por sessão',
@@ -131,10 +130,8 @@ const PT_CATALOG: AuthoringCatalog = {
   Responses: 'Respostas',
   'One submission per visitor': 'Um envio por visitante',
   'Allow repeat submissions': 'Permitir envios repetidos',
-  'Require an answer before submitting': 'Exigir uma resposta antes de enviar',
   'Use action conditions to branch after a response.':
     'Use condições de ação para ramificar após uma resposta.',
-  'Show checklist progress': 'Mostrar progresso da lista',
   'The checklist completes when every item is checked.':
     'A lista fica concluída quando todos os itens estão assinalados.',
   'Edit this content on the card.': 'Edite este conteúdo no cartão.',
@@ -2890,6 +2887,38 @@ const PT_CATALOG: AuthoringCatalog = {
   'Always the first one': 'Sempre o primeiro',
   'This is one of several items in a list. Which one did you mean?':
     'Este é um dos vários itens de uma lista. Qual deles você quis dizer?',
+  Dismissing: 'Fecho',
+  Locked: 'Bloqueado',
+  Allowed: 'Permitido',
+  'An answer is': 'Uma resposta é',
+  Progress: 'Progresso',
+  'Who sees this is set by the experience audience, not by the card.':
+    'Quem vê isto é definido pelo público da experiência, não pelo cartão.',
+  'Write the tooltip on the card; the marker sets where it opens.':
+    'Escreva a dica no cartão; o marcador define onde ela abre.',
+  'Edit the question and its answers on the card.': 'Edite a pergunta e as respostas no cartão.',
+  'Add, reorder and word the items on the card.': 'Adicione, reordene e redija os itens no cartão.',
+  'Read the ticked steps in one column each.': 'Leia os passos assinalados, um por coluna.',
+  'The card is shown at the size it will ship. Use your browser zoom to read it larger.':
+    'O cartão é mostrado no tamanho com que será publicado. Use o zoom do navegador para o ler maior.',
+  'The preview could not restart with the new Brand theme.':
+    'A pré-visualização não conseguiu reiniciar com o novo tema Brand.',
+  Environments: 'Ambientes',
+  'No environment is selected yet.': 'Ainda não foi selecionado nenhum ambiente.',
+  'Everyone who reaches the page sees this.': 'Todas as pessoas que chegam à página veem isto.',
+  'Step indicator': 'Indicador de etapa',
+  'Indicator position': 'Posição do indicador',
+  Wording: 'Redação',
+  'Set once for the whole tour, not per step.':
+    'Definido uma vez para todo o passeio, não por passo.',
+  'Preparing Flow Map': 'A preparar o Mapa de Fluxo',
+  Count: 'Número',
+  Dots: 'Pontos',
+  Bar: 'Barra',
+  'Own line': 'Linha própria',
+  'With the buttons': 'Com os botões',
+  '1 of 5': '1 de 5',
+  'Step 1 of 5': 'Etapa 1 de 5',
 };
 
 export default PT_CATALOG;

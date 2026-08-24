@@ -1011,6 +1011,63 @@ transactional drop-and-recreate with a wider predicate, so development and
 staging keep the applied schema. The file now records the retrospective review
 and sign-off; `migrations:check` passes with the repaired guard.
 
+### Status update — 2026-08-24
+
+Work done on branch `worktree-phase-2-remaining`, uncommitted.
+
+**Closed.**
+
+- **H2.** All three adapters built and wired: Paddle (`commercial-billing-paddle.ts`),
+  BigQuery (`analytics-warehouse-bigquery.ts`), Neon + R2
+  (`data-residency-neon-r2.ts`, with the SQL in
+  `packages/database/src/residency-data-plane.ts` because that package owns every
+  drizzle call). Each returns `undefined` unless fully configured, so an
+  unconfigured tier still answers 503. 12 tests in `provider-adapters.test.ts`.
+
+  Two things the interfaces could not express were added rather than worked
+  around: `readBillingAccount` on the repository, because a portal session needs
+  the provider customer id and `BillingOverview` correctly withholds it from the
+  browser; and `providerCustomerId`/`providerSubscriptionId` on the portal and
+  usage inputs. Paddle supports **no idempotency key on any endpoint** — their
+  own guidance is to read back before retrying — so `submitUsage` writes a marker
+  into `price.custom_data` and looks for it before charging. That is why the
+  usage rate is deployment config: a catalog `price_id` has nowhere to put one.
+
+- **H12.** `0041_analytics_events_partitioning.sql` authored and tested against a
+  scratch database; retention ships as `maintainAnalyticsEventPartitions` on the
+  analytics export worker tick, inert until the migration lands. The migration
+  carries **no sign-off line** and `migrations:check` fails on it deliberately.
+  See `drizzle/README.md`.
+
+- **ADR 0030 §1.** `engagementKey` now on the events that end an experience.
+  +53 bytes gzipped in `runtime+tour`, leaving 59 of 59,392.
+
+- **M8.** Documented as an accepted break in
+  `docs/deployment/enterprise-identity-rollout.md`, per the decision to serve no
+  compatibility window.
+
+- **Announcement surface, two of four.** The size ceiling now clears the widest
+  surface default — it was 720 while `banner` starts at 960, so a banner could
+  not be authored at the size the runtime gives it. And the `audience` inspector
+  section had been routed to `content`, which has no branch, so a panel headed
+  Audience rendered "Edit this content on the card"; it now renders the real
+  environments and rules.
+
+**Not done, and why.**
+
+- **Announcement resize.** The panel routes every type to `OverlayStepEditor`,
+  which has no transform; `usePopupTransform` lives only on the standalone tour
+  rail. Moving it is UI work whose result has to be seen to be judged, and it was
+  not attempted blind.
+- **`knowledge` experience type.** `ux-revamp.md:1624` puts it in Phase 6 or
+  later "unless separate paid demand changes the roadmap", and its design calls
+  for a help widget, articles, categories and search. Building it now would
+  contradict a roadmap decision already on record, not complete a leftover.
+- **Environment restriction removal.** Still what this table says it is below: a
+  feature project against a Proposed plan with no implementation.
+- **ADR 0030 §2/§3.** Blocked on an index that does not exist — see the
+  implementation-status note in that ADR.
+
 ### Deferred from Workstream E
 
 | Item                                                     | Why deferred                                                                                                                                                                                                                                                                                              |

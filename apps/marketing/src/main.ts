@@ -1,6 +1,8 @@
+// styles.css is linked from index.html, not imported here: a JS-injected sheet
+// paints the raw HTML unstyled first. Fonts stay here so they load in parallel
+// rather than chaining behind it -- a late font swaps, it does not unstyle.
 import '@fontsource-variable/inter';
 import '@fontsource-variable/fraunces';
-import './styles.css';
 import { mountDemo } from './demo/demo-controller';
 import { mountWaitlist } from './waitlist';
 
@@ -13,6 +15,7 @@ if (waitlistForm) mountWaitlist(waitlistForm);
 wireCopyButtons();
 wireHeaderShade();
 wireReveals();
+wireHeroClip();
 
 /** Copy-to-clipboard for the install snippet. */
 function wireCopyButtons(): void {
@@ -70,4 +73,68 @@ function wireReveals(): void {
     { rootMargin: '-40px' },
   );
   revealables.forEach((element) => observer.observe(element));
+}
+
+/**
+ * The hero clip is decoration, so it never competes with the first paint: no
+ * bytes are requested until the page is idle, it plays only while on screen,
+ * and anyone who asked for less motion or less data keeps the poster instead.
+ */
+function wireHeroClip(): void {
+  const slot = document.querySelector<HTMLElement>('[data-hero-clip]');
+  const video = document.querySelector<HTMLVideoElement>('[data-hero-clip-video]');
+  const toggle = document.querySelector<HTMLButtonElement>('[data-hero-clip-toggle]');
+  if (!slot || !video) return;
+
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+  const optedOut =
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+    connection?.saveData === true;
+  // The poster is already painted by the element itself, so opting out is
+  // simply never giving it a source.
+  if (optedOut) return;
+
+  let paused = false;
+  let onScreen = false;
+
+  const sync = (): void => {
+    if (paused || !onScreen) video.pause();
+    else void video.play().catch(() => undefined);
+  };
+
+  const load = (): void => {
+    for (const [type, src] of [
+      ['video/webm', '/media/authoring.webm'],
+      ['video/mp4', '/media/authoring.mp4'],
+    ] as const) {
+      const source = document.createElement('source');
+      source.type = type;
+      source.src = src;
+      video.appendChild(source);
+    }
+    video.preload = 'auto';
+    video.load();
+    if (toggle) toggle.hidden = false;
+    sync();
+  };
+
+  new IntersectionObserver(
+    (entries) => {
+      onScreen = entries.some((entry) => entry.isIntersecting);
+      sync();
+    },
+    { threshold: 0.05 },
+  ).observe(slot);
+
+  toggle?.addEventListener('click', () => {
+    paused = !paused;
+    toggle.dataset['paused'] = String(paused);
+    const label = toggle.querySelector<HTMLElement>('[data-hero-clip-toggle-label]');
+    if (label) label.textContent = `${paused ? 'Play' : 'Pause'} the authoring clip`;
+    sync();
+  });
+
+  const idle = window.requestIdleCallback;
+  if (idle) idle(load, { timeout: 3_000 });
+  else window.setTimeout(load, 1_200);
 }

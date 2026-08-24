@@ -1185,10 +1185,30 @@ function openAuthoringPanel(
           );
           previewTheme = structuredClone(message.previewTheme);
           previewThemeRevision = message.draftRevision;
+          /*
+           * Fired, not awaited — and this is the whole point of the two lines
+           * above being the acknowledgement.
+           *
+           * A returned promise holds the ack until it settles (see the bridge's
+           * `onMessage` handling), and the frame budgets 2s for this one. A
+           * replay is compile + resolve + play, which is routinely more than
+           * that: measured at 2075ms with the refreshed dialog already on the
+           * page. So the creator was told "Product match was saved, but the
+           * preview could not refresh" about a preview that had refreshed.
+           *
+           * The frame asked whether this theme was taken. It was, above. What
+           * the replay then does is the host's business, and the host is where a
+           * replay failure is worth saying out loud.
+           */
           if (changed && (previewPending || previewPresented)) {
-            return playPreviewDocument({
+            void playPreviewDocument({
               stepId: pendingInlinePreviewStepId(),
               rejectOnFailure: true,
+            }).catch(() => {
+              overlayShell?.notify(
+                authoringText('The preview could not restart with the new Brand theme.'),
+                { kind: 'warning' },
+              );
             });
           }
           return;
@@ -1262,6 +1282,12 @@ function openAuthoringPanel(
         }
         if (message.type === AUTHORING_SHELL_CAPABILITIES_TYPE) {
           overlayShell?.setAssistAvailable(message.assist);
+          if (typeof message.recording === 'boolean') {
+            overlayShell?.setPillState({ recording: message.recording });
+          }
+          if (typeof message.canvasZoomable === 'boolean') {
+            overlayShell?.setPillState({ canvasZoomable: message.canvasZoomable });
+          }
           return;
         }
         if (message.type === AUTHORING_SHELL_PALETTE_OPEN_TYPE) {

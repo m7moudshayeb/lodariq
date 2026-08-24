@@ -21,6 +21,11 @@ export default defineConfig({
     'adaptive-runtime': 'src/adaptive-runtime.ts',
     'product-capabilities-runtime': 'src/product-capabilities-runtime.ts',
     'product-capability-inventory': 'src/product-capability-inventory.ts',
+    /* Not in the barrel: it imports `validate`, which imports the registry,
+       which imports every schema module — re-exporting it from index.ts
+       hoisted the registry above `brand.ts` and left `Type.Ref` with an
+       undefined schema at module evaluation. */
+    'product-style-theme': 'src/product-style-theme.ts',
     'accessibility-governance': 'src/accessibility-governance.ts',
     'accessibility-governance-runtime': 'src/accessibility-governance-runtime.ts',
     'analytics-warehouse': 'src/analytics-warehouse.ts',

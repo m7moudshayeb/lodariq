@@ -116,6 +116,8 @@ export {
 } from './tour-theme';
 
 const DEFAULT_TARGET_RESOLUTION_TIMEOUT_MS = 1_500;
+/** Upper bound on waiting for a genuinely idle moment to warm the chunks. */
+const PREFETCH_IDLE_TIMEOUT_MS = 2_000;
 
 type RuntimeActionType = RuntimeAction['type'];
 type RuntimeActionHandler = (player: TourPlayer, action: RuntimeAction) => void;
@@ -263,6 +265,7 @@ export class TourPlayer {
   private completionStepActive = false;
   private stepTransitionPending = false;
   private cancelExitMotion: (() => void) | null = null;
+  private pendingStepTransition: (() => void) | null = null;
   private readonly completedStepIds = new Set<string>();
   private readonly accessibilityAnnouncements: string[] = [];
   private announcementRegion: HTMLParagraphElement | null = null;
@@ -412,6 +415,41 @@ export class TourPlayer {
     this.index = firstIndex;
     this.watchPageScope();
     this.render();
+    this.prefetchResolutionChunks();
+  }
+
+  /**
+   * Warm the chunks findTarget imports so the first interaction pays no fetch.
+   * The approach engine is only worth fetching for a tour that can reach it.
+   */
+  private prefetchResolutionChunks(): void {
+    if (this.options.embeddedPreviewContainer || typeof window === 'undefined') return;
+    const view = window;
+    let cancelled = false;
+    const warm = (): void => {
+      if (cancelled) return;
+      void this.ensureResolvers().catch(() => undefined);
+      if (this.documentHasTargetApproach()) {
+        void import('./target-approach-runtime').catch(() => undefined);
+      }
+    };
+    if (typeof view.requestIdleCallback === 'function') {
+      const handle = view.requestIdleCallback(warm, { timeout: PREFETCH_IDLE_TIMEOUT_MS });
+      this.lifetimeCleanups.push(() => {
+        cancelled = true;
+        view.cancelIdleCallback?.(handle);
+      });
+      return;
+    }
+    const timer = setTimeout(warm, PREFETCH_IDLE_TIMEOUT_MS);
+    this.lifetimeCleanups.push(() => {
+      cancelled = true;
+      clearTimeout(timer);
+    });
+  }
+
+  private documentHasTargetApproach(): boolean {
+    return this.doc.steps.some((step) => this.targetHasApproach(step.targetId));
   }
 
   /** Suspend a displayed step when the visitor leaves the page it appeared on. */
@@ -583,7 +621,9 @@ export class TourPlayer {
   }
 
   private render(): void {
-    this.cancelPendingStepTransition();
+    // Cancelling the exit motion skips the animation; the navigation behind it
+    // still runs, and its own render supersedes this one.
+    if (this.flushPendingStepTransition()) return;
     this.invalidateCurrentRender(new TourPresentationCanceledError());
     // A new render establishes its own page; the previous step's does not carry.
     this.stepPageKey = null;
@@ -1216,17 +1256,24 @@ export class TourPlayer {
     signal: AbortSignal,
   ): Promise<ResolvedAnchor | null> {
     if (this.options.embeddedPreviewContainer) return null;
+    const startedAt = Date.now();
     await this.reachStepPage(step, signal);
+    const pageAt = Date.now();
     await this.ensureResolvers();
     throwIfTourPresentationCanceled(signal);
+    const resolversAt = Date.now();
     await this.waitForLifecycle(step.lifecycle, signal);
     throwIfTourPresentationCanceled(signal);
+    const lifecycleAt = Date.now();
     let result = this.resolveStepTarget(step);
     if (!result) return null;
+    const resolvedOnFirstPass = Boolean(result.anchor);
+    let approachRan = false;
     const hasApproach = this.targetHasApproach(step.targetId);
     const mayActOnProduct =
       !this.options.authoringPreviewOwnerId || this.options.authoringPreviewInteractive;
     if (!result.anchor && hasApproach && mayActOnProduct) {
+      approachRan = true;
       const { executeStepTargetApproach } = await import('./target-approach-runtime');
       await executeStepTargetApproach(
         this.doc,
@@ -1238,12 +1285,15 @@ export class TourPlayer {
       );
       result = this.resolveStepTarget(step) ?? result;
     }
+    const approachAt = Date.now();
+    let settleAttempts = 0;
     // Route transitions and lazy UI commonly commit after the product click
     // handler returns. Every targeted step gets a short semantic settling
     // window even when the creator did not add an explicit lifecycle hint.
     const deadline =
       Date.now() + (step.lifecycle?.timeoutMs ?? DEFAULT_TARGET_RESOLUTION_TIMEOUT_MS);
     while (!result.anchor && Date.now() < deadline) {
+      settleAttempts += 1;
       throwIfTourPresentationCanceled(signal);
       if (!this.options.authoringPreviewOwnerId || this.options.authoringPreviewInteractive) {
         this.nudgeVirtualizedContainer(step.lifecycle);
@@ -1251,9 +1301,24 @@ export class TourPlayer {
       await delay(50, signal);
       result = this.resolveStepTarget(step) ?? result;
     }
+    const settledAt = Date.now();
     throwIfTourPresentationCanceled(signal);
     try {
-      this.options.onTargetResolution?.(step, targetResolutionDiagnostic(result));
+      this.options.onTargetResolution?.(
+        step,
+        targetResolutionDiagnostic(result, {
+          totalMs: settledAt - startedAt,
+          pageMs: pageAt - startedAt,
+          resolversMs: resolversAt - pageAt,
+          lifecycleMs: lifecycleAt - resolversAt,
+          approachMs: approachAt - lifecycleAt,
+          settleMs: settledAt - approachAt,
+          settleAttempts,
+          resolvedOnFirstPass,
+          approachRan,
+          settlingTimedOut: !result.anchor,
+        }),
+      );
     } catch {
       /* Diagnostics hooks must never alter delivery behavior. */
     }
@@ -1453,6 +1518,7 @@ export class TourPlayer {
     this.stepTransitionPending = true;
     const finish = (): void => {
       this.cancelExitMotion = null;
+      this.pendingStepTransition = null;
       this.stepTransitionPending = false;
       if (!this.host.isConnected || this.index !== startingIndex) return;
       transition();
@@ -1463,6 +1529,7 @@ export class TourPlayer {
       return;
     }
     let active = true;
+    this.pendingStepTransition = finish;
     this.cancelExitMotion = () => {
       active = false;
     };
@@ -1478,10 +1545,22 @@ export class TourPlayer {
       });
   }
 
-  private cancelPendingStepTransition(): void {
+  /** Tearing down abandons the navigation; a re-render (flush) keeps it. */
+  private cancelPendingStepTransition(flush = false): void {
+    const pending = this.pendingStepTransition;
+    this.pendingStepTransition = null;
     this.cancelExitMotion?.();
     this.cancelExitMotion = null;
     this.stepTransitionPending = false;
+    if (flush) pending?.();
+  }
+
+  /** True when the flushed navigation superseded the render that asked for it. */
+  private flushPendingStepTransition(): boolean {
+    const renderId = this.renderId;
+    const index = this.index;
+    this.cancelPendingStepTransition(true);
+    return this.renderId !== renderId || this.index !== index;
   }
 
   private addCleanup(cleanup: () => void): void {
@@ -1614,7 +1693,24 @@ function documentExperienceType(document: CompiledDocument): string {
   return document.type;
 }
 
-export type TourTargetResolutionDiagnostic = Omit<ResolutionResult, 'element' | 'anchor'>;
+/** Where a targeted step's resolution spent its time. Bounded numbers only. */
+export interface TourTargetResolutionTiming {
+  readonly totalMs: number;
+  readonly pageMs: number;
+  readonly resolversMs: number;
+  readonly lifecycleMs: number;
+  readonly approachMs: number;
+  readonly settleMs: number;
+  readonly settleAttempts: number;
+  /** The question behind the latency: did resolution work before any waiting? */
+  readonly resolvedOnFirstPass: boolean;
+  readonly approachRan: boolean;
+  readonly settlingTimedOut: boolean;
+}
+
+export type TourTargetResolutionDiagnostic = Omit<ResolutionResult, 'element' | 'anchor'> & {
+  readonly timing: TourTargetResolutionTiming;
+};
 
 interface TourPresentationReadiness {
   renderId: number;
@@ -1643,8 +1739,12 @@ function normalizeTourPresentationError(error: unknown): Error {
   return new TourPresentationUnavailableError();
 }
 
-function targetResolutionDiagnostic(result: ResolutionResult): TourTargetResolutionDiagnostic {
+function targetResolutionDiagnostic(
+  result: ResolutionResult,
+  timing: TourTargetResolutionTiming,
+): TourTargetResolutionDiagnostic {
   return {
+    timing,
     state: result.state,
     confidence: result.confidence,
     candidateCount: result.candidateCount,

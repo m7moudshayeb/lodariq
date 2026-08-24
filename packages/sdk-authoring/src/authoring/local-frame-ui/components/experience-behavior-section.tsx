@@ -1,3 +1,14 @@
+/**
+ * The non-tour experience types' own inspector rows (§5).
+ *
+ * These were the only rows in the inspector not built from the shared property
+ * controls: a bare `<select>` in a `.storyboard-property-row` and a bare
+ * checkbox in a `.storyboard-property-toggle`, neither of which any stylesheet
+ * defines. So an announcement, hotspot, survey or checklist opened its inspector
+ * on unstyled browser widgets next to a tour's own rows. Same controls as the
+ * tour now: `menu` for a list of choices, `track` for a two-state one, which is
+ * what §4.3 spends the extra height on.
+ */
 import {
   defaultExperienceBehavior,
   type AnnouncementBehavior,
@@ -7,6 +18,7 @@ import {
   type SurveyBehavior,
 } from '@lodariq/schema';
 import { authoringText } from '../../../i18n';
+import { PropertyChoiceField } from '../properties/property-controls';
 import type { LocalAuthoringFrameController } from '../controller';
 import type { LocalAuthoringFrameSnapshot } from '../types';
 
@@ -14,7 +26,15 @@ export interface ExperienceBehaviorSectionProps {
   controller: LocalAuthoringFrameController;
   snapshot: LocalAuthoringFrameSnapshot;
   section:
-    'completion' | 'content' | 'dismissal' | 'frequency' | 'items' | 'logic' | 'marker' | 'trigger';
+    | 'audience'
+    | 'completion'
+    | 'content'
+    | 'dismissal'
+    | 'frequency'
+    | 'items'
+    | 'logic'
+    | 'marker'
+    | 'trigger';
 }
 
 export function ExperienceBehaviorSection({
@@ -27,22 +47,19 @@ export function ExperienceBehaviorSection({
     const behavior = announcementBehavior(snapshot);
     if (section === 'dismissal') {
       return (
-        <label className="storyboard-property-toggle">
-          <input
-            checked={behavior.dismissible}
-            onChange={(event) =>
-              controller.setExperienceBehavior({ ...behavior, dismissible: event.target.checked })
-            }
-            type="checkbox"
-          />
-          <span>{authoringText('Allow visitors to dismiss')}</span>
-        </label>
+        <BehaviorToggle
+          label={authoringText('Dismissing')}
+          off={authoringText('Locked')}
+          on={authoringText('Allowed')}
+          onChange={(dismissible) => controller.setExperienceBehavior({ ...behavior, dismissible })}
+          value={behavior.dismissible}
+        />
       );
     }
     if (section === 'frequency') {
       return (
         <>
-          <BehaviorSelect
+          <PropertyChoiceField
             label={authoringText('Show announcement')}
             onChange={(frequency) =>
               controller.setExperienceBehavior({
@@ -51,22 +68,24 @@ export function ExperienceBehaviorSection({
               })
             }
             options={[
-              ['always', authoringText('Every eligible visit')],
-              ['session', authoringText('Once per session')],
-              ['visitor', authoringText('Once per visitor')],
+              { value: 'always', label: authoringText('Every eligible visit') },
+              { value: 'session', label: authoringText('Once per session') },
+              { value: 'visitor', label: authoringText('Once per visitor') },
             ]}
+            presentation="menu"
             value={behavior.frequency}
           />
-          <BehaviorSelect
+          <PropertyChoiceField
             label={authoringText('Presentation')}
             onChange={(surface) =>
               controller.setExperienceSurfaceForm(surface as ExperienceSurfaceForm)
             }
             options={[
-              ['modal', authoringText('Modal')],
-              ['banner', authoringText('Banner')],
-              ['slideIn', authoringText('Slide-in')],
+              { value: 'modal', label: authoringText('Modal') },
+              { value: 'banner', label: authoringText('Banner') },
+              { value: 'slideIn', label: authoringText('Slide-in') },
             ]}
+            presentation="menu"
             value={snapshot.documentState.surfaceForm ?? 'modal'}
           />
         </>
@@ -77,7 +96,7 @@ export function ExperienceBehaviorSection({
     const behavior = hotspotBehavior(snapshot);
     if (section === 'marker') {
       return (
-        <BehaviorSelect
+        <PropertyChoiceField
           label={authoringText('Marker style')}
           onChange={(marker) =>
             controller.setExperienceBehavior({
@@ -86,18 +105,19 @@ export function ExperienceBehaviorSection({
             })
           }
           options={[
-            ['pulse', authoringText('Pulse')],
-            ['dot', authoringText('Dot')],
-            ['ring', authoringText('Ring')],
-            ['number', authoringText('Number')],
+            { value: 'pulse', label: authoringText('Pulse') },
+            { value: 'dot', label: authoringText('Dot') },
+            { value: 'ring', label: authoringText('Ring') },
+            { value: 'number', label: authoringText('Number') },
           ]}
+          presentation="menu"
           value={behavior.marker}
         />
       );
     }
     if (section === 'trigger') {
       return (
-        <BehaviorSelect
+        <PropertyChoiceField
           label={authoringText('Open tooltip on')}
           onChange={(activation) =>
             controller.setExperienceBehavior({
@@ -106,20 +126,61 @@ export function ExperienceBehaviorSection({
             })
           }
           options={[
-            ['click', authoringText('Click')],
-            ['hover', authoringText('Hover or focus')],
-            ['focus', authoringText('Focus')],
+            { value: 'click', label: authoringText('Click') },
+            { value: 'hover', label: authoringText('Hover or focus') },
+            { value: 'focus', label: authoringText('Focus') },
           ]}
+          presentation="menu"
           value={behavior.activation}
         />
       );
     }
   }
+  /*
+   * Audience is not content, and it used to be routed to the `content` section,
+   * which has no branch — so a panel headed "Audience" rendered "Edit this
+   * content on the card." That is why it read as doing nothing.
+   *
+   * Environments are shown, not edited: they are set when the experience is
+   * created and moved by promotion, and `OperationsAudience` treats them the
+   * same way. Rules are removable here; adding one needs the rule builder.
+   */
+  if (section === 'audience') {
+    const audience = snapshot.documentState.audience;
+    const environments = audience?.environments ?? [];
+    const rules = audience?.rules ?? [];
+    return (
+      <>
+        <p className="storyboard-property-hint">
+          {environments.length
+            ? `${authoringText('Environments')}: ${environments.join(', ')}`
+            : authoringText('No environment is selected yet.')}
+        </p>
+        {rules.length === 0 ? (
+          <p className="storyboard-property-hint">
+            {authoringText('Everyone who reaches the page sees this.')}
+          </p>
+        ) : (
+          rules.map((rule, index) => (
+            <div className="storyboard-property-row" key={`${rule.source}-${rule.key}-${index}`}>
+              <span>
+                {`${rule.source} · ${rule.key} ${rule.operator}`}
+                {rule.value === undefined ? '' : ` ${String(rule.value)}`}
+              </span>
+              <button onClick={() => controller.removeAudienceRule(index)} type="button">
+                {authoringText('Remove')}
+              </button>
+            </div>
+          ))
+        )}
+      </>
+    );
+  }
   if (type === 'survey' && section === 'logic') {
     const behavior = surveyBehavior(snapshot);
     return (
       <>
-        <BehaviorSelect
+        <PropertyChoiceField
           label={authoringText('Responses')}
           onChange={(submission) =>
             controller.setExperienceBehavior({
@@ -128,21 +189,21 @@ export function ExperienceBehaviorSection({
             })
           }
           options={[
-            ['once', authoringText('One submission per visitor')],
-            ['repeatable', authoringText('Allow repeat submissions')],
+            { value: 'once', label: authoringText('One submission per visitor') },
+            { value: 'repeatable', label: authoringText('Allow repeat submissions') },
           ]}
+          presentation="menu"
           value={behavior.submission}
         />
-        <label className="storyboard-property-toggle">
-          <input
-            checked={behavior.requireAnswer}
-            onChange={(event) =>
-              controller.setExperienceBehavior({ ...behavior, requireAnswer: event.target.checked })
-            }
-            type="checkbox"
-          />
-          <span>{authoringText('Require an answer before submitting')}</span>
-        </label>
+        <BehaviorToggle
+          label={authoringText('An answer is')}
+          off={authoringText('Optional')}
+          on={authoringText('Required')}
+          onChange={(requireAnswer) =>
+            controller.setExperienceBehavior({ ...behavior, requireAnswer })
+          }
+          value={behavior.requireAnswer}
+        />
         <p className="storyboard-property-hint">
           {authoringText('Use action conditions to branch after a response.')}
         </p>
@@ -153,15 +214,16 @@ export function ExperienceBehaviorSection({
     const behavior = checklistBehavior(snapshot);
     if (section === 'items') {
       return (
-        <BehaviorSelect
+        <PropertyChoiceField
           label={authoringText('Presentation')}
           onChange={(surface) =>
             controller.setExperienceSurfaceForm(surface as ExperienceSurfaceForm)
           }
           options={[
-            ['floating', authoringText('Floating')],
-            ['drawer', authoringText('Drawer')],
+            { value: 'floating', label: authoringText('Floating') },
+            { value: 'drawer', label: authoringText('Drawer') },
           ]}
+          presentation="track"
           value={snapshot.documentState.surfaceForm ?? 'floating'}
         />
       );
@@ -169,19 +231,15 @@ export function ExperienceBehaviorSection({
     if (section === 'completion') {
       return (
         <>
-          <label className="storyboard-property-toggle">
-            <input
-              checked={behavior.showProgress}
-              onChange={(event) =>
-                controller.setExperienceBehavior({
-                  ...behavior,
-                  showProgress: event.target.checked,
-                })
-              }
-              type="checkbox"
-            />
-            <span>{authoringText('Show checklist progress')}</span>
-          </label>
+          <BehaviorToggle
+            label={authoringText('Progress')}
+            off={authoringText('Hidden')}
+            on={authoringText('Shown')}
+            onChange={(showProgress) =>
+              controller.setExperienceBehavior({ ...behavior, showProgress })
+            }
+            value={behavior.showProgress}
+          />
           <p className="storyboard-property-hint">
             {authoringText('The checklist completes when every item is checked.')}
           </p>
@@ -189,33 +247,60 @@ export function ExperienceBehaviorSection({
       );
     }
   }
-  return (
-    <p className="storyboard-property-hint">{authoringText('Edit this content on the card.')}</p>
-  );
+  return <p className="storyboard-property-hint">{contentHint(type, section)}</p>;
 }
 
-function BehaviorSelect({
+/**
+ * The content sections point at the card rather than duplicating it. They used
+ * to share one sentence, so four different sections read identically and the
+ * inspector looked broken; each now names what it is pointing at.
+ */
+function contentHint(type: string, section: ExperienceBehaviorSectionProps['section']): string {
+  if (type === 'announcement') {
+    return authoringText('Who sees this is set by the experience audience, not by the card.');
+  }
+  if (type === 'hotspot') {
+    return authoringText('Write the tooltip on the card; the marker sets where it opens.');
+  }
+  if (type === 'survey') {
+    return section === 'content'
+      ? authoringText('Edit the question and its answers on the card.')
+      : authoringText('Edit this content on the card.');
+  }
+  if (type === 'checklist') {
+    return authoringText('Add, reorder and word the items on the card.');
+  }
+  return authoringText('Edit this content on the card.');
+}
+
+/**
+ * A two-state row on the same track the tour's small choices use, so a boolean
+ * reads as a choice between two named states rather than an unlabelled tick.
+ */
+function BehaviorToggle({
   label,
+  off,
+  on,
   onChange,
-  options,
   value,
 }: {
   label: string;
-  onChange: (value: string) => void;
-  options: readonly (readonly [string, string])[];
-  value: string;
+  off: string;
+  on: string;
+  onChange: (value: boolean) => void;
+  value: boolean;
 }) {
   return (
-    <label className="storyboard-property-row">
-      <span>{label}</span>
-      <select onChange={(event) => onChange(event.target.value)} value={value}>
-        {options.map(([optionValue, optionLabel]) => (
-          <option key={optionValue} value={optionValue}>
-            {optionLabel}
-          </option>
-        ))}
-      </select>
-    </label>
+    <PropertyChoiceField
+      label={label}
+      onChange={(next) => onChange(next === 'on')}
+      options={[
+        { value: 'on', label: on },
+        { value: 'off', label: off },
+      ]}
+      presentation="track"
+      value={value ? 'on' : 'off'}
+    />
   );
 }
 

@@ -301,7 +301,7 @@ function sectionBodies({
       <ExperienceBehaviorSection controller={controller} section="frequency" snapshot={snapshot} />
     ),
     audience: (
-      <ExperienceBehaviorSection controller={controller} section="content" snapshot={snapshot} />
+      <ExperienceBehaviorSection controller={controller} section="audience" snapshot={snapshot} />
     ),
     marker: (
       <ExperienceBehaviorSection controller={controller} section="marker" snapshot={snapshot} />

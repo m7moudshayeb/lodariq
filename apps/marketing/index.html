@@ -4,12 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title>In-app product tours &amp; onboarding, no code — Lodariq</title>
+    <title>In-app tours, announcements &amp; surveys, no code — Lodariq</title>
     <meta
       name="description"
-      content="Feature launches die in the inbox. Lodariq is in-product launch software for B2B SaaS: build in-app product tours, onboarding and announcements yourself, on your live product, with no code and no engineering ticket. Early access."
+      content="Launches die in the inbox and upgrades die with them. Lodariq is in-product launch software for B2B SaaS: build tours, announcements, hotspots and surveys yourself, on your live product, with no code and no engineering ticket. Early access."
     />
     <link rel="canonical" href="https://lodariq.io/" />
+    <link rel="stylesheet" href="/src/styles.css" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
     <meta name="theme-color" content="#0b0d11" />
     <link
@@ -47,7 +48,7 @@
             "url": "https://lodariq.io/",
             "logo": "https://lodariq.io/og-image.png",
             "email": "hello@lodariq.io",
-            "description": "Lodariq is in-product launch software for B2B SaaS teams. A developer installs one script tag once; after that the person who owns the launch builds guided tours, onboarding and announcements directly on the live product, without code."
+            "description": "Lodariq is in-product launch software for B2B SaaS teams. A developer installs one script tag once; after that the person who owns the launch builds tours, announcements, hotspots and surveys directly on the live product, without code."
           },
           {
             "@type": "WebSite",
@@ -70,9 +71,9 @@
             "publisher": {
               "@id": "https://lodariq.io/#organization"
             },
-            "description": "In-product launch software for B2B SaaS. Product marketing builds guided tours, onboarding, upgrade prompts and change notices directly on the live product — no code after a one-time script tag install. Experiences are verified on staging and promoted unchanged to production, with one-step rollback.",
+            "description": "In-product launch software for B2B SaaS. Product marketing builds tours, announcements, hotspots, surveys and upgrade prompts directly on the live product — no code after a one-time script tag install. Experiences are verified on staging and promoted unchanged to production, with one-step rollback.",
             "featureList": [
-              "Build in-product tours without code or CSS",
+              "Build in-product tours, announcements, hotspots and surveys without code or CSS",
               "Point-and-click targeting that survives redesigns",
               "Audience targeting by user attributes",
               "Scheduling with start and end dates",
@@ -84,7 +85,7 @@
               "SAML and OIDC single sign-on",
               "WCAG AA contrast gate before publishing"
             ],
-            "releaseNotes": "Pre-launch early access as of August 2026. Guided tours are the shipped experience type."
+            "releaseNotes": "Pre-launch early access as of August 2026. Tours, announcements, hotspots, checklists and surveys all render; the tour editor is the most mature."
           },
           {
             "@type": "FAQPage",
@@ -98,7 +99,7 @@
                 "name": "What is Lodariq?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Lodariq is in-product launch software — a digital adoption platform for B2B SaaS teams. A developer installs one script tag, once. After that, the person who owns the launch builds guided tours, walkthroughs and onboarding directly on the live product, without writing code or filing a ticket."
+                  "text": "Lodariq is in-product launch software — a digital adoption platform for B2B SaaS teams. A developer installs one script tag, once. After that, the person who owns the launch builds tours, announcements, hotspots and surveys directly on the live product, without writing code or filing a ticket."
                 }
               },
               {
@@ -154,7 +155,7 @@
                 "name": "What can I actually build today?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Guided tours, which covers most in-product messaging: feature walkthroughs, onboarding, upgrade prompts and change notices. They can hold rich content, branch by audience, follow a schedule, and go through review before release. Announcements, hotspots, checklists and surveys are on the way and will be included on every plan — we're not counting them as shipped until their editors are as good as the tour one."
+                  "text": "Tours, announcements, hotspots, checklists and surveys — all of them render today, and all are included on every plan. Tours cover most in-product messaging on their own: feature walkthroughs, onboarding, upgrade prompts and change notices, with rich content, audience branching, scheduling and review before release. The tour editor is the most mature of the five; the others are catching up."
                 }
               },
               {
@@ -296,22 +297,51 @@
     <main id="main">
       <!-- ───────────────────────────── hero ───────────────────────────── -->
       <section class="hero">
-        <div class="hero-glow" aria-hidden="true"></div>
+        <!--
+          Flat graphite with a fine grain and a shallow uplight. The authoring
+          clip sits in the right field, masked into the same graphite so it
+          reads as a texture the headline sits on rather than a second panel.
+        -->
+        <div class="hero-stage">
+        <div class="hero-field" aria-hidden="true">
+          <div class="hero-grain"></div>
+          <div class="hero-uplight"></div>
+          <div class="hero-clip" data-hero-clip>
+            <video
+              class="hero-clip-video"
+              data-hero-clip-video
+              poster="/media/authoring-poster.jpg"
+              preload="none"
+              muted
+              loop
+              playsinline
+              disablepictureinpicture
+              disableremoteplayback
+            ></video>
+          </div>
+        </div>
+        <button class="hero-clip-toggle" type="button" data-hero-clip-toggle hidden>
+          <span class="hero-clip-toggle-glyph" aria-hidden="true"></span>
+          <span aria-hidden="true">Authoring, in your own product</span>
+          <span class="sr-only" data-hero-clip-toggle-label>Pause the authoring clip</span>
+        </button>
+
         <div class="shell hero-copy">
           <p class="eyebrow"><i aria-hidden="true"></i>Early access · launching soon</p>
-          <h1>
+          <h1 class="hero-title">
             You shipped it.<br />
             <em>Nobody</em> noticed.
           </h1>
+          <hr class="hero-rule" />
           <p class="lede">
-            Feature launches die in the inbox. Lodariq is in-app product tours and onboarding you
-            build yourself — put the walkthrough inside your product, at the moment it's relevant,
-            with no ticket and no waiting on a sprint.
+            Tours, announcements, hotspots and surveys you build yourself — inside your product,
+            at the moment they're relevant. No ticket, no sprint, no waiting.
           </p>
           <div class="hero-actions">
             <a class="button primary lg" href="#waitlist">Join the waitlist</a>
-            <a class="button quiet lg" href="#demo">Watch it run below&thinsp;↓</a>
+            <a class="button outline lg" href="#demo">Show me how this works</a>
           </div>
+        </div>
         </div>
 
         <!-- The centerpiece: the real fixture host with the real SDK. -->
@@ -360,12 +390,21 @@
       <section class="problem" id="problem" data-reveal>
         <div class="shell">
           <p class="kicker">Sound familiar</p>
-          <h2>The launch went out. The <em>usage</em> didn't move.</h2>
+          <h2>The launch went out. The <em>revenue</em> didn't move.</h2>
           <p class="section-lede">
             You did everything right. The email, the changelog, the in-app banner someone built you
-            last year. And the feature still sat there.
+            last year. And the feature still sat there — along with the upgrades it was supposed to
+            pull through.
           </p>
           <div class="pains">
+            <article class="pain">
+              <h3>The upgrade moment passes in silence</h3>
+              <p>
+                Someone hits the ceiling of their plan and feels it — then goes back to work. That
+                was your expansion revenue, and it went unremarked because nobody could put a
+                message on the exact screen where the limit bites.
+              </p>
+            </article>
             <article class="pain">
               <h3>Your best channel isn't email</h3>
               <p>
@@ -395,7 +434,7 @@
       <section class="usecases" id="use-cases" data-reveal>
         <div class="shell">
           <p class="kicker">What you'll launch</p>
-          <h2>Four product tours you'll ship in your <em>first month</em></h2>
+          <h2>Four experiences you'll ship in your <em>first month</em></h2>
           <p class="section-lede">
             None of these need a ticket, a designer, or a line of CSS. You write them the way you'd
             write the announcement — except they land where the work happens.
@@ -419,10 +458,11 @@
             </article>
             <article class="usecase">
               <span class="usecase-tag" data-hue="amber">Expansion</span>
-              <h3>Make the upgrade obvious, at the right second</h3>
+              <h3>Turn the ceiling into an upgrade</h3>
               <p>
-                Point out what's on the next plan the moment someone hits the ceiling of theirs —
-                when they actually feel the limit, not when your campaign happens to run.
+                Point out what's on the next plan the moment someone hits the limit of theirs —
+                when they actually feel it, not when your campaign happens to run. Expansion
+                revenue is won on the screen where the constraint bites, not in the inbox.
               </p>
             </article>
             <article class="usecase">
@@ -435,8 +475,8 @@
             </article>
           </div>
           <p class="section-note">
-            Tours are the one experience type that's fully built today. Announcements, hotspots,
-            checklists and surveys are coming, and they'll be included on every plan when they land.
+            Tours, announcements, hotspots, checklists and surveys all run today, and every one of
+            them is included on every plan. The tour editor is the most mature of the five.
           </p>
         </div>
       </section>
@@ -623,11 +663,11 @@
             <h3>Things we won't put behind a higher tier</h3>
             <p>
               Every company selling this eventually gets asked to. These are the ones we've decided
-              in advance to say no to, because a cheap plan whose tours quietly break is worse than
+              in advance to say no to, because a cheap plan whose experiences quietly break is worse
               no plan at all.
             </p>
             <ul class="ticks two-col">
-              <li>Everything that keeps a tour pointing at the right thing</li>
+              <li>Everything that keeps an experience pointing at the right thing</li>
               <li>Point-and-click targeting — there's no "advanced" tier that needs code</li>
               <li>Accessibility: contrast checks, keyboard support, tap-target sizes</li>
               <li>Knowing whether it worked — completions and drop-off on every plan</li>
@@ -734,12 +774,11 @@
               <summary><h4>What can I actually build today?</h4></summary>
               <div class="faq-answer">
                 <p>
-                  Guided tours, which covers most in-product messaging: feature walkthroughs,
-                  onboarding, upgrade prompts and change notices. They can hold rich content, branch
-                  by audience, follow a schedule, and go through review before release.
-                  Announcements, hotspots, checklists and surveys are on the way and will be
-                  included on every plan — we're not counting them as shipped until their editors
-                  are as good as the tour one.
+                  Tours, announcements, hotspots, checklists and surveys — all five run today, and
+                  all five are included on every plan. Tours cover most in-product messaging on
+                  their own: feature walkthroughs, onboarding, upgrade prompts and change notices,
+                  with rich content, audience branching, scheduling and review before release. The
+                  tour editor is the most mature of the five; the others are catching up.
                 </p>
               </div>
             </details>

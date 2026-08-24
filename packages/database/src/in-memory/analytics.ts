@@ -1,3 +1,4 @@
+import type { AnalyticsPartitionMaintenanceResult } from '../domains/analytics-partitions';
 import { createHash, randomUUID } from 'node:crypto';
 import { type AnalyticsEventAggregate } from '@lodariq/schema';
 import { assertWorkspaceScope } from '../rls';
@@ -294,6 +295,11 @@ export class InMemoryRepositoryAnalytics extends InMemoryRepositoryAuthoringActi
     const revoked = { ...session, revokedAt: session.revokedAt ?? new Date().toISOString() };
     this.authoringSessions.set(this.key(revoked.workspaceId, revoked.id), revoked);
     return clone(revoked);
+  }
+
+  /** Partitions are a PostgreSQL storage detail; there is nothing to maintain here. */
+  async maintainAnalyticsEventPartitions(): Promise<AnalyticsPartitionMaintenanceResult> {
+    return { created: [], dropped: [] };
   }
 
   async createVisualCheckRun(input: CreateVisualCheckRunInput): Promise<VisualCheckRunRecord> {

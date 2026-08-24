@@ -35,6 +35,7 @@ import {
   billingMeterItemsMatch,
   normalizedBillingMeterItems,
   toPublicBillingMeterBatch,
+  type BillingAccountRecord,
   type BillingInvoiceRecord,
   type BillingMeterBatchRecord,
   type ClaimBillingMeterBatchesInput,
@@ -281,6 +282,11 @@ export class InMemoryRepositoryCommercialEntitlements extends InMemoryRepository
       createdAt: new Date().toISOString(),
     });
     return true;
+  }
+
+  async readBillingAccount(workspaceId: string): Promise<BillingAccountRecord | null> {
+    const account = this.workspaceBillingAccounts.get(workspaceId);
+    return account ? clone(account) : null;
   }
 
   async readWorkspaceBillingOverview(workspaceId: string): Promise<BillingOverview> {

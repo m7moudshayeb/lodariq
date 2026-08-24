@@ -5,56 +5,34 @@ on:
   push:
     branches: [master]
 
+permissions:
+  contents: read
+
 jobs:
   static-checks:
-    name: Static check / ${{ matrix.name }}
+    name: Static checks
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Localization
-            command: pnpm run i18n:check
-          - name: TypeScript
-            command: pnpm run typecheck
-          - name: ESLint
-            command: pnpm run lint
-          - name: Package boundaries
-            command: pnpm run boundaries
-          - name: Architecture
-            command: pnpm run architecture:check
-          - name: Unused dependencies
-            command: pnpm run knip:check
-          - name: Styles
-            command: pnpm run styles:check
-          - name: Design tokens
-            command: pnpm run tokens:check
-          - name: Migrations
-            command: pnpm run migrations:check
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
-        with:
-          version: 9.15.9
+      - name: Set up workspace
+        uses: ./.github/actions/setup-workspace
 
-      - name: Set up Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
-
-      - name: Run ${{ matrix.name }} check
-        run: ${{ matrix.command }}
+      # Nine matrix jobs paid nine installs to run ~20s of checks. One job runs
+      # them concurrently and prints a per-gate pass/fail table.
+      - name: Run static checks
+        run: node scripts/verify.mjs static
 
   unit-tests:
-    name: Unit and integration tests
+    name: Tests ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     services:
       postgres:
         image: postgres:16
@@ -76,43 +54,24 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
-        with:
-          version: 9.15.9
+      - name: Set up workspace
+        uses: ./.github/actions/setup-workspace
 
-      - name: Set up Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
-
+      # 325 files on one worker was the whole 20 minutes. Each shard is its own
+      # runner with its own Postgres, so splitting cannot share state.
       - name: Run unit and integration tests
-        run: pnpm run test
+        run: pnpm run test -- --shard=${{ matrix.shard }}/4
 
   build:
     name: Build and bundle checks
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
-        with:
-          version: 9.15.9
-
-      - name: Set up Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Set up workspace
+        uses: ./.github/actions/setup-workspace
 
       - name: Build packages and applications
         run: pnpm run build
@@ -138,26 +97,34 @@ jobs:
   dependency-audit:
     name: Dependency security audit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
-        with:
-          version: 9.15.9
-
-      - name: Set up Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Set up workspace
+        uses: ./.github/actions/setup-workspace
 
       - name: Audit production and development dependencies
         run: pnpm run audit:security
+
+  # Its own job, and deliberately not a deploy prerequisite. 0041 is unsigned by
+  # design and applied nowhere; deploys never apply migrations. While this sat in
+  # the static matrix its intended red hid every other gate and blocked the
+  # Development deploy.
+  migrations:
+    name: Migration safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Set up workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Check migration safety
+        run: node scripts/verify.mjs migrations
 
   deploy-development:
     name: Deploy Development
