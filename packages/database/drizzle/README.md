@@ -48,7 +48,7 @@ migration.
 0038_hot_query_indexes.sql
 0039_analytics_events_indexes.sql
 0040_dead_letter_and_rotation.sql
-0041_analytics_events_partitioning.sql   (approved for controlled rollout, applied nowhere)
+0041_analytics_events_partitioning.sql   (approved and applied to development and staging on 2026-08-24)
 ```
 
 ## Where each environment sits
@@ -58,16 +58,15 @@ next deploy re-audits the live schema from scratch, which is the work `0034`
 existed to close out. **Update this table in the same change that applies a
 migration.**
 
-| Environment | PostgreSQL        | Applied through                           | As of      |
-| ----------- | ----------------- | ----------------------------------------- | ---------- |
-| Development | `16.15 (651533a)` | `0040_dead_letter_and_rotation.sql`       | 2026-08-24 |
-| Staging     | `16.15 (651533a)` | `0034_authoring_session_capabilities.sql` | 2026-08-24 |
-| Production  | —                 | not provisioned                           | —          |
+| Environment | PostgreSQL        | Applied through                          | As of      |
+| ----------- | ----------------- | ---------------------------------------- | ---------- |
+| Development | `16.15 (651533a)` | `0041_analytics_events_partitioning.sql` | 2026-08-24 |
+| Staging     | `16.15 (651533a)` | `0041_analytics_events_partitioning.sql` | 2026-08-24 |
+| Production  | —                 | not provisioned                          | —          |
 
 Both shared environments were initialized from `0000_initial_baseline.sql` and
-carry the full `0001`-`0034` sequence. Development also carries `0035`-`0040`;
-staging does not yet. Two baseline edits were made in place before that rule was
-settled; both now have forward migrations, so a database built from today's
+carry the full `0001`-`0041` sequence. Two baseline edits were made in place
+before that rule was settled; both now have forward migrations, so a database built from today's
 baseline and one upgraded through the sequence converge —
 `analytics_events.adaptive_visitor_key_hash` in `0020`, and the
 `authoring_sessions` capabilities check in `0034`.
@@ -208,15 +207,13 @@ psql -X -v ON_ERROR_STOP=1 "$NEON_OWNER_DATABASE_URL" \
 
 ## Shared-environment batch: 0035-0040
 
-Development was migrated on 2026-08-24. Staging remains at `0034`; repeat the
-same snapshot, approval, execution, and verification procedure there only after
-development's hosted deployment matches the current source and passes the full
-service probe.
+Development and staging were migrated through `0040` on 2026-08-24. The
+separate `0041` rollout is recorded below.
 
 **The development gate cleared on 2026-08-24.** `lodariq-api-dev` release `v15`
 carries the current source, `/readyz` returns `200`, and `/v1/openapi.json`
 returns `200` — the `404` recorded below was the previous release, not a missing
-route. Staging is unblocked.
+route. Staging is also unblocked for the current `0040`-compatible deployment.
 
 Staging is deployed and migrated in that order, and the order matters. The
 deploy workflow applies no migrations, so shipping this branch's code to an
@@ -251,6 +248,15 @@ Development execution record:
   the currently deployed development API returns `404` for `/v1/openapi.json`,
   although that route exists in the current source.
 
+Staging execution record:
+
+- Snapshot: `staging-before-35-40-2026-08-24`.
+- `0035` through `0038` applied transactionally, `0039` applied separately with
+  concurrent indexes, and `0040` applied last.
+- Postflight passed: required columns and constraints exist, all expected
+  indexes are valid and ready, no invalid indexes remain, forced RLS is enabled
+  on the checked worker tables, and all three `0036` orphan counts are zero.
+
 Applied file SHA-256 values:
 
 ```text
@@ -260,6 +266,7 @@ Applied file SHA-256 values:
 0038 04998f7ddadf00652aea78df2d1cdce0688f2fdfa3cc00b71337d4495eb399a4
 0039 6a9edc25575c339b3b3a3805c4e0a8bd3c70e0654b263017eee04f3104fa6024
 0040 6de72f74b476dade744b0ed4f5de3466a677c50a9c4ad3813f9fdf6fb493d190
+0041 d6ecf4a5486adc3bebdb5f829b3db527db7d4135d13206d847b8c96fb417c2fe
 ```
 
 Before each environment:
@@ -452,19 +459,31 @@ runtime database role does not have `BYPASSRLS`, workspace-scoped reads cannot
 cross tenants, unscoped reads fail closed, and narrow public/session lookup
 policies expose only their bound context.
 
-## Approved for controlled rollout: 0041 analytics_events partitioning
+## Completed controlled rollout: 0041 analytics_events partitioning
 
-`0041_analytics_events_partitioning.sql` is authored, tested against a scratch
-database, and applied nowhere. It carries explicit approval metadata, so
-`pnpm migrations:check` passes. The approval is for a controlled maintenance
-window and does not substitute for a fresh snapshot, row-count comparison, or
-postflight verification.
+`0041_analytics_events_partitioning.sql` was authored, tested against a scratch
+database, explicitly approved, and applied to development and staging on
+2026-08-24. It was run separately in a controlled maintenance window after a
+fresh snapshot in each environment.
 
 It is not part of the `0035`-`0040` batch and must be applied separately, only
 after `0035`-`0040` have been verified. Stop ingestion, snapshot the target,
 run the file on its own, compare the printed pre/post row counts, and keep
 `analytics_events_pre_partition` until the partitioned table has been observed
 in production-like traffic.
+
+Execution record:
+
+- Development snapshot: `lodariq-dev-before-0041-2026-08-24`.
+- Staging snapshot: `lodariq-staging-before-0041-2026-08-24`.
+- Both environments copied `0` rows with matching source and destination
+  counts, created `14` child relations including the overflow partition, and
+  changed the primary key to `(id, occurred_at)`.
+- Both environments have no invalid indexes, forced RLS on the parent and all
+  partitions, and both workspace policies on every partition.
+- The runtime roles were reconciled after the rewrite; the live RLS verifier
+  passed for both development and staging.
+- `/readyz` and `/v1/openapi.json` returned successfully for both hosted APIs.
 
 What it does, and why it is in its own category:
 

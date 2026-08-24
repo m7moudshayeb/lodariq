@@ -477,7 +477,7 @@ async function verifyCatalogState(sql) {
     from pg_class c
     join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = current_schema()
-      and c.relkind = 'r'
+      and c.relkind in ('r', 'p')
       and c.relname = any(${rlsProtectedTables})
   `;
   const tableState = new Map(tableRows.map((row) => [row.relname, row]));

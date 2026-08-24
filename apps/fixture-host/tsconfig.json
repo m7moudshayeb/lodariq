@@ -3,6 +3,8 @@
   "compilerOptions": {
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "noEmit": true,
+    "jsx": "react-jsx",
+    "customConditions": ["source"],
     "types": ["vite/client"]
   },
   "include": ["src/**/*.ts", "vite.config.ts"]

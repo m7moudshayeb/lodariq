@@ -1201,15 +1201,10 @@ function openAuthoringPanel(
            * replay failure is worth saying out loud.
            */
           if (changed && (previewPending || previewPresented)) {
-            void playPreviewDocument({
-              stepId: pendingInlinePreviewStepId(),
-              rejectOnFailure: true,
-            }).catch(() => {
-              overlayShell?.notify(
-                authoringText('The preview could not restart with the new Brand theme.'),
-                { kind: 'warning' },
-              );
-            });
+            // Theme adoption can arrive in the same frame as a target-pick
+            // replay. Coalesce it with the existing replay floor so the old
+            // player is not torn down while the target patch is still settling.
+            scheduleQueuedPreviewReplay({ stepId: pendingInlinePreviewStepId() });
           }
           return;
         }

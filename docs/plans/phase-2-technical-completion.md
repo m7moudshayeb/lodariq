@@ -943,23 +943,23 @@ Done criteria: applied to development, verified, then staging, with RLS coverage
 passing against an upgraded database rather than only against a fresh baseline.
 Those are different tests and only one reflects production.
 
-**Authored as `0035`-`0040`; applied to development on 2026-08-24, staging
-pending.** Written after E6 established both environments at `0034`, so against
-a measured schema rather than an assumed one. Development used snapshot
-`lodariq-dev-before-0035-0040-2026-08-24` and explicit approval covering the
-`0040` constraint replacements. Catalog, data, invalid-index, restricted-role,
-and live scratch-isolation postflight checks passed. The hosted API readiness
-check passed; the full service probe still requires a development deployment
-that includes the current `/v1/openapi.json` route.
+**Authored as `0035`-`0040`; applied to development and staging on 2026-08-24.**
+Written after E6 established both environments at `0034`, so against a measured
+schema rather than an assumed one. Development used snapshot
+`lodariq-dev-before-0035-0040-2026-08-24`; staging used
+`staging-before-35-40-2026-08-24`. Both environments passed catalog, data,
+invalid-index, constraint, and RLS postflight checks. The hosted API readiness
+check passed; the full service probe still requires a deployment that includes
+the current `/v1/openapi.json` route.
 
 | File                                | Findings     | Gate                                                         |
 | ----------------------------------- | ------------ | ------------------------------------------------------------ |
-| `0035_rls_scope_containment.sql`    | L6, L2       | development passed; staging pending                          |
-| `0036_cross_scope_foreign_keys.sql` | M9, L7       | development passed; staging pending                          |
-| `0037_billing_batch_recovery.sql`   | H1           | development passed; staging pending                          |
-| `0038_hot_query_indexes.sql`        | H11          | development passed; staging pending                          |
-| `0039_analytics_events_indexes.sql` | B8, H11, H12 | development passed; staging pending                          |
-| `0040_dead_letter_and_rotation.sql` | L4, M7, L8   | development approved/applied; staging needs current approval |
+| `0035_rls_scope_containment.sql`    | L6, L2       | development and staging passed           |
+| `0036_cross_scope_foreign_keys.sql` | M9, L7       | development and staging passed           |
+| `0037_billing_batch_recovery.sql`   | H1           | development and staging passed           |
+| `0038_hot_query_indexes.sql`        | H11          | development and staging passed           |
+| `0039_analytics_events_indexes.sql` | B8, H11, H12 | development and staging passed           |
+| `0040_dead_letter_and_rotation.sql` | L4, M7, L8   | development and staging approved/applied |
 
 `0039` carries no transaction block on purpose: `create index concurrently`
 cannot run inside one, and a plain build on `analytics_events` locks ingestion

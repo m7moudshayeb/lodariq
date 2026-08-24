@@ -85,7 +85,12 @@ async function bootLocalLodariq(): Promise<void> {
   subscribe(() => lodariq.identify(currentTraits()));
 
   const play = async (documentId?: string): Promise<void> => {
-    if (documentId === baseDocument.id || fixtureScenario === 'presentation') {
+    const shouldPlayScenarioDocument = documentId === undefined && Boolean(fixtureScenario);
+    if (
+      shouldPlayScenarioDocument ||
+      documentId === baseDocument.id ||
+      fixtureScenario === 'presentation'
+    ) {
       const compiled = await compilePreview(baseDocument);
       await lodariq.playTour(
         fixtureScenario === 'presentation' ? { ...compiled, showLodariqBadge: true } : compiled,
