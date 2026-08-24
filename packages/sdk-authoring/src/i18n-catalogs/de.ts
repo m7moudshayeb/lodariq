@@ -2935,8 +2935,6 @@ const DE_CATALOG: AuthoringCatalog = {
     'Lesen Sie die ausgewählten Schritte in je einer Spalte.',
   'The card is shown at the size it will ship. Use your browser zoom to read it larger.':
     'Die Karte wird in der Größe gezeigt, in der sie ausgeliefert wird. Nutzen Sie den Zoom Ihres Browsers, um sie größer zu lesen.',
-  'The preview could not restart with the new Brand theme.':
-    'Die Vorschau konnte mit dem neuen Brand-Theme nicht neu gestartet werden.',
   Environments: 'Umgebungen',
   'No environment is selected yet.': 'Es ist noch keine Umgebung ausgewählt.',
   'Everyone who reaches the page sees this.': 'Alle, die diese Seite erreichen, sehen dies.',

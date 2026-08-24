@@ -2855,8 +2855,6 @@ const TR_CATALOG: AuthoringCatalog = {
   'Read the ticked steps in one column each.': 'İşaretli adımları her biri bir sütunda okuyun.',
   'The card is shown at the size it will ship. Use your browser zoom to read it larger.':
     'Kart, yayına gireceği boyutta gösterilir. Daha büyük okumak için tarayıcı yakınlaştırmasını kullanın.',
-  'The preview could not restart with the new Brand theme.':
-    'Önizleme yeni Brand teması ile yeniden başlatılamadı.',
   Environments: 'Ortamlar',
   'No environment is selected yet.': 'Henüz bir ortam seçilmedi.',
   'Everyone who reaches the page sees this.': 'Sayfaya ulaşan herkes bunu görür.',

@@ -2891,8 +2891,6 @@ const NL_BE_CATALOG: AuthoringCatalog = {
   'Read the ticked steps in one column each.': 'Lees de aangevinkte stappen, elk in een kolom.',
   'The card is shown at the size it will ship. Use your browser zoom to read it larger.':
     'De kaart wordt getoond op de grootte waarmee ze wordt gepubliceerd. Gebruik de zoom van je browser om ze groter te lezen.',
-  'The preview could not restart with the new Brand theme.':
-    'De voorbeeldweergave kon niet opnieuw starten met het nieuwe Brand-thema.',
   Environments: 'Omgevingen',
   'No environment is selected yet.': 'Er is nog geen omgeving geselecteerd.',
   'Everyone who reaches the page sees this.': 'Iedereen die de pagina bereikt, ziet dit.',

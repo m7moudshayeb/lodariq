@@ -2923,8 +2923,6 @@ const IT_CATALOG: AuthoringCatalog = {
   'Read the ticked steps in one column each.': 'Leggi i passaggi selezionati, uno per colonna.',
   'The card is shown at the size it will ship. Use your browser zoom to read it larger.':
     'La scheda è mostrata nella dimensione con cui verrà pubblicata. Usa lo zoom del browser per leggerla più grande.',
-  'The preview could not restart with the new Brand theme.':
-    "L'anteprima non è riuscita a ripartire con il nuovo tema Brand.",
   Environments: 'Ambienti',
   'No environment is selected yet.': 'Non è ancora stato selezionato alcun ambiente.',
   'Everyone who reaches the page sees this.': 'Chiunque raggiunga la pagina vede questo.',

@@ -2824,8 +2824,6 @@ const AR_CATALOG: AuthoringCatalog = {
   'Read the ticked steps in one column each.': 'اقرأ الخطوات المحددة، كل خطوة في عمود.',
   'The card is shown at the size it will ship. Use your browser zoom to read it larger.':
     'تُعرض البطاقة بالحجم الذي ستُنشر به. استخدم تكبير المتصفح لقراءتها بحجم أكبر.',
-  'The preview could not restart with the new Brand theme.':
-    'تعذّر إعادة تشغيل المعاينة باستخدام سمة Brand الجديدة.',
   Environments: 'البيئات',
   'No environment is selected yet.': 'لم يتم اختيار أي بيئة بعد.',
   'Everyone who reaches the page sees this.': 'يرى هذا كل من يصل إلى الصفحة.',

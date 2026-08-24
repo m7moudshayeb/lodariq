@@ -224,7 +224,7 @@ msgid "auth.form.verificationSent"
 msgstr "{email} adresine güvenli bir doğrulama bağlantısı gönderdik. Bu sayfayı açık tutun veya doğrudan bağlantıyı kullanın."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:182
+#: src/components/enterprise-identity-settings.tsx:190
 msgid "enterpriseIdentity.breakGlassHelp"
 msgstr "Parolasız güçlü bir oturum, ikinci bir çalışma alanı sahibi ve kısa ömürlü tek kullanımlık bir istek gerekir."
 
@@ -239,12 +239,12 @@ msgid "dashboard.experience.experiment"
 msgstr "A/B testi"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:116
+#: src/components/enterprise-identity-settings.tsx:121
 msgid "enterpriseIdentity.assurance.aal1"
 msgstr "AAL1 · standart"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:117
+#: src/components/enterprise-identity-settings.tsx:122
 msgid "enterpriseIdentity.assurance.aal2"
 msgstr "AAL2 · çok faktörlü"
 
@@ -354,12 +354,12 @@ msgid "dashboard.viewModel.active"
 msgstr "Aktif"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:100
+#: src/components/enterprise-identity-settings.tsx:102
 msgid "enterpriseIdentity.status.active"
 msgstr "Etkin"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:212
+#: src/components/enterprise-identity-settings.tsx:221
 msgid "enterpriseIdentity.active"
 msgstr "Etkin"
 
@@ -424,7 +424,7 @@ msgid "dashboard.publishIssue.emptyStep.message"
 msgstr "Yayınlamadan önce bu adıma içerik ekleyin."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:85
+#: src/components/enterprise-identity-settings.tsx:87
 msgid "enterpriseIdentity.addConnection"
 msgstr "OIDC bağlantısı ekle"
 
@@ -439,7 +439,7 @@ msgid "dashboard.installation.oneLineDescription"
 msgstr "Bu kurulumu paylaşılan uygulama kabuğuna ekleyin. Ortam ve yazma erişimi tam sayfa kaynağından çözümlenir."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:139
+#: src/components/enterprise-identity-settings.tsx:144
 msgid "enterpriseIdentity.dnsChallenge"
 msgstr "Bu TXT kaydını şimdi ekleyin. Değeri yalnızca bu tarayıcı oturumunda gösterilir."
 
@@ -464,7 +464,7 @@ msgid "dashboard.account.role.admin"
 msgstr "Yönetici"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:156
+#: src/components/enterprise-identity-settings.tsx:164
 msgid "enterpriseIdentity.role.admin"
 msgstr "Admin"
 
@@ -494,7 +494,7 @@ msgid "dashboard.brand.preview.after"
 msgstr "Sonra"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:111
+#: src/components/enterprise-identity-settings.tsx:113
 msgid "enterpriseIdentity.allowPassword"
 msgstr "Parola oturumlarına izin ver"
 
@@ -639,7 +639,7 @@ msgid "dashboard.brand.controller.reviewMissing"
 msgstr "Onay incelemesi iade edilmedi."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:200
+#: src/components/enterprise-identity-settings.tsx:209
 msgid "enterpriseIdentity.approveBreakGlass"
 msgstr "Break-glass isteğini onayla"
 
@@ -659,7 +659,7 @@ msgid "dashboard.viewModel.approvedAt"
 msgstr "Onaylandı {date}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:118
+#: src/components/enterprise-identity-settings.tsx:123
 msgid "enterpriseIdentity.breakGlassId"
 msgstr "Onaylanmış break-glass istek kimliği (yalnızca gerektiğinde)"
 
@@ -834,12 +834,12 @@ msgid "dashboard.brand.panel.themes"
 msgstr "Marka temaları"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:181
+#: src/components/enterprise-identity-settings.tsx:189
 msgid "enterpriseIdentity.breakGlass"
 msgstr "Break-glass kurtarma"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:204
+#: src/components/enterprise-identity-settings.tsx:213
 msgid "enterpriseIdentity.requestApproved"
 msgstr "Break-glass isteği onaylandı. Kısa ömürlü ve tek kullanımlık kalır."
 
@@ -1114,7 +1114,7 @@ msgid "dashboard.navigation.collapse"
 msgstr "Çalışma alanı gezinmesini daralt"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:134
+#: src/components/enterprise-identity-settings.tsx:139
 msgid "enterpriseIdentity.domain"
 msgstr "Şirket etki alanı"
 
@@ -1129,7 +1129,7 @@ msgid "account.validation.required"
 msgstr "Tüm alanları doldurun."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:208
+#: src/components/enterprise-identity-settings.tsx:217
 msgid "enterpriseIdentity.requiredFields"
 msgstr "Her zorunlu alanı geçerli bir değerle doldurun."
 
@@ -1169,7 +1169,7 @@ msgid "dashboard.analytics.fact.completion"
 msgstr "Tamamlama"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:41
+#: src/components/enterprise-identity-settings.tsx:42
 msgid "enterpriseIdentity.description"
 msgstr "Hesapları e-postayla bağlamadan şirket SSO’su, doğrulanmış etki alanları, yönetilen roller ve SCIM’i yapılandırın."
 
@@ -1304,7 +1304,7 @@ msgid "account.recoveryCodes.shownOnce"
 msgstr "Bu kodları şimdi kopyalayın. Tekrar gösterilmeyecekler."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:173
+#: src/components/enterprise-identity-settings.tsx:181
 msgid "enterpriseIdentity.scimToken"
 msgstr "Bu belirteci şimdi kopyalayın. Lodariq onu yeniden göstermez."
 
@@ -1369,7 +1369,7 @@ msgid "dashboard.brand.empty.create"
 msgstr "Marka sistemi oluştur"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:135
+#: src/components/enterprise-identity-settings.tsx:140
 msgid "enterpriseIdentity.startVerification"
 msgstr "DNS doğrulaması oluştur"
 
@@ -1379,7 +1379,7 @@ msgid "dashboard.installation.create"
 msgstr "Tek seferlik kurulum oluştur"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:164
+#: src/components/enterprise-identity-settings.tsx:172
 msgid "enterpriseIdentity.createScimToken"
 msgstr "SCIM belirteci oluştur"
 
@@ -1599,22 +1599,22 @@ msgid "dashboard.environmentPolicy.directPublish"
 msgstr "Doğrudan yayınlama"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:86
+#: src/components/enterprise-identity-settings.tsx:88
 msgid "enterpriseIdentity.disableConnection"
 msgstr "Bağlantıyı devre dışı bırak"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:169
+#: src/components/enterprise-identity-settings.tsx:177
 msgid "enterpriseIdentity.disableScimTokenConfirm"
 msgstr "Bu SCIM belirteci devre dışı bırakılsın mı? Onu kullanan sağlama istekleri hemen durur."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:90
+#: src/components/enterprise-identity-settings.tsx:92
 msgid "enterpriseIdentity.disableConnectionConfirm"
 msgstr "Bu SSO bağlantısı devre dışı bırakılsın ve oturumları, authoring yetkileri, etki alanları ve SCIM belirteçleri iptal edilsin mi?"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:165
+#: src/components/enterprise-identity-settings.tsx:173
 msgid "enterpriseIdentity.disableScimToken"
 msgstr "Belirteci devre dışı bırak"
 
@@ -1624,7 +1624,7 @@ msgid "dashboard.common.disabled"
 msgstr "Devre dışı"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:101
+#: src/components/enterprise-identity-settings.tsx:103
 msgid "enterpriseIdentity.status.disabled"
 msgstr "Devre dışı"
 
@@ -1634,7 +1634,7 @@ msgid "dashboard.recovery.disabled"
 msgstr "Devre dışı"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:128
+#: src/components/enterprise-identity-settings.tsx:133
 msgid "enterpriseIdentity.domainsHelp"
 msgstr "Keşif yalnızca doğrulanmış DNS sahipliğini kullanır. Eşleşen bir e-posta mevcut bir Lodariq hesabını asla bağamaz."
 
@@ -1679,7 +1679,7 @@ msgid "dashboard.documents.draft"
 msgstr "Taslak"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:95
+#: src/components/enterprise-identity-settings.tsx:97
 msgid "enterpriseIdentity.status.draft"
 msgstr "Taslak"
 
@@ -1829,17 +1829,17 @@ msgid "account.validation.delete"
 msgstr "Parolanızı girin ve tam olarak DELETE yazın."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:40
+#: src/components/enterprise-identity-settings.tsx:41
 msgid "enterpriseIdentity.title"
 msgstr "Kurumsal kimlik"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:51
+#: src/components/enterprise-identity-settings.tsx:52
 msgid "enterpriseIdentity.saved"
 msgstr "Kurumsal kimlik ayarı kaydedildi."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:47
+#: src/components/enterprise-identity-settings.tsx:48
 msgid "enterpriseIdentity.unavailable"
 msgstr "Kurumsal kimlik ayarları yüklenemedi."
 
@@ -2139,7 +2139,7 @@ msgid "dashboard.brand.editor.georgiaSerif"
 msgstr "Gürcistan serif"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:148
+#: src/components/enterprise-identity-settings.tsx:156
 msgid "enterpriseIdentity.mappingsHelp"
 msgstr "Gruplar viewer, member veya admin verebilir. Kimlik sağlayıcılar asla owner veremez."
 
@@ -2199,12 +2199,12 @@ msgid "dashboard.applications.identifier"
 msgstr "Tanımlayıcı"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:74
+#: src/components/enterprise-identity-settings.tsx:76
 msgid "enterpriseIdentity.provider"
 msgstr "Kimlik sağlayıcı"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:147
+#: src/components/enterprise-identity-settings.tsx:155
 msgid "enterpriseIdentity.mappings"
 msgstr "IdP grup rol eşlemesi"
 
@@ -2324,7 +2324,7 @@ msgid "workspaceInvitation.accepted"
 msgstr "Davet kabul edildi"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:80
+#: src/components/enterprise-identity-settings.tsx:82
 msgid "enterpriseIdentity.provisioning.invitationOnly"
 msgstr "Yalnızca davet"
 
@@ -2344,7 +2344,7 @@ msgid "dashboard.page.members.description"
 msgstr "Ortak çalışanları davet edin, roller atayın ve çalışma alanı erişimini inceleyin."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:77
+#: src/components/enterprise-identity-settings.tsx:79
 msgid "enterpriseIdentity.issuer"
 msgstr "Issuer URL’si"
 
@@ -2479,7 +2479,7 @@ msgid "dashboard.recovery.loading"
 msgstr "Sürüm geçmişinin tamamı yükleniyor…"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:46
+#: src/components/enterprise-identity-settings.tsx:47
 msgid "enterpriseIdentity.loading"
 msgstr "Kurumsal kimlik yükleniyor…"
 
@@ -2574,7 +2574,7 @@ msgid "dashboard.page.environments.description"
 msgstr "Güvenilir ürün kökenlerini ve her ortamın çalışma zamanı kurulumunu yönetin."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:153
+#: src/components/enterprise-identity-settings.tsx:161
 msgid "enterpriseIdentity.managedRole"
 msgstr "Yönetilen rol"
 
@@ -2594,7 +2594,7 @@ msgid "dashboard.account.role.member"
 msgstr "Üye"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:155
+#: src/components/enterprise-identity-settings.tsx:163
 msgid "enterpriseIdentity.role.member"
 msgstr "Member"
 
@@ -2614,12 +2614,12 @@ msgid "dashboard.page.members.title"
 msgstr "Üyeler ve erişim"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:76
+#: src/components/enterprise-identity-settings.tsx:78
 msgid "enterpriseIdentity.provider.entra"
 msgstr "Microsoft Entra ID"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:112
+#: src/components/enterprise-identity-settings.tsx:117
 msgid "enterpriseIdentity.minimumAssurance"
 msgstr "Minimum güvence"
 
@@ -2709,7 +2709,7 @@ msgid "dashboard.analytics.target.needsReview"
 msgstr "İncelenmesi gerekiyor"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:65
+#: src/components/enterprise-identity-settings.tsx:67
 msgid "enterpriseIdentity.connectionsHelp"
 msgstr "Yeni bağlantılar, Lodariq gerçek kiracı doğrulamasını kaydedene kadar kullanılamaz kalır."
 
@@ -2804,7 +2804,7 @@ msgid "dashboard.action.noProductOrigins"
 msgstr "Henüz hiçbir standart ürün kaynağı yapılandırılmadı."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:146
+#: src/components/enterprise-identity-settings.tsx:151
 msgid "enterpriseIdentity.noDomains"
 msgstr "Yapılandırılmış bir şirket etki alanı yok."
 
@@ -2824,7 +2824,7 @@ msgid "dashboard.action.noDeliveryRecord"
 msgstr "Teslimat kaydı yok"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:70
+#: src/components/enterprise-identity-settings.tsx:72
 msgid "enterpriseIdentity.noConnections"
 msgstr "Kurumsal SSO bağlantısı yapılandırılmamış."
 
@@ -2924,7 +2924,7 @@ msgid "dashboard.experience.noSessions"
 msgstr "Bu ortamda henüz hiçbir çalışma kaydedilmedi."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:177
+#: src/components/enterprise-identity-settings.tsx:185
 msgid "enterpriseIdentity.noScimTokens"
 msgstr "SCIM belirteci düzenlenmemiş."
 
@@ -3019,12 +3019,12 @@ msgid "dashboard.experience.noDelivery"
 msgstr "Bu ortamda henüz hiçbir şey sunulmadı."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:78
+#: src/components/enterprise-identity-settings.tsx:80
 msgid "enterpriseIdentity.clientId"
 msgstr "OIDC istemci kimliği"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:75
+#: src/components/enterprise-identity-settings.tsx:77
 msgid "enterpriseIdentity.provider.okta"
 msgstr "Okta"
 
@@ -3094,7 +3094,7 @@ msgid "dashboard.installation.eyebrow"
 msgstr "Tek seferlik kurulum"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:60
+#: src/components/enterprise-identity-settings.tsx:62
 msgid "enterpriseIdentity.ownerOnly"
 msgstr "Kurumsal kimlik ayarlarını yalnızca bir çalışma alanı sahibi değiştirebilir."
 
@@ -3199,7 +3199,7 @@ msgid "dashboard.recovery.operationActor"
 msgstr "Operasyon {operation} · Aktör {actor}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:187
+#: src/components/enterprise-identity-settings.tsx:195
 msgid "enterpriseIdentity.reason"
 msgstr "Operasyonel olay gerekçesi"
 
@@ -3279,7 +3279,7 @@ msgid "account.methods.password"
 msgstr "Parola"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:123
+#: src/components/enterprise-identity-settings.tsx:128
 msgid "enterpriseIdentity.invalidPolicy"
 msgstr "Kurumsal SSO zorunlu olmadıkça parola devre dışı bırakılamaz."
 
@@ -3319,7 +3319,7 @@ msgid "dashboard.installation.pausing"
 msgstr "Duraklatılıyor…"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:102
+#: src/components/enterprise-identity-settings.tsx:104
 msgid "enterpriseIdentity.status.pending"
 msgstr "Beklemede"
 
@@ -3369,7 +3369,7 @@ msgid "dashboard.environmentPolicy.noPublishSideEffect"
 msgstr "İlke değişiklikleri asla bir yapıyı yayınlamaz veya yeniden derlemez."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:105
+#: src/components/enterprise-identity-settings.tsx:107
 msgid "enterpriseIdentity.policyHelp"
 msgstr "İlke, çalışma alanı seçiminde ve her kontrol düzlemi ile authoring yetkilendirmesinde denetlenir."
 
@@ -3574,12 +3574,12 @@ msgid "dashboard.environmentPolicy.promotionSource"
 msgstr "Promosyon kaynağı"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:152
+#: src/components/enterprise-identity-settings.tsx:160
 msgid "enterpriseIdentity.groupId"
 msgstr "Sağlayıcı grup kimliği"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:79
+#: src/components/enterprise-identity-settings.tsx:81
 msgid "enterpriseIdentity.provisioning"
 msgstr "Sağlama kipi"
 
@@ -3924,7 +3924,7 @@ msgid "dashboard.brand.preview.rendering"
 msgstr "Render Turu…"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:192
+#: src/components/enterprise-identity-settings.tsx:200
 msgid "enterpriseIdentity.requestCreated"
 msgstr "{requestId} isteği {expiresAt} tarihinde sona erer. Kimliği başka bir çalışma alanı sahibine verin."
 
@@ -3954,12 +3954,12 @@ msgid "auth.form.requestAnotherVerification"
 msgstr "Başka bir doğrulama bağlantısı iste"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:188
+#: src/components/enterprise-identity-settings.tsx:196
 msgid "enterpriseIdentity.requestBreakGlass"
 msgstr "Break-glass onayı iste"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:196
+#: src/components/enterprise-identity-settings.tsx:205
 msgid "enterpriseIdentity.approvalRequestId"
 msgstr "Başka bir sahibin istek kimliği"
 
@@ -3984,7 +3984,7 @@ msgid "dashboard.environments.requireApproval"
 msgstr "Onay gerektir"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:110
+#: src/components/enterprise-identity-settings.tsx:112
 msgid "enterpriseIdentity.requireSso"
 msgstr "Kurumsal SSO zorunlu kıl"
 
@@ -4249,7 +4249,7 @@ msgid "account.recoveryCodes.help"
 msgstr "On tek kullanımlık kodun tamamını çevrimdışı saklayın. Yeni bir set öncekini iptal eder."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:122
+#: src/components/enterprise-identity-settings.tsx:127
 msgid "enterpriseIdentity.savePolicy"
 msgstr "Kimlik doğrulama ilkesini kaydet"
 
@@ -4259,7 +4259,7 @@ msgid "dashboard.brand.editor.save"
 msgstr "Taslağı kaydet"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:157
+#: src/components/enterprise-identity-settings.tsx:165
 msgid "enterpriseIdentity.saveMapping"
 msgstr "Grup eşlemesini kaydet"
 
@@ -4324,7 +4324,7 @@ msgid "workspaceMembers.deletionDescription"
 msgstr "Silme işlemini zamanlamak etkin erişimi iptal eder ve saklama süresini başlatır."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:158
+#: src/components/enterprise-identity-settings.tsx:166
 msgid "enterpriseIdentity.scim"
 msgstr "SCIM sağlama"
 
@@ -4479,7 +4479,7 @@ msgid "dashboard.server.authenticationRequired"
 msgstr "Devam etmek için tekrar oturum açın."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:56
+#: src/components/enterprise-identity-settings.tsx:57
 msgid "enterpriseIdentity.reauthenticate"
 msgstr "Bu ayarı değiştirmeden önce bir passkey veya eşdeğer güçlü bir yöntemle yeniden oturum açın."
 
@@ -4589,12 +4589,12 @@ msgid "dashboard.viewModel.sourceRevision"
 msgstr "Kaynak revizyonu {revision}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:133
+#: src/components/enterprise-identity-settings.tsx:138
 msgid "enterpriseIdentity.connection"
 msgstr "SSO bağlantısı"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:64
+#: src/components/enterprise-identity-settings.tsx:66
 msgid "enterpriseIdentity.connections"
 msgstr "SSO bağlantıları"
 
@@ -4814,7 +4814,7 @@ msgid "dashboard.applications.saveFailed"
 msgstr "Uygulama kaydedilemedi."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:52
+#: src/components/enterprise-identity-settings.tsx:53
 msgid "enterpriseIdentity.mutationFailed"
 msgstr "Kurumsal kimlik değişikliği tamamlanamadı."
 
@@ -5154,7 +5154,7 @@ msgid "auth.form.incompleteVerificationLink"
 msgstr "Bu doğrulama bağlantısı eksik. Yeni bir bağlantı istemek için hesap doğrulamasını yeniden başlatın."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:159
+#: src/components/enterprise-identity-settings.tsx:167
 msgid "enterpriseIdentity.scimHelp"
 msgstr "Belirteçler bir kez gösterilir. Sağlamayı kaldırma üyeliği siler ve oturumlarla authoring yetkilerini hemen iptal eder."
 
@@ -5249,12 +5249,12 @@ msgid "account.email.queued"
 msgstr "İki özel doğrulama bağlantısı sıraya alındı. Süreleri dolmadan ikisini de açın."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:143
+#: src/components/enterprise-identity-settings.tsx:148
 msgid "enterpriseIdentity.recordName"
 msgstr "TXT kayıt adı"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:144
+#: src/components/enterprise-identity-settings.tsx:149
 msgid "enterpriseIdentity.recordValue"
 msgstr "TXT kayıt değeri"
 
@@ -5579,7 +5579,7 @@ msgid "dashboard.brand.editor.usesLight"
 msgstr "Açık temayı kullanır"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:96
+#: src/components/enterprise-identity-settings.tsx:98
 msgid "enterpriseIdentity.status.validationRequired"
 msgstr "Doğrulama gerekli"
 
@@ -5589,12 +5589,12 @@ msgid "dashboard.viewModel.verified"
 msgstr "Doğrulandı"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:103
+#: src/components/enterprise-identity-settings.tsx:105
 msgid "enterpriseIdentity.status.verified"
 msgstr "Doğrulandı"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:127
+#: src/components/enterprise-identity-settings.tsx:132
 msgid "enterpriseIdentity.domains"
 msgstr "Doğrulanmış şirket etki alanları"
 
@@ -5604,12 +5604,12 @@ msgid "dashboard.viewModel.verifiedExactArtifactAt"
 msgstr "Kesin yapı doğrulandı {date}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:84
+#: src/components/enterprise-identity-settings.tsx:86
 msgid "enterpriseIdentity.provisioning.jit"
 msgstr "Doğrulanmış etki alanı JIT"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:145
+#: src/components/enterprise-identity-settings.tsx:150
 msgid "enterpriseIdentity.verifyDomain"
 msgstr "DNS kaydını doğrula"
 
@@ -5689,7 +5689,7 @@ msgid "dashboard.account.role.viewer"
 msgstr "Görüntüleyici"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:154
+#: src/components/enterprise-identity-settings.tsx:162
 msgid "enterpriseIdentity.role.viewer"
 msgstr "Viewer"
 
@@ -5784,7 +5784,7 @@ msgid "workspaceMembers.unavailable"
 msgstr "Çalışma alanı erişimi yüklenemedi. Tekrar deneyin."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:104
+#: src/components/enterprise-identity-settings.tsx:106
 msgid "enterpriseIdentity.policy"
 msgstr "Çalışma alanı kimlik doğrulama ilkesi"
 

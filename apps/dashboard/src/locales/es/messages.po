@@ -224,7 +224,7 @@ msgid "auth.form.verificationSent"
 msgstr "Enviamos un enlace de verificación seguro a {email}. Mantén esta página abierta o usa el enlace directamente."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:182
+#: src/components/enterprise-identity-settings.tsx:190
 msgid "enterpriseIdentity.breakGlassHelp"
 msgstr "Se requiere una sesión fuerte sin contraseña, un segundo propietario del espacio de trabajo y una solicitud de un solo uso y corta duración."
 
@@ -239,12 +239,12 @@ msgid "dashboard.experience.experiment"
 msgstr "Prueba A/B"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:116
+#: src/components/enterprise-identity-settings.tsx:121
 msgid "enterpriseIdentity.assurance.aal1"
 msgstr "AAL1 · estándar"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:117
+#: src/components/enterprise-identity-settings.tsx:122
 msgid "enterpriseIdentity.assurance.aal2"
 msgstr "AAL2 · multifactor"
 
@@ -354,12 +354,12 @@ msgid "dashboard.viewModel.active"
 msgstr "Activo"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:100
+#: src/components/enterprise-identity-settings.tsx:102
 msgid "enterpriseIdentity.status.active"
 msgstr "Activo"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:212
+#: src/components/enterprise-identity-settings.tsx:221
 msgid "enterpriseIdentity.active"
 msgstr "Activo"
 
@@ -424,7 +424,7 @@ msgid "dashboard.publishIssue.emptyStep.message"
 msgstr "Agregue contenido a este paso antes de publicar."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:85
+#: src/components/enterprise-identity-settings.tsx:87
 msgid "enterpriseIdentity.addConnection"
 msgstr "Añadir conexión OIDC"
 
@@ -439,7 +439,7 @@ msgid "dashboard.installation.oneLineDescription"
 msgstr "Agregue esta instalación al shell de la aplicación compartida. El entorno y el acceso de creación se resuelven desde el origen exacto de la página."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:139
+#: src/components/enterprise-identity-settings.tsx:144
 msgid "enterpriseIdentity.dnsChallenge"
 msgstr "Añada este registro TXT ahora. Su valor solo se muestra en esta sesión del navegador."
 
@@ -464,7 +464,7 @@ msgid "dashboard.account.role.admin"
 msgstr "administrador"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:156
+#: src/components/enterprise-identity-settings.tsx:164
 msgid "enterpriseIdentity.role.admin"
 msgstr "Admin"
 
@@ -494,7 +494,7 @@ msgid "dashboard.brand.preview.after"
 msgstr "después"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:111
+#: src/components/enterprise-identity-settings.tsx:113
 msgid "enterpriseIdentity.allowPassword"
 msgstr "Permitir sesiones con contraseña"
 
@@ -639,7 +639,7 @@ msgid "dashboard.brand.controller.reviewMissing"
 msgstr "No se devolvió la revisión de aprobación."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:200
+#: src/components/enterprise-identity-settings.tsx:209
 msgid "enterpriseIdentity.approveBreakGlass"
 msgstr "Aprobar solicitud de break-glass"
 
@@ -659,7 +659,7 @@ msgid "dashboard.viewModel.approvedAt"
 msgstr "Aprobado {date}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:118
+#: src/components/enterprise-identity-settings.tsx:123
 msgid "enterpriseIdentity.breakGlassId"
 msgstr "ID de solicitud de break-glass aprobada (solo cuando se requiera)"
 
@@ -834,12 +834,12 @@ msgid "dashboard.brand.panel.themes"
 msgstr "Temas de marca"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:181
+#: src/components/enterprise-identity-settings.tsx:189
 msgid "enterpriseIdentity.breakGlass"
 msgstr "Recuperación break-glass"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:204
+#: src/components/enterprise-identity-settings.tsx:213
 msgid "enterpriseIdentity.requestApproved"
 msgstr "Solicitud de break-glass aprobada. Sigue siendo de corta duración y de un solo uso."
 
@@ -1114,7 +1114,7 @@ msgid "dashboard.navigation.collapse"
 msgstr "Contraer navegación en el espacio de trabajo"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:134
+#: src/components/enterprise-identity-settings.tsx:139
 msgid "enterpriseIdentity.domain"
 msgstr "Dominio de la empresa"
 
@@ -1129,7 +1129,7 @@ msgid "account.validation.required"
 msgstr "Completa todos los campos."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:208
+#: src/components/enterprise-identity-settings.tsx:217
 msgid "enterpriseIdentity.requiredFields"
 msgstr "Complete cada campo obligatorio con un valor válido."
 
@@ -1169,7 +1169,7 @@ msgid "dashboard.analytics.fact.completion"
 msgstr "Finalización"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:41
+#: src/components/enterprise-identity-settings.tsx:42
 msgid "enterpriseIdentity.description"
 msgstr "Configure SSO de empresa, dominios verificados, roles administrados y SCIM sin vincular cuentas por correo."
 
@@ -1304,7 +1304,7 @@ msgid "account.recoveryCodes.shownOnce"
 msgstr "Copia estos códigos ahora. No volverán a mostrarse."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:173
+#: src/components/enterprise-identity-settings.tsx:181
 msgid "enterpriseIdentity.scimToken"
 msgstr "Copie este token ahora. Lodariq no lo volverá a mostrar."
 
@@ -1369,7 +1369,7 @@ msgid "dashboard.brand.empty.create"
 msgstr "Crear sistema de marca"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:135
+#: src/components/enterprise-identity-settings.tsx:140
 msgid "enterpriseIdentity.startVerification"
 msgstr "Crear desafío DNS"
 
@@ -1379,7 +1379,7 @@ msgid "dashboard.installation.create"
 msgstr "Crear una instalación única"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:164
+#: src/components/enterprise-identity-settings.tsx:172
 msgid "enterpriseIdentity.createScimToken"
 msgstr "Crear token SCIM"
 
@@ -1599,22 +1599,22 @@ msgid "dashboard.environmentPolicy.directPublish"
 msgstr "Publicación directa"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:86
+#: src/components/enterprise-identity-settings.tsx:88
 msgid "enterpriseIdentity.disableConnection"
 msgstr "Desactivar conexión"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:169
+#: src/components/enterprise-identity-settings.tsx:177
 msgid "enterpriseIdentity.disableScimTokenConfirm"
 msgstr "¿Desactivar este token SCIM? Las solicitudes de aprovisionamiento que lo usen se detendrán de inmediato."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:90
+#: src/components/enterprise-identity-settings.tsx:92
 msgid "enterpriseIdentity.disableConnectionConfirm"
 msgstr "¿Desactivar esta conexión SSO y revocar sus sesiones, concesiones de authoring, dominios y tokens SCIM?"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:165
+#: src/components/enterprise-identity-settings.tsx:173
 msgid "enterpriseIdentity.disableScimToken"
 msgstr "Desactivar token"
 
@@ -1624,7 +1624,7 @@ msgid "dashboard.common.disabled"
 msgstr "Discapacitado"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:101
+#: src/components/enterprise-identity-settings.tsx:103
 msgid "enterpriseIdentity.status.disabled"
 msgstr "Desactivado"
 
@@ -1634,7 +1634,7 @@ msgid "dashboard.recovery.disabled"
 msgstr "Discapacitado"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:128
+#: src/components/enterprise-identity-settings.tsx:133
 msgid "enterpriseIdentity.domainsHelp"
 msgstr "El descubrimiento usa solo la titularidad DNS verificada. Un correo coincidente nunca vincula una cuenta Lodariq existente."
 
@@ -1679,7 +1679,7 @@ msgid "dashboard.documents.draft"
 msgstr "Borrador"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:95
+#: src/components/enterprise-identity-settings.tsx:97
 msgid "enterpriseIdentity.status.draft"
 msgstr "Borrador"
 
@@ -1829,17 +1829,17 @@ msgid "account.validation.delete"
 msgstr "Introduce tu contraseña y escribe DELETE exactamente."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:40
+#: src/components/enterprise-identity-settings.tsx:41
 msgid "enterpriseIdentity.title"
 msgstr "Identidad empresarial"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:51
+#: src/components/enterprise-identity-settings.tsx:52
 msgid "enterpriseIdentity.saved"
 msgstr "Ajuste de identidad empresarial guardado."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:47
+#: src/components/enterprise-identity-settings.tsx:48
 msgid "enterpriseIdentity.unavailable"
 msgstr "No se pudieron cargar los ajustes de identidad empresarial."
 
@@ -2139,7 +2139,7 @@ msgid "dashboard.brand.editor.georgiaSerif"
 msgstr "Serifa georgiana"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:148
+#: src/components/enterprise-identity-settings.tsx:156
 msgid "enterpriseIdentity.mappingsHelp"
 msgstr "Los grupos pueden conceder viewer, member o admin. Los proveedores de identidad nunca pueden conceder owner."
 
@@ -2199,12 +2199,12 @@ msgid "dashboard.applications.identifier"
 msgstr "Identificador"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:74
+#: src/components/enterprise-identity-settings.tsx:76
 msgid "enterpriseIdentity.provider"
 msgstr "Proveedor de identidad"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:147
+#: src/components/enterprise-identity-settings.tsx:155
 msgid "enterpriseIdentity.mappings"
 msgstr "Asignación de roles de grupos del IdP"
 
@@ -2324,7 +2324,7 @@ msgid "workspaceInvitation.accepted"
 msgstr "Invitación aceptada"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:80
+#: src/components/enterprise-identity-settings.tsx:82
 msgid "enterpriseIdentity.provisioning.invitationOnly"
 msgstr "Solo invitación"
 
@@ -2344,7 +2344,7 @@ msgid "dashboard.page.members.description"
 msgstr "Invita a colaboradores, asigna roles y revisa el acceso al espacio de trabajo."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:77
+#: src/components/enterprise-identity-settings.tsx:79
 msgid "enterpriseIdentity.issuer"
 msgstr "URL del emisor"
 
@@ -2479,7 +2479,7 @@ msgid "dashboard.recovery.loading"
 msgstr "Cargando el historial completo de versiones..."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:46
+#: src/components/enterprise-identity-settings.tsx:47
 msgid "enterpriseIdentity.loading"
 msgstr "Cargando identidad empresarial…"
 
@@ -2574,7 +2574,7 @@ msgid "dashboard.page.environments.description"
 msgstr "Administre los orígenes de productos confiables y la instalación de cada entorno de ejecución."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:153
+#: src/components/enterprise-identity-settings.tsx:161
 msgid "enterpriseIdentity.managedRole"
 msgstr "Rol administrado"
 
@@ -2594,7 +2594,7 @@ msgid "dashboard.account.role.member"
 msgstr "Miembro"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:155
+#: src/components/enterprise-identity-settings.tsx:163
 msgid "enterpriseIdentity.role.member"
 msgstr "Member"
 
@@ -2614,12 +2614,12 @@ msgid "dashboard.page.members.title"
 msgstr "Miembros y acceso"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:76
+#: src/components/enterprise-identity-settings.tsx:78
 msgid "enterpriseIdentity.provider.entra"
 msgstr "Microsoft Entra ID"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:112
+#: src/components/enterprise-identity-settings.tsx:117
 msgid "enterpriseIdentity.minimumAssurance"
 msgstr "Aseguramiento mínimo"
 
@@ -2709,7 +2709,7 @@ msgid "dashboard.analytics.target.needsReview"
 msgstr "Necesita revisión"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:65
+#: src/components/enterprise-identity-settings.tsx:67
 msgid "enterpriseIdentity.connectionsHelp"
 msgstr "Las conexiones nuevas permanecen no disponibles hasta que Lodariq registre una validación real del inquilino."
 
@@ -2804,7 +2804,7 @@ msgid "dashboard.action.noProductOrigins"
 msgstr "Aún no se han configurado orígenes de productos canónicos."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:146
+#: src/components/enterprise-identity-settings.tsx:151
 msgid "enterpriseIdentity.noDomains"
 msgstr "No hay ningún dominio de empresa configurado."
 
@@ -2824,7 +2824,7 @@ msgid "dashboard.action.noDeliveryRecord"
 msgstr "Sin registro de entrega"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:70
+#: src/components/enterprise-identity-settings.tsx:72
 msgid "enterpriseIdentity.noConnections"
 msgstr "No se ha configurado ninguna conexión SSO empresarial."
 
@@ -2924,7 +2924,7 @@ msgid "dashboard.experience.noSessions"
 msgstr "Todavía no se ha registrado ninguna ejecución en este entorno."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:177
+#: src/components/enterprise-identity-settings.tsx:185
 msgid "enterpriseIdentity.noScimTokens"
 msgstr "No se ha emitido ningún token SCIM."
 
@@ -3019,12 +3019,12 @@ msgid "dashboard.experience.noDelivery"
 msgstr "Todavía no se ha entregado nada en este entorno."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:78
+#: src/components/enterprise-identity-settings.tsx:80
 msgid "enterpriseIdentity.clientId"
 msgstr "ID de cliente OIDC"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:75
+#: src/components/enterprise-identity-settings.tsx:77
 msgid "enterpriseIdentity.provider.okta"
 msgstr "Okta"
 
@@ -3094,7 +3094,7 @@ msgid "dashboard.installation.eyebrow"
 msgstr "Configuración única"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:60
+#: src/components/enterprise-identity-settings.tsx:62
 msgid "enterpriseIdentity.ownerOnly"
 msgstr "Solo un propietario del espacio de trabajo puede cambiar los ajustes de identidad empresarial."
 
@@ -3199,7 +3199,7 @@ msgid "dashboard.recovery.operationActor"
 msgstr "Operación {operation} · Actor {actor}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:187
+#: src/components/enterprise-identity-settings.tsx:195
 msgid "enterpriseIdentity.reason"
 msgstr "Motivo del incidente operativo"
 
@@ -3279,7 +3279,7 @@ msgid "account.methods.password"
 msgstr "Contraseña"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:123
+#: src/components/enterprise-identity-settings.tsx:128
 msgid "enterpriseIdentity.invalidPolicy"
 msgstr "No se puede desactivar la contraseña a menos que el SSO empresarial sea obligatorio."
 
@@ -3319,7 +3319,7 @@ msgid "dashboard.installation.pausing"
 msgstr "Pausando…"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:102
+#: src/components/enterprise-identity-settings.tsx:104
 msgid "enterpriseIdentity.status.pending"
 msgstr "Pendiente"
 
@@ -3369,7 +3369,7 @@ msgid "dashboard.environmentPolicy.noPublishSideEffect"
 msgstr "Los cambios de política nunca publican ni recompilan un artefacto."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:105
+#: src/components/enterprise-identity-settings.tsx:107
 msgid "enterpriseIdentity.policyHelp"
 msgstr "La política se comprueba al seleccionar el espacio de trabajo y en cada autorización del plano de control y de authoring."
 
@@ -3574,12 +3574,12 @@ msgid "dashboard.environmentPolicy.promotionSource"
 msgstr "Fuente de promoción"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:152
+#: src/components/enterprise-identity-settings.tsx:160
 msgid "enterpriseIdentity.groupId"
 msgstr "ID de grupo del proveedor"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:79
+#: src/components/enterprise-identity-settings.tsx:81
 msgid "enterpriseIdentity.provisioning"
 msgstr "Modo de aprovisionamiento"
 
@@ -3924,7 +3924,7 @@ msgid "dashboard.brand.preview.rendering"
 msgstr "Tour de renderizado…"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:192
+#: src/components/enterprise-identity-settings.tsx:200
 msgid "enterpriseIdentity.requestCreated"
 msgstr "La solicitud {requestId} caduca a las {expiresAt}. Entregue el ID a otro propietario del espacio de trabajo."
 
@@ -3954,12 +3954,12 @@ msgid "auth.form.requestAnotherVerification"
 msgstr "Solicitar otro enlace de verificación"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:188
+#: src/components/enterprise-identity-settings.tsx:196
 msgid "enterpriseIdentity.requestBreakGlass"
 msgstr "Solicitar aprobación break-glass"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:196
+#: src/components/enterprise-identity-settings.tsx:205
 msgid "enterpriseIdentity.approvalRequestId"
 msgstr "ID de solicitud de otro propietario"
 
@@ -3984,7 +3984,7 @@ msgid "dashboard.environments.requireApproval"
 msgstr "Requerir aprobación"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:110
+#: src/components/enterprise-identity-settings.tsx:112
 msgid "enterpriseIdentity.requireSso"
 msgstr "Exigir SSO empresarial"
 
@@ -4249,7 +4249,7 @@ msgid "account.recoveryCodes.help"
 msgstr "Guarda sin conexión los diez códigos de un solo uso. Un conjunto nuevo revoca el anterior."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:122
+#: src/components/enterprise-identity-settings.tsx:127
 msgid "enterpriseIdentity.savePolicy"
 msgstr "Guardar política de autenticación"
 
@@ -4259,7 +4259,7 @@ msgid "dashboard.brand.editor.save"
 msgstr "Guardar borrador"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:157
+#: src/components/enterprise-identity-settings.tsx:165
 msgid "enterpriseIdentity.saveMapping"
 msgstr "Guardar asignación de grupo"
 
@@ -4324,7 +4324,7 @@ msgid "workspaceMembers.deletionDescription"
 msgstr "Programar la eliminación revoca el acceso activo al espacio de trabajo e inicia el periodo de retención."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:158
+#: src/components/enterprise-identity-settings.tsx:166
 msgid "enterpriseIdentity.scim"
 msgstr "Aprovisionamiento SCIM"
 
@@ -4479,7 +4479,7 @@ msgid "dashboard.server.authenticationRequired"
 msgstr "Inicia sesión nuevamente para continuar."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:56
+#: src/components/enterprise-identity-settings.tsx:57
 msgid "enterpriseIdentity.reauthenticate"
 msgstr "Vuelva a iniciar sesión con una passkey o un método fuerte equivalente antes de cambiar este ajuste."
 
@@ -4589,12 +4589,12 @@ msgid "dashboard.viewModel.sourceRevision"
 msgstr "Revisión de fuente {revision}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:133
+#: src/components/enterprise-identity-settings.tsx:138
 msgid "enterpriseIdentity.connection"
 msgstr "Conexión SSO"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:64
+#: src/components/enterprise-identity-settings.tsx:66
 msgid "enterpriseIdentity.connections"
 msgstr "Conexiones SSO"
 
@@ -4814,7 +4814,7 @@ msgid "dashboard.applications.saveFailed"
 msgstr "No se ha podido guardar la aplicación."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:52
+#: src/components/enterprise-identity-settings.tsx:53
 msgid "enterpriseIdentity.mutationFailed"
 msgstr "No se pudo completar el cambio de identidad empresarial."
 
@@ -5154,7 +5154,7 @@ msgid "auth.form.incompleteVerificationLink"
 msgstr "Este enlace de verificación está incompleto. Reinicia la verificación de la cuenta para solicitar uno nuevo."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:159
+#: src/components/enterprise-identity-settings.tsx:167
 msgid "enterpriseIdentity.scimHelp"
 msgstr "Los tokens se muestran una sola vez. La desprovisión elimina la pertenencia y revoca de inmediato las sesiones y las concesiones de authoring."
 
@@ -5249,12 +5249,12 @@ msgid "account.email.queued"
 msgstr "Se pusieron en cola dos enlaces privados. Abre ambos antes de que caduquen."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:143
+#: src/components/enterprise-identity-settings.tsx:148
 msgid "enterpriseIdentity.recordName"
 msgstr "Nombre del registro TXT"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:144
+#: src/components/enterprise-identity-settings.tsx:149
 msgid "enterpriseIdentity.recordValue"
 msgstr "Valor del registro TXT"
 
@@ -5579,7 +5579,7 @@ msgid "dashboard.brand.editor.usesLight"
 msgstr "Utiliza tema claro"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:96
+#: src/components/enterprise-identity-settings.tsx:98
 msgid "enterpriseIdentity.status.validationRequired"
 msgstr "Validación requerida"
 
@@ -5589,12 +5589,12 @@ msgid "dashboard.viewModel.verified"
 msgstr "Verificado"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:103
+#: src/components/enterprise-identity-settings.tsx:105
 msgid "enterpriseIdentity.status.verified"
 msgstr "Verificado"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:127
+#: src/components/enterprise-identity-settings.tsx:132
 msgid "enterpriseIdentity.domains"
 msgstr "Dominios de empresa verificados"
 
@@ -5604,12 +5604,12 @@ msgid "dashboard.viewModel.verifiedExactArtifactAt"
 msgstr "Artefacto exacto verificado {date}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:84
+#: src/components/enterprise-identity-settings.tsx:86
 msgid "enterpriseIdentity.provisioning.jit"
 msgstr "JIT de dominio verificado"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:145
+#: src/components/enterprise-identity-settings.tsx:150
 msgid "enterpriseIdentity.verifyDomain"
 msgstr "Verificar registro DNS"
 
@@ -5689,7 +5689,7 @@ msgid "dashboard.account.role.viewer"
 msgstr "Visor"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:154
+#: src/components/enterprise-identity-settings.tsx:162
 msgid "enterpriseIdentity.role.viewer"
 msgstr "Viewer"
 
@@ -5784,7 +5784,7 @@ msgid "workspaceMembers.unavailable"
 msgstr "No se pudo cargar el acceso al espacio de trabajo. Inténtalo de nuevo."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:104
+#: src/components/enterprise-identity-settings.tsx:106
 msgid "enterpriseIdentity.policy"
 msgstr "Política de autenticación del espacio de trabajo"
 
