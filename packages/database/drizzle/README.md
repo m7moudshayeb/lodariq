@@ -61,13 +61,12 @@ migration.**
 | Environment | PostgreSQL        | Applied through                           | As of      |
 | ----------- | ----------------- | ----------------------------------------- | ---------- |
 | Development | `16.15 (651533a)` | `0040_dead_letter_and_rotation.sql`       | 2026-08-24 |
-| Staging     | `16.15 (651533a)` | `0034_authoring_session_capabilities.sql` | 2026-08-24 |
+| Staging     | `16.15 (651533a)` | `0040_dead_letter_and_rotation.sql`       | 2026-08-24 |
 | Production  | —                 | not provisioned                           | —          |
 
 Both shared environments were initialized from `0000_initial_baseline.sql` and
-carry the full `0001`-`0034` sequence. Development also carries `0035`-`0040`;
-staging does not yet. Two baseline edits were made in place before that rule was
-settled; both now have forward migrations, so a database built from today's
+carry the full `0001`-`0040` sequence. Two baseline edits were made in place
+before that rule was settled; both now have forward migrations, so a database built from today's
 baseline and one upgraded through the sequence converge —
 `analytics_events.adaptive_visitor_key_hash` in `0020`, and the
 `authoring_sessions` capabilities check in `0034`.
@@ -216,7 +215,7 @@ service probe.
 **The development gate cleared on 2026-08-24.** `lodariq-api-dev` release `v15`
 carries the current source, `/readyz` returns `200`, and `/v1/openapi.json`
 returns `200` — the `404` recorded below was the previous release, not a missing
-route. Staging is unblocked.
+route. Staging is also unblocked for the current `0040`-compatible deployment.
 
 Staging is deployed and migrated in that order, and the order matters. The
 deploy workflow applies no migrations, so shipping this branch's code to an
@@ -250,6 +249,15 @@ Development execution record:
 - Hosted API `/readyz` passed. The complete service probe remains pending because
   the currently deployed development API returns `404` for `/v1/openapi.json`,
   although that route exists in the current source.
+
+Staging execution record:
+
+- Snapshot: `staging-before-35-40-2026-08-24`.
+- `0035` through `0038` applied transactionally, `0039` applied separately with
+  concurrent indexes, and `0040` applied last.
+- Postflight passed: required columns and constraints exist, all expected
+  indexes are valid and ready, no invalid indexes remain, forced RLS is enabled
+  on the checked worker tables, and all three `0036` orphan counts are zero.
 
 Applied file SHA-256 values:
 
